@@ -10,97 +10,110 @@
 </p>
 </div>
 
-## Nautes 是什么？
+## What is Nautes?  
+> English | [中文](README_zh.md)
 
-Nautes 是 Kubernetes 原生的开源一站式开发者平台，融合了 DevOps 和 GitOps 的理念和最佳实践，以可插拔的方式集成了业界最优秀的云原生开源项目。
+Nautes is an open-source, Kubernetes-native, one-stop developer platform that combines the concepts and best practices of DevOps and GitOps. It integrates the industry's best cloud-native open-source projects in a pluggable manner.
 
-> 当前版本仅用于演示或试用，功能还在不断完善中，不建议用在生产环境。
+> The current version is for demonstration or trial purposes only, and its features are still being continuously improved. It is not recommended for use in production environments.
 
-## 特性
+## Features
+- A one-stop developer platform that covers the entire process, including agile development, CI/CD, automated testing, security, and operations.
+- Following GitOps best practices, the version control repository serves as the single source of truth. When data in the repository changes, the Operator automatically detects the changes and performs incremental updates to the Kubernetes cluster. 
+- A fully distributed multi-tenant architecture, where tenants serve as distributed computing and storage units that support horizontal scaling. The resources managed by tenants also support horizontal scaling. 
+- Good adaptability, apart from the base Kubernetes and Git, other components can be replaced. 
+- All features offer declarative REST APIs, allowing for secondary development. 
+- For all integrated open-source projects, their native features are maintained without any trimmed encapsulation, ensuring that there is no secondary binding for the managed applications. 
+- By constructing a higher-level data model, unified authentication and authorization are achieved for all integrated open-source projects.
+- Supports deployment modes for private cloud and hybrid cloud. 
 
-- 覆盖敏捷开发、CI/CD、自动化测试、安全、运维等全流程的一站式开发者平台。
-- 遵循 GitOps 最佳实践，以版本库作为唯一可信数据源。当版本库中的数据有变更时，由 Operator 自动识别变更并向 Kubernetes 集群做增量更新。
-- 全分布式的多租户架构，租户作为分布式的计算单元和存储单元支持水平扩展，租户所管理的资源同样支持水平扩展。
-- 良好的适配性，除了底座 Kubernetes 以及 Git 外，其他组件均可被替换。
-- 所有功能均提供声明式的REST API，支持二次开发。
-- 对所集成的开源项目，均保持其原生特性，无裁剪式封装，对受管应用不产生二次绑定。
-- 通过构建上层数据模型，实现对所集成的开源项目的统一认证、统一授权。
-- 支持私有云、混合云的部署模式。
+## Architecture
 
-## 架构
+Nautes adopts a fully distributed multi-tenant architecture, where the platform management cluster is responsible for tenant allocation and recovery. Each tenant has exclusive access to a set of resources, including code repositories, key repositories, artifact repositories, authentication servers, and clusters. Resources within a tenant are managed by the tenant management cluster. 
 
-Nautes 采用全分布式的多租户架构，平台管理集群负责租户的分配和回收，每个租户独占一套资源（包括代码库、密钥库、制品库、认证服务器、集群等），租户内的资源由租户管理集群进行管理。
+Tenants serve as the unit of resource management and can be divided based on the organization's characteristics, such as by product teams, departments, or subsidiaries. 
 
-租户作为资源的管理单元，可由用户根据自身组织特性进行划分，常见的划分方式有：按产品团队、按部门、按子公司等。
+Resources within a tenant can also be deployed with multiple instances, for example, multiple Harbor instances can be deployed within a single tenant to isolate container image data for different products. 
 
-租户内的资源也支持多实例部署，例如：可以在一个租户内部署多个 Harbor 实例，用于隔离不同产品的容器镜像数据。
 
 ![](docs/images/brief-architecture.png)
 
-## 主体功能
+## Core Functions
 
-Nautes 的主体流程以及参与角色如下：
+The main processes and roles involved in Nautes are as follows:
 
-**租户管理员**：负责管理租户内的资源组件，如注册集群、接入制品库等。
-
-**配置管理员**：负责管理IT系统在开发和运行过程中所需的环境和资源，如维护产品基础数据、创建代码库、分配制品库、定义运行时等。
-
-**产品团队**：使用平台功能进行IT系统的研发和运行，如提交代码、上传依赖包、配置流水线、探索性测试等。
+**Tenant Manager:** Responsible for managing the resource components within a tenant, such as registering clusters and artifact repositories.  
+**Configuration Manager:** Responsible for managing the environment and resources required by the IT system during development and operation, such as maintaining product metadata, creating code repositories, assigning artifact repositories, and defining runtime environments.  
+**Product Team:** Uses the platform to develop and operate the IT system, such as submitting code, uploading dependencies, configuring pipelines, conducting exploratory testing, and so on.
 
 ![](docs/images/main-process.png)
 
-## 实体定义
+## Entity Definition
 
-- **产品**：对应一个软件系统，包含团队、项目、环境、代码库、制品库、及运行时。产品可以被租户管理员授权使用指定的 Kubernetes 集群。
-- **项目**：对应一个微服务，每个项目有自己的代码库。您可以使用集群进行项目的集成和部署，也可以使用产品的制品库对项目的制品进行存储和版本管理。 一个产品下可以包含多个项目。
-- **环境**：使用集群（目前只支持 Kubernetes集群）来承载产品中各个项目的集成和部署的管理单元。一个产品包含多个环境，如：开发环境、测试环境、预生产环境和生产环境等。
-- **代码库**：用于存储项目的源代码、流水线配置、部署清单的版本库。只支持 Git。
-- **流水线运行时**：定义用于集成项目的流水线的配置声明，如：流水线配置的存储位置、流水线的触发方式、运行流水线的目标环境等。
-- **部署运行时**：定义用于部署项目的配置声明，如：部署清单的存储位置、部署到的目标环境等。
+- **Product:** Corresponds to a software system, including teams, projects, environments, code repositories, artifact repositories, and runtime. A product can be authorized by the Tenant Manager for use on specified Kubernetes clusters. 
+- **Project:** Corresponds to a microservice, and each project has its own code repository. You can use a cluster for project integration and deployment, or use the artifact repository of the product to store and version control the project artifacts. A product can contain multiple projects.
+- **Environment:** Uses a cluster (currently only supports Kubernetes) as the management unit for integrating and deploying various projects within a product. A product contains multiple environments, such as development, testing, pre-production, and production environments.
+- **Code Repository:** A repository used for storing a project's source code, pipeline configurations, or deployment manifests. Only Git is supported. 
+- **Pipeline Runtime:** The configuration declaration defining the aspects for integrating a project's pipeline, such as: the storage location of pipeline configurations, the pipeline's triggering method, the target environment for running the pipeline, etc. 
+- **Deployment Runtime:** The configuration declaration defining the aspects for deploying projects, such as: the storage location of deployment manifests, the target environment to deploy to, etc. 
 
-## 核心组件
+## Core Components
 
-Nautes 主要包含以下组件：
+Nautes consists of the following components: 
 
 <details>
   <summary><b>👤 Base Operator</b></summary>
-  处理产品实体和权限实体从提供者到目标服务的同步。<a href="https://github.com/nautes-labs/base-operator">了解更多</a>。
+Handles the synchronization of product entities and permission entities from the provider to the target service. Learn more. <a href="https://github.com/nautes-labs/base-operator">了解更多</a>。 
+
 </details>
 
 <details>
   <summary><b>🖥️ Cluster Operator</b></summary>
-  提供了一个用于调谐 Cluster 资源事件的 Controller，调谐内容主要是管理 Cluster 资源所声明的 Kubernetes 集群的密钥信息，使参与集群管理的其他组件可以从租户的密钥管理系统中正确获取到集群的密钥。<a href="https://github.com/nautes-labs/cluster-operator">了解更多</a>。
+
+Provides a Controller for reconciling Cluster resource events, mainly managing the key information of the Kubernetes clusters declared by the Cluster resources, enabling other components involved in cluster management to correctly obtain the cluster's keys from the tenant's key management system. <a href="https://github.com/nautes-labs/cluster-operator">了解更多</a>。 
+
 </details>
 
 <details>
   <summary><b>🔗 Argo Operator</b></summary>
-  提供了一组用于调谐 Cluster 资源和 CodeRepo 资源事件的 Controller，调谐内容主要是将 Cluster 资源所声明的 Kubernetes 集群和 CodeRepo 资源所声明的代码库同步到同集群的 ArgoCD 中，使 ArgoCD 中使用了这些 Kubernetes 集群和代码库的 Application 可以正常工作。<a href="https://github.com/nautes-labs/argo-operator">了解更多</a>。
+
+ Provides a set of Controllers for reconciling Cluster resource events and CodeRepo resource events, mainly synchronizing the Kubernetes clusters declared by the Cluster resources and the code repositories declared by the CodeRepo resources to the ArgoCD in the same cluster, enabling Applications in ArgoCD using these Kubernetes clusters and code repositories to work properly. <a href="https://github.com/nautes-labs/argo-operator">了解更多</a>。 
+
 </details>
 
 <details>
   <summary><b>⚙️ Runtime Operator</b></summary>
-  提供了一组用于调谐 Project Pipeline Runtime 资源和 Deployment Runtime 资源事件的 Controller，调谐内容主要是根据两类运行时资源的声明信息，在目标集群上同步流水线执行或应用部署所需的基础环境。<a href="https://github.com/nautes-labs/runtime-operator">了解更多</a>。
+
+ Provides a set of Controllers for reconciling Project Pipeline Runtime resource events and Deployment Runtime resource events, mainly synchronizing the basic environment required for pipeline execution or application deployment on the target cluster according to the declaration information of the two types of runtime resources. <a href="https://github.com/nautes-labs/runtime-operator">了解更多</a>。 
+
 </details>
 
 <details>
   <summary><b>🤖 Installer</b></summary>
-  提供了一键部署功能，支持基础设施、资源组件、管理组件、以及各组件初始化的自动化安装。<a href="https://github.com/nautes-labs/installer">了解更多</a>。
+
+ Provides a one-click deployment feature, supporting automated installation of infrastructure, resource components, management components, and component initialization. <a href="https://github.com/nautes-labs/installer">了解更多</a>。 
+
 </details>
 
 <details>
   <summary><b>🌐 API Server</b></summary>
-  Nautes 的设计是遵循了 GitOps 的最佳实践，用户应用环境以及 Nautes 自身环境的配置声明均存储在版本库中。声明数据分为两类：密钥数据是存储在 Vault 中，其他数据是存储在 Git（目前只支持 GitLab）仓库中，API Server 项目则提供了一组用于操作这些配置声明的 REST API。<a href="https://github.com/nautes-labs/api-server">了解更多</a>。
+
+ Nautes follows GitOps best practices, with user application environment and Nautes' own environment configuration declarations stored in version repositories. Declaration data is divided into two categories: key data is stored in Vault, while other data is stored in Git repositories(currently only supports GitLab) . The API Server project provides a set of REST APIs for operating these configuration declarations. <a href="https://github.com/nautes-labs/api-server">了解更多</a>。 
+
 </details>
 
 <details>
   <summary><b>➡️ CLI</b></summary>
-  通过封装 API Server 的 REST API 提供了一个简单的命令行工具，用于简化用户使用 API 的操作。<a href="https://github.com/nautes-labs/cli">了解更多</a>。
+
+ Provides a simple command-line tool by encapsulating the API Server's REST API, simplifying the user's use of the API. <a href="https://github.com/nautes-labs/cli">了解更多</a>。 
+
 </details>
 
-## 安装
 
-Nautes 支持基于公有云、私有云、主机、及 Kubernets 集群进行安装，您可以通过[这里](https://nautes.io/guide/user-guide/installation.html)了解如何在阿里云上一键安装 Nautes。
+## Installation
 
-## 快速开始
+Nautes supports installation on public cloud, private cloud, host, and Kubernetes clusters. You can learn how to install Nautes with one click on Alibaba Cloud [here](https://nautes.io/guide/user-guide/installation.html).
 
-我们提供了一份简要的[指南](https://nautes.io/guide/user-guide/deploy-an-application.html)，您可以通过这份指南快速部署出第一个应用。
+## Quick start
+
+We offer [a brief guide](https://nautes.io/guide/user-guide/deploy-an-application.html) that can help you quickly deploy your first application with ease. 
