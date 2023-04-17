@@ -13,12 +13,12 @@
 ## What is Nautes?  
 > English | [中文](README_zh.md)
 
-Nautes is an open-source, Kubernetes-native, one-stop developer platform that combines the concepts and best practices of DevOps and GitOps. It integrates the industry's best cloud-native open-source projects in a pluggable manner.
+Nautes is a Kubernetes-native all-in-one Internal Developer Platform that combines the concepts and best practices of DevOps and GitOps. It integrates the industry's best cloud-native open-source projects in a pluggable manner.
 
 > The current version is for demonstration or trial purposes only, and its features are still being continuously improved. It is not recommended for use in production environments.
 
 ## Features
-- A one-stop developer platform that covers the entire process, including agile development, CI/CD, automated testing, security, and operations.
+- a Kubernetes-native all-in-one Internal Developer Platform that covers the entire process, including agile development, CI/CD, automated testing, security, and operations.
 - Following GitOps best practices, the version control repository serves as the single source of truth. When data in the repository changes, the Operator automatically detects the changes and performs incremental updates to the Kubernetes cluster. 
 - A fully distributed multi-tenant architecture, where tenants serve as distributed computing and storage units that support horizontal scaling. The resources managed by tenants also support horizontal scaling. 
 - Good adaptability, apart from the base Kubernetes and Git, other components can be replaced. 
