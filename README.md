@@ -10,8 +10,9 @@
 </p>
 </div>
 
-## What is Nautes?  
 > English | [中文](README_zh.md)
+
+## What is Nautes? 
 
 Nautes is a Kubernetes-native all-in-one Internal Developer Platform that combines the concepts and best practices of DevOps and GitOps. It integrates the industry's best cloud-native open-source projects in a pluggable manner.
 

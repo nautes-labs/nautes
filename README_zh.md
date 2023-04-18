@@ -10,8 +10,9 @@
 </p>
 </div>
 
-## Nautes 是什么？
 > [English](README.md) | 中文
+
+## Nautes 是什么？
 
 Nautes 是 Kubernetes 原生的开源一站式开发者平台，融合了 DevOps 和 GitOps 的理念和最佳实践，以可插拔的方式集成了业界最优秀的云原生开源项目。
 
