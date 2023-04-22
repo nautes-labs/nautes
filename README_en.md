@@ -36,8 +36,41 @@ Tenants serve as the unit of resource management and can be divided based on the
 
 Resources within a tenant can also be deployed with multiple instances, for example, multiple Harbor instances can be deployed within a single tenant to isolate container image data for different products. 
 
-
 ![](docs/images/brief-architecture.png)
+
+## Open Source Projects
+
+The current version of Nautes mainly integrates the following open source projects (the order does not represent ranking):
+
+> We express our sincere gratitude to the authors of these outstanding projects (including all projects used in Nautes but not listed in the table below)!
+
+| 序号 | 开源项目           | 用途                                         | 版本          | 开源许可     | 项目地址                                                   |
+| ---- | ------------------ | -------------------------------------------- | ------------- | ------------ | ---------------------------------------------------------- |
+| 1    | Terraform          | For building infrastructure                  | v1.3.4        | MPL-2.0      | https://github.com/hashicorp/terraform                     |
+| 2    | Ansible            | The scaffold of the installation program     | 2.12.5        | GPL-3.0      | https://github.com/ansible/ansible                         |
+| 3    | Kubespray          | The installation program of Kubernetes       | v2.19.1       | Apache-2.0   | https://github.com/kubernetes-sigs/kubespray               |
+| 4    | Ansible Vault      | The installation program of Vault            | v2.5.8        | BSD-2-Clause | https://github.com/ansible-community/ansible-vault         |
+| 5    | Geerlingguy.Gitlab | The installation program of Gitlab           | 3.2.0         | MIT          | https://github.com/geerlingguy/ansible-role-gitlab         |
+| 6    | Kubebuilder        | The scaffold of Operator                     | v3.2.0        | Apache-2.0   | https://github.com/kubernetes-sigs/kubebuilder             |
+| 7    | Kratos             | The scaffold of Microservice                 | v2.5.4        | MIT          | https://github.com/go-kratos/kratos                        |
+| 8    | Vuepress           | The scaffold of document site                | 1.9.9         | MIT          | https://github.com/vuejs/vuepress                          |
+| 9    | Kubernetes         | Container platform, product base             | 1.23.7        | Apache-2.0   | https://github.com/kubernetes/kubernetes                   |
+| 10   | K3s                | Lightweight Kubernetes Distribution          | v1.21.13-k3s1 | Apache-2.0   | https://github.com/k3s-io/k3s                              |
+| 11   | Vcluster           | Multi-tenancy isolation for Kubernetes       | 0.10.1        | Apache-2.0   | https://github.com/loft-sh/vcluster                        |
+| 12   | HNC                | Multi-tenancy isolation for Kubernetes       | v1.0.0        | Apache-2.0   | https://github.com/kubernetes-sigs/hierarchical-namespaces |
+| 13   | Dex                | For SSO and unified authentication           | v2.32.0       | Apache-2.0   | https://github.com/dexidp/dex                              |
+| 14   | Vault              | Secret repository                            | 1.10.4        | MPL-2.0      | https://github.com/hashicorp/vault                         |
+| 15   | External Secrets   | For synchronizing secrets to Kubernetes      | 0.5.7         | Apache-2.0   | https://github.com/external-secrets/external-secrets       |
+| 16   | Gitlab             | Code repository, IDP, and base-data provider | 15.10         | MIT          | https://gitlab.com/gitlab-org/gitlab                       |
+| 17   | Nexus              | Package repository                           | 3.39.0        | EPL-1.0      | https://github.com/sonatype/nexus-public                   |
+| 18   | Harbor             | Container image repository                   | v2.5.1        | Apache-2.0   | https://github.com/goharbor/harbor                         |
+| 19   | Argocd             | For continuous deployment                    | v2.4.0        | Apache-2.0   | https://github.com/argoproj/argo-cd                        |
+| 20   | Argorollouts       | For progressive delivery.                    | v1.2.1        | Apache-2.0   | https://github.com/argoproj/argo-rollouts                  |
+| 21   | Argoevents         | Event listener                               | v1.7.1        | Apache-2.0   | https://github.com/argoproj/argo-events                    |
+| 22   | Tekton Pipeline    | Continuous Integration Pipeline              | v0.37.0       | Apache-2.0   | https://github.com/tektoncd/pipeline                       |
+| 23   | Cert Manager       | For self-signed certificate                  | v1.8.0        | Apache-2.0   | https://github.com/cert-manager/cert-manager               |
+| 24   | Traefik            | Ingress Controller                           | 22.0.0        | MIT          | https://github.com/traefik/traefik                         |
+| 25   | Sonarqube          | For static code analysis                     | 9.5           | LGPL-3.0     | https://github.com/SonarSource/sonarqube                   |
 
 ## Core Functions
 
