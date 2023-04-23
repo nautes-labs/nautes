@@ -44,7 +44,7 @@ The current version of Nautes mainly integrates the following open source projec
 
 > We express our sincere gratitude to the authors of these outstanding projects (including all projects used in Nautes but not listed in the table below)!
 
-| 序号 | 开源项目           | 用途                                         | 版本          | 开源许可     | 项目地址                                                   |
+| SN   | Projects           | Usage                                        | Version       | License      | URL                                                        |
 | ---- | ------------------ | -------------------------------------------- | ------------- | ------------ | ---------------------------------------------------------- |
 | 1    | Terraform          | For building infrastructure                  | v1.3.4        | MPL-2.0      | https://github.com/hashicorp/terraform                     |
 | 2    | Ansible            | The scaffold of the installation program     | 2.12.5        | GPL-3.0      | https://github.com/ansible/ansible                         |
