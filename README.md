@@ -70,7 +70,7 @@ Nautes 的当前版本主要集成了以下开源项目（序号不代表排序�
 | 21   | Argoevents         | 事件监听器                    | v1.7.1        | Apache-2.0   | https://github.com/argoproj/argo-events                    |
 | 22   | Tekton Pipeline    | 流水线                        | v0.37.0       | Apache-2.0   | https://github.com/tektoncd/pipeline                       |
 | 23   | Cert Manager       | 用于自签证书                  | v1.8.0        | Apache-2.0   | https://github.com/cert-manager/cert-manager               |
-| 24   | Traefik            | Ingress 控制器                | 22.0.0        | MIT          | https://github.com/traefik/traefik                         |
+| 24   | Traefik            | Ingress 控制器                | v2.7.1        | MIT          | https://github.com/traefik/traefik                         |
 | 25   | Sonarqube          | 用于代码静态检查              | 9.5           | LGPL-3.0     | https://github.com/SonarSource/sonarqube                   |
 
 ## 主体功能
