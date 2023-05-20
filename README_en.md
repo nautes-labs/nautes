@@ -20,7 +20,7 @@ Nautes is a Kubernetes-native all-in-one Internal Developer Platform that combin
 
 ## Features
 - a Kubernetes-native all-in-one Internal Developer Platform that covers the entire process, including agile development, CI/CD, automated testing, security, and operations.
-- Following the best practices of GitOps, the version control repository serves as the single source of truth. When data in the repository changes, the Operator automatically detects the changes and performs incremental updates to the Kubernetes cluster. 
+- Following the best practices of GitOps, with the version repository as the only trusted data source. When data in the repository changes, the Operator automatically detects the changes and performs incremental updates to the Kubernetes cluster. 
 - A fully distributed multi-tenant architecture, where tenants serve as distributed computing and storage units that support horizontal scaling. The resources hosted by tenants also support horizontal scaling. 
 - Good adaptability, In addition to the base Kubernetes and Git, other components can be replaced.
 - All features are provided with declarative REST APIs, supporting secondary development. 
