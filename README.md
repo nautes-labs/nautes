@@ -6,7 +6,7 @@
 <p align=center>
 <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
 <a href="https://img.shields.io/badge/kubernetes-1.21-green"><img src="https://img.shields.io/badge/kubernetes-1.21-green" alt="Kubernetes"></a>
-<a href="https://img.shields.io/badge/version-v0.2.0-green"><img src="https://img.shields.io/badge/version-v0.2.0-green" alt="Version"></a>
+<a href="https://img.shields.io/badge/version-v0.3.0-green"><img src="https://img.shields.io/badge/version-v0.3.0-green" alt="Version"></a>
 </p>
 </div>
 
@@ -68,7 +68,7 @@ Nautes 的当前版本主要集成了以下开源项目（序号不代表排序�
 | 19   | Argocd             | 用于持续部署                  | v2.4.0        | Apache-2.0   | https://github.com/argoproj/argo-cd                        |
 | 20   | Argorollouts       | 用于渐进式交付                | v1.2.1        | Apache-2.0   | https://github.com/argoproj/argo-rollouts                  |
 | 21   | Argoevents         | 事件监听器                    | v1.7.1        | Apache-2.0   | https://github.com/argoproj/argo-events                    |
-| 22   | Tekton Pipeline    | 流水线                        | v0.37.0       | Apache-2.0   | https://github.com/tektoncd/pipeline                       |
+| 22   | Tekton Pipeline    | 流水线                        | v0.37.5       | Apache-2.0   | https://github.com/tektoncd/pipeline                       |
 | 23   | Cert Manager       | 用于自签证书                  | v1.8.0        | Apache-2.0   | https://github.com/cert-manager/cert-manager               |
 | 24   | Traefik            | Ingress 控制器                | v2.7.1        | MIT          | https://github.com/traefik/traefik                         |
 | 25   | Sonarqube          | 用于代码静态检查              | 9.5           | LGPL-3.0     | https://github.com/SonarSource/sonarqube                   |
@@ -139,7 +139,7 @@ Nautes 支持基于公有云、私有云、主机、及 Kubernets 集群进行�
 
 ## 快速开始
 
-我们提供了一份简要的[指南](https://nautes.io/guide/user-guide/deploy-an-application.html)，您可以通过这份指南快速部署出第一个应用。
+我们提供了一份简要的指南，您可以通过这份指南快速地部署出[第一个流水线](https://nautes.io/guide/user-guide/run-a-pipeline.html)和[应用](https://nautes.io/guide/user-guide/deploy-an-application.html)。
 
 ## 路线图
 
