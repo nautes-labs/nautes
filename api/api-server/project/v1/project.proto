@@ -1,0 +1,126 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package api.project.v1;
+
+option go_package = "github.com/nautes-labs/api-server/api/project/v1;v1";
+
+import "google/api/annotations.proto";
+
+service Project {
+  rpc GetProject (GetRequest) returns (GetReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{product_name}/projects/{project_name}"
+    };
+  }
+  rpc ListProjects (ListsRequest) returns (ListsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{product_name}/projects"
+    };
+  }
+  rpc SaveProject (SaveRequest) returns (SaveReply) {
+    option (google.api.http) = {
+      post: "/api/v1/products/{product_name}/projects/{project_name}"
+      body: "body"
+    };
+  }
+  rpc DeleteProject (DeleteRequest) returns (DeleteReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/products/{product_name}/projects/{project_name}"
+    };
+  }
+}
+
+// Defines the GetRequest message which is used to retrieve a specific project.
+message GetRequest {
+  // The name of the product the project belongs to.
+  string product_name = 1 [json_name = "product_name"];
+
+  // The name of the project being retrieved.
+  string project_name = 2 [json_name = "project_name"];
+}
+
+
+// Defines the GetReply message which is used to return a specific project.
+message GetReply {
+  // The name of the product the project belongs to.
+  string product = 1 [json_name = "product"];
+
+  // The name of the project.
+  string name = 2 [json_name = "name"];
+
+  // The language used in the project.
+  string language = 3 [json_name = "language"];
+}
+
+// Defines the ListsRequest message which is used to retrieve a list of projects.
+message ListsRequest {
+  // To list the product name of the repository.
+  string product_name = 1 [json_name = "product_name"];
+  // Filter the list by field.
+  string field_selector = 2 [json_name = "field_selector"];
+}
+
+// Defines the ListsReply message which is used to return a list of projects.
+message ListsReply {
+  // The list of projects being returned.
+  repeated GetReply items = 1;
+}
+
+// Defines the SaveRequest message which is used to create or update a project.
+message SaveRequest { 
+  // The request body for the project.
+  message Body {
+    // The language used in the project.
+    string language = 1 [json_name = "language"];
+  }
+
+  // The name of the product the project belongs to.
+  string product_name = 1 [json_name = "product_name"]; 
+
+  // The name of the project being created or updated.
+  string project_name = 2 [json_name = "project_name"];
+
+  // Whether or not to skip validation.
+  bool insecure_skip_check = 4;
+
+  // The request body for the project.
+  Body body = 5;
+}
+
+// Defines the SaveReply message which is used to return a message after creating or updating a project.
+message SaveReply {
+  // The message being returned.
+  string msg = 1 [json_name = "message"];
+}
+
+// Defines the DeleteRequest message which is used to delete a project.
+message DeleteRequest {
+  // The name of the project being deleted.
+  string project_name = 1 [json_name = "project_name"];
+
+  // The name of the product the project belongs to.
+  string product_name = 2 [json_name = "product_name"];
+
+  // Whether or not to skip validation.
+  bool insecure_skip_check = 3;
+}
+
+// Defines the SaveReply message which is used to return a message after deleting a project.
+message DeleteReply {
+  // The message being returned.
+  string msg = 1 [json_name = "message"];
+}

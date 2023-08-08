@@ -1,0 +1,426 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package api.vaultproxy.v1;
+
+import "google/api/annotations.proto";
+import "errors/errors.proto";
+import "validate/validate.proto";
+
+
+option go_package = "vproxy/api/vaultproxy/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.vaultproxy.v1";
+
+enum ErrorReason {
+    option (errors.default_code) = 500;
+
+    AUTH_FAILED = 0 [(errors.code) = 401];
+    ACTION_NOT_ALLOW = 1 [(errors.code) = 403];
+    RESOURCE_NOT_FOUND = 2 [(errors.code) = 404];
+    INPUT_ARG_ERROR = 3 [(errors.code) = 400 ];
+    INTERNAL_SERVICE_ERROR = 4;
+}
+
+service Secret {
+    rpc CreateGit (GitRequest) returns (CreateGitReply) {
+        option (google.api.http) = {
+            post: "/v1/git"
+            body: "*"
+        };
+    };
+    rpc DeleteGit (GitRequest) returns (DeleteGitReply) {
+        option (google.api.http) = {
+            delete: "/v1/git/{meta.provider_type}/{meta.id}/{meta.username}/{meta.permission}"
+        };
+    };
+    rpc CreatePki (PkiRequest) returns (CreatePkiReply) {
+        option (google.api.http) = {
+            post: "/v1/pki"
+            body: "*"
+        };
+    }
+    rpc DeletePki (PkiRequest) returns (DeletePkiReply) {
+        option (google.api.http) = {
+            delete: "/v1/pki/{domain}"
+        };
+    }
+    rpc CreateRepo (RepoRequest) returns (CreateRepoReply) {
+        option (google.api.http) = {
+            post: "/v1/repo"
+            body: "*"
+        };
+    };
+    rpc DeleteRepo (RepoRequest) returns (DeleteRepoReply) {
+        option (google.api.http) = {
+            delete: "/v1/repo/{meta.provider_id}/{meta.type}/{meta.id}/{meta.username}/{meta.permission}"
+        };
+    };
+    rpc CreteTenantGit (TenantGitRequest) returns (CreateTenantGitReply) {
+        option (google.api.http) = {
+            post: "/v1/tenant/git"
+            body: "*"
+        };
+    }
+    rpc DeleteTenantGit (TenantGitRequest) returns (DeleteTenantGitReply) {
+        option (google.api.http) = {
+            delete: "/v1/tenant/git/{meta.id}"
+        };
+    }
+    //////////////////////////////////////////////////////////////////
+    rpc CreateTenantRepo (TenantRepoRequest) returns (CreateTenantRepoReply) {
+        option (google.api.http) = {
+            post: "/v1/tenant/repos"
+            body: "*"
+        };
+    }
+    rpc DeleteTenantRepo (TenantRepoRequest) returns (DeleteTenantRepoReply) {
+        option (google.api.http) = {
+            delete: "/v1/tenant/repos/{meta.id}"
+        };
+    }
+    rpc CreateCluster (ClusterRequest) returns (CreateClusterReply) {
+        option (google.api.http) = {
+            post: "/v1/cluster"
+            body: "*"
+        };
+    }
+    rpc DeleteCluster (ClusterRequest) returns (DeleteClusterReply) {
+        option (google.api.http) = {
+            delete: "/v1/cluster/{meta.type}/{meta.id}/{meta.username}/{meta.permission}"
+        };
+    }
+}
+
+message SecretInfo {
+    string name = 1;
+    string path = 2;
+    int32 version = 3;
+}
+
+// GIT DEFINE
+message GitKVs {
+    // Deploykey of the unit
+    string deploy_key = 1       [json_name = "deploy_key"];
+    // AccessToken of this unit
+    string access_token = 2     [json_name = "access_token"];
+    // External kvs store in vault, deploy key and access token wiil over write it if key name is same
+    map<string,string> additionals = 3;
+}
+
+message GitMeta {
+    // Git Provider Type, gitlab or github
+    string provider_type = 1    [json_name = "provider_type", (validate.rules).string.min_len = 1];
+    // Git repo ID or product ID in nautes
+    string id = 2               [(validate.rules).string.min_len = 1];
+    string username = 3         [(validate.rules).string.min_len = 1];
+    string permission = 4       [(validate.rules).string.min_len = 1];
+}
+
+message GitRequest {
+    GitMeta meta = 1    [(validate.rules).message.required = true];
+    // The key vaules will store in vault
+    GitKVs kvs = 2      [(validate.rules).message.required = true];
+}
+
+message CreateGitReply {
+    SecretInfo secret = 1;
+}
+
+message DeleteGitReply {
+    string msg = 1;
+}
+
+// PKI DEFINE
+message PkiRequest {
+    string domain = 1;
+    string cacert = 2;
+    string cert = 3;
+    string key = 4;
+}
+
+message CreatePkiReply {
+    SecretInfo secret = 1;
+}
+
+message DeletePkiReply {
+    string msg = 1;
+}
+
+// REPO DEFINE
+message RepoAccount {
+    string username = 1;
+    string password = 2;
+}
+
+message RepoMeta {
+    string provider_id = 1  [json_name = "provider_id", (validate.rules).string.min_len = 1];
+    // Witch kind of repo it is, such as pip, docker images.
+    string type = 2         [(validate.rules).string.min_len = 1];
+    string id = 3           [(validate.rules).string.min_len = 1];
+    string username = 4     [(validate.rules).string.min_len = 1];
+    string permission = 5   [(validate.rules).string.min_len = 1];
+}
+
+message RepoRequest {
+    RepoMeta meta = 1       [(validate.rules).message.required = true];
+    RepoAccount account = 2 [(validate.rules).message.required = true];
+}
+
+message CreateRepoReply {
+    SecretInfo secret = 1;
+}
+
+message DeleteRepoReply {
+    string msg = 1;
+}
+
+// TENANT DEFINE
+message TenantGitMeta {
+    string id = 1           [(validate.rules).string.min_len = 1];
+    string permission = 2   [(validate.rules).string.min_len = 1];
+}
+
+message TenantGitRequest {
+    TenantGitMeta meta = 1  [(validate.rules).message.required = true];
+    // The access info of root user in gitlab or github
+    GitKVs kvs = 2          [(validate.rules).message.required = true];
+}
+
+message CreateTenantGitReply {
+    SecretInfo secret = 1;
+}
+
+message DeleteTenantGitReply {
+    string msg = 1;
+}
+
+//////////////////////////////////
+
+message TenantRepoMeta {
+    string id = 1           [(validate.rules).string.min_len = 1];
+    string permission = 2   [(validate.rules).string.min_len = 1];
+}
+
+message TenantRepoRequest {
+    TenantRepoMeta meta = 1 [(validate.rules).message.required = true];
+    RepoAccount account = 2 [(validate.rules).message.required = true];
+}
+
+message CreateTenantRepoReply {
+    SecretInfo secret = 1;
+}
+
+message DeleteTenantRepoReply {
+    string msg = 1;
+}
+
+// CLUSTER DEFINE
+message ClusterAccount {
+    // Kubeconfig file to access cluster
+    string kubeconfig = 1;
+}
+
+message ClusterMeta {
+    // Type of cluster, such as k8s, aws, virtual machine, only support "kubernetes"
+    string type = 1             [(validate.rules).string.min_len = 1];
+    string id = 2               [(validate.rules).string.min_len = 1];
+    string username = 3         [(validate.rules).string.min_len = 1];
+    string permission = 4       [(validate.rules).string.min_len = 1];
+}
+
+message ClusterRequest {
+    ClusterMeta meta = 1        [(validate.rules).message.required = true];
+    // Cluster access info, such as kubeconfig when clsuter type is kubernetes
+    ClusterAccount account = 2  [(validate.rules).message.required = true];
+}
+
+message CreateClusterReply {
+    SecretInfo secret = 1;
+}
+
+message DeleteClusterReply {
+    string msg = 1;
+}
+
+// AUTH DEFINE
+service Auth {
+    rpc CreateAuth (AuthRequest) returns (CreateAuthReply) {
+        option (google.api.http) = {
+            post: "/v1/auth"
+            body: "*"
+        };
+    };
+    rpc DeleteAuth (AuthRequest) returns (DeleteAuthReply) {
+        option (google.api.http) = {
+            delete: "/v1/auth/{cluster_name}"
+        };
+    };
+    rpc CreateAuthrole (AuthroleRequest) returns (CreateAuthroleReply){
+    option (google.api.http) = {
+            post: "/v1/auth/{cluster_name}/role"
+            body: "*"
+        };
+    };
+    rpc DeleteAuthrole (AuthroleRequest) returns (DeleteAuthroleReply){
+      option (google.api.http) = {
+                delete: "/v1/auth/{cluster_name}/role/{dest_user}"
+            };
+    };
+}
+
+message Kubernetes {
+    // Kubernetes URL
+    string url = 1          [(validate.rules).string.min_len = 1];
+    // Kubernetes cabundle when url is https
+    string cabundle = 2;
+    // The k8s service account token witch has "system:auth-delegator" role
+    string token = 3        [(validate.rules).string.min_len = 1];
+}
+
+message AuthRequest {
+    // Vault auth path
+    string cluster_name = 1     [json_name = "cluster_name", (validate.rules).string.min_len = 1];
+    // Vault auth type
+    string auth_type = 2        [json_name = "auth_type", (validate.rules).string.min_len = 1];
+    // Vault auth setting when type is k8s
+    Kubernetes kubernetes = 3;
+}
+
+message CreateAuthReply {
+    string msg = 1;
+}
+message DeleteAuthReply {
+    string msg = 1;
+}
+
+message KubernetesAuthRoleMeta{
+    repeated string namespaces = 1           [(validate.rules).repeated.items.string.min_len = 1];
+    repeated string service_accounts = 2     [json_name = "service_accounts", (validate.rules).repeated.items.string.min_len = 1];
+}
+
+message AuthroleRequest {
+    // Vault path of kubernetes auth
+    string cluster_name = 1         [json_name = "cluster_name", (validate.rules).string.min_len = 1];
+    // Vault role name in kubernetes auth
+    string dest_user = 2            [json_name = "dest_user", (validate.rules).string.min_len = 1];
+    oneof role {
+        KubernetesAuthRoleMeta kubernetes = 3;
+    }
+}
+message CreateAuthroleReply {
+    string msg = 1;
+}
+message DeleteAuthroleReply {
+    string msg = 1;
+}
+
+
+// Auth Grant
+service AuthGrant {
+    rpc GrantAuthroleGitPolicy (AuthroleGitPolicyRequest) returns (GrantAuthrolePolicyReply) {
+      option (google.api.http) = {
+                post: "/v1/auth/{cluster_name}/role/{dest_user}/policies/git"
+        body: "*"
+            };
+    };
+    rpc RevokeAuthroleGitPolicy (AuthroleGitPolicyRequest) returns (RevokeAuthrolePolicyReply) {
+      option (google.api.http) = {
+                delete: "/v1/auth/{cluster_name}/role/{dest_user}/policies/git"
+            };
+    };
+    rpc GrantAuthroleRepoPolicy (AuthroleRepoPolicyRequest) returns (GrantAuthrolePolicyReply) {
+      option (google.api.http) = {
+                post: "/v1/auth/{cluster_name}/role/{dest_user}/policies/repo"
+        body: "*"
+            };
+    };
+    rpc RevokeAuthroleRepoPolicy (AuthroleRepoPolicyRequest) returns (RevokeAuthrolePolicyReply) {
+      option (google.api.http) = {
+                delete: "/v1/auth/{cluster_name}/role/{dest_user}/policies/repo"
+            };
+    };
+    rpc GrantAuthroleClusterPolicy (AuthroleClusterPolicyRequest) returns (GrantAuthrolePolicyReply) {
+      option (google.api.http) = {
+                post: "/v1/auth/{cluster_name}/role/{dest_user}/policies/cluster"
+        body: "*"
+            };
+    };
+    rpc RevokeAuthroleClusterPolicy (AuthroleClusterPolicyRequest) returns (RevokeAuthrolePolicyReply) {
+      option (google.api.http) = {
+                delete: "/v1/auth/{cluster_name}/role/{dest_user}/policies/cluster"
+      };
+    };
+    rpc GrantAuthroleTenantGitPolicy (AuthroleTenantGitPolicyRequest) returns (GrantAuthrolePolicyReply) {
+      option (google.api.http) = {
+                post: "/v1/auth/{cluster_name}/role/{dest_user}/policies/tenant/git"
+        body: "*"
+            };
+    };
+    rpc RevokeAuthroleTenantGitPolicy (AuthroleTenantGitPolicyRequest) returns (RevokeAuthrolePolicyReply) {
+      option (google.api.http) = {
+                delete: "/v1/auth/{cluster_name}/role/{dest_user}/policies/tenant/git"
+      };
+    };
+    rpc GrantAuthroleTenantRepoPolicy (AuthroleTenantRepoPolicyRequest) returns (GrantAuthrolePolicyReply) {
+      option (google.api.http) = {
+                post: "/v1/auth/{cluster_name}/role/{dest_user}/policies/tenant/repo"
+        body: "*"
+            };
+    };
+    rpc RevokeAuthroleTenantRepoPolicy (AuthroleTenantRepoPolicyRequest) returns (RevokeAuthrolePolicyReply) {
+      option (google.api.http) = {
+                delete: "/v1/auth/{cluster_name}/role/{dest_user}/policies/tenant/repo"
+      };
+    };
+}
+
+message AuthroleGitPolicyRequest {
+    string cluster_name = 1     [json_name = "cluster_name", (validate.rules).string.min_len = 1];
+    string dest_user = 2        [json_name = "dest_user", (validate.rules).string.min_len = 1];
+    GitMeta secret = 3          [(validate.rules).message.required = true];
+}
+
+message AuthroleRepoPolicyRequest {
+    string cluster_name = 1     [json_name = "cluster_name", (validate.rules).string.min_len = 1];
+    string dest_user = 2        [json_name = "dest_user", (validate.rules).string.min_len = 1];
+    RepoMeta secret = 3         [(validate.rules).message.required = true];
+}
+
+message AuthroleClusterPolicyRequest {
+    string cluster_name = 1     [json_name = "cluster_name", (validate.rules).string.min_len = 1];
+    string dest_user = 2        [json_name = "dest_user", (validate.rules).string.min_len = 1];
+    ClusterMeta secret = 3  [(validate.rules).message.required = true];
+}
+
+message AuthroleTenantGitPolicyRequest {
+    string cluster_name = 1     [json_name = "cluster_name", (validate.rules).string.min_len = 1];
+    string dest_user = 2        [json_name = "dest_user", (validate.rules).string.min_len = 1];
+    TenantGitMeta secret = 3    [(validate.rules).message.required = true];
+}
+
+message AuthroleTenantRepoPolicyRequest {
+    string cluster_name = 1     [json_name = "cluster_name", (validate.rules).string.min_len = 1];
+    string dest_user = 2        [json_name = "dest_user", (validate.rules).string.min_len = 1];
+    TenantRepoMeta secret = 3   [(validate.rules).message.required = true];
+}
+
+message GrantAuthrolePolicyReply {
+    string msg = 1;
+}
+message RevokeAuthrolePolicyReply {
+    string msg = 1;
+}

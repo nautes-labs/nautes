@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        livenessProbe:
+        readinessProbe:
+        env:
+        - name: RESOURCES_LAYOUT
+          value: /opt/nautes/config/resources_layout.yaml
+        command:
+        - "bin/api-server"
+        - "-conf"
+        - "./config/config.yaml"

@@ -1,0 +1,127 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package api.coderepobinding.v1;
+
+option go_package = "github.com/nautes-labs/api-server/api/coderepobinding/v1;v1";
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+
+service CodeRepoBinding {
+  rpc GetCodeRepoBinding (GetRequest) returns (GetReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{product_name}/coderepobindings/{coderepo_binding_name}"
+    };
+  }
+  rpc ListCodeRepoBindings (ListsRequest) returns (ListsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{product_name}/coderepobindings"
+    };
+  }
+  rpc SaveCodeRepoBinding (SaveRequest) returns (SaveReply) {
+    option (google.api.http) = {
+      post: "/api/v1/products/{product_name}/coderepobindings/{coderepo_binding_name}"
+      body: "body"
+    };
+  }
+  rpc DeleteCodeRepoBinding (DeleteRequest) returns (DeleteReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/products/{product_name}/coderepobindings/{coderepo_binding_name}"
+    };
+  }
+}
+
+
+// Request message for listing items
+message ListsRequest {
+  // To list the product name of the repository.
+  string product_name = 1 [json_name = "product_name"];
+  // Filter the list by field.
+  // eg: field_selector=projects.in=project1,product=product1,coderepo=coderepo1
+  // Field Support:
+  // coderepo: fuzzy match
+  // product fuzzy match
+  // projects: fuzzy match
+  string field_selector = 2 [json_name = "field_selector"];
+}
+
+// Define the GetRequest message, which includes the product_name and coderepo_binding_name fields.
+message GetRequest {
+  string product_name = 1 [json_name = "product_name"]; // The product_name field.
+  string coderepo_binding_name = 2 [json_name = "coderepo_binding_name"]; // The coderepo_binding_name field.
+}
+
+message GetReply {
+  // The Code repo is authorized to this product or projects under it.
+  string product = 1 [json_name = "product"];
+  // CodeRepoBinding resource name.  
+  string name = 2 [json_name = "name"];
+  // If the project list is empty, it means that the code repo is authorized to the product.
+  // If the project list has values, it means that the code repo is authorized to the specified projects.
+  repeated string projects = 3 [json_name = "projects"];
+  // Authorization Permissions, readwrite or readonly.
+  string permissions = 4 [json_name = "permissions"];
+  // Authorized Code Repository.
+  string coderepo = 5 [json_name = "coderepo"];
+}
+
+// Define the ListsReply message, which includes the repeated items field.
+message ListsReply {
+  repeated GetReply items = 1; // The items field.
+}
+
+// Define the SaveRequest message, which includes the product_name, coderepo_binding_name, insecure_skip_check, and Body fields.
+message SaveRequest { 
+  message Body {
+    // The Code repo is authorized to this product or projects under it.
+    string product = 1 [json_name = "product"];
+    // If the project list is empty, it means that the code repo is authorized to the product.
+    // If the project list has values, it means that the code repo is authorized to the specified projects.
+    repeated string projects = 2 [json_name = "projects"];
+    // Authorization Permissions, readwrite or readonly.
+    string permissions = 3 [json_name = "permissions",  (validate.rules).string = {in: ["readonly", "readwrite"]}];
+    // Authorized Code Repository.
+    string coderepo = 4 [json_name = "coderepo", (validate.rules).string.min_len = 1];
+  }
+  // Products to which the resource belongs.
+  string product_name = 1 [json_name = "product_name"];
+  // CodeRepoBinding resource name.
+  string coderepo_binding_name = 2 [json_name = "coderepo_binding_name"]; 
+  // Whether to skip global resource detection (not recommended).
+  bool insecure_skip_check = 3 [json_name = "insecure_skip_check"]; 
+  Body body = 4;
+}
+
+// Define the SaveReply message, which includes the msg field.
+message SaveReply {
+  // Msg is a message confirming the save.  
+  string msg = 1 [json_name = "message"]; // The msg field.
+}
+
+// Represents a request to delete a codeRepo manifest.
+message DeleteRequest {
+  string product_name = 1 [json_name = "product_name"];
+  string coderepo_binding_name = 2 [json_name = "coderepo_binding_name"];
+  bool insecure_skip_check = 3 [json_name = "insecure_skip_check"];  
+}
+
+// Represents a response to a DeleteRequest message.
+message DeleteReply {
+  // Msg is a message confirming the delete.  
+  string msg = 1 [json_name = "message"];
+}

@@ -1,0 +1,202 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package api.cluster.v1;
+
+option go_package = "github.com/nautes-labs/api-server/api/cluster/v1;v1";
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "google/protobuf/struct.proto";
+
+
+service Cluster {
+  rpc GetCluster (GetRequest) returns (GetReply) {
+    option (google.api.http) = {
+      get: "/api/v1/clusters/{cluster_name}"
+    };
+  }
+  rpc ListClusters (ListsRequest) returns (ListsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/clusters"
+    };
+  }
+  rpc SaveCluster (SaveRequest) returns (SaveReply) {
+    option (google.api.http) = {
+      post: "/api/v1/clusters/{cluster_name}"
+      body: "body"
+    };
+  }
+  rpc DeleteCluster (DeleteRequest) returns (DeleteReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/clusters/{cluster_name}"
+    };
+  }
+}
+// Traefik represents the configuration for the Traefik ingress controller.
+message Traefik {
+  // httpNodePort specifies the NodePort for the HTTP port of the Traefik ingress controller.
+  string http_node_port = 1 [json_name = "http_node_port"];
+  // httpsNodePort specifies the NodePort for the HTTPS port of the Traefik ingress controller.
+  string https_node_port = 2 [json_name = "https_node_port"];
+}
+
+// Vcluster represents the configuration for the virtual cluster.
+message Vcluster {
+  // httpsNodePort specifies the NodePort for the HTTPS port of the virtual cluster.
+  string https_node_port = 1 [json_name = "https_node_port"];
+}
+
+// GetRequest represents a request to get a cluster.
+message GetRequest {
+  // cluster_name is the name of the cluster.
+  string cluster_name = 1 [json_name = "cluster_name"];
+}
+
+// GetReply represents a response to a get request.
+message GetReply {
+    // name is the name of the cluster.
+  string name = 1 [json_name = "name"];
+  // cluster_kind is the kind of the cluster.
+  string cluster_kind = 2 [json_name = "cluster_kind"];
+  // cluster_type is the type of the cluster.
+  string cluster_type = 3 [json_name = "cluster_type"];
+  // usage is the usage of the cluster.
+  string usage = 4 [json_name = "usage"];
+  // host_cluster specifies the host cluster name if the cluster is a virtual cluster.
+  string host_cluster = 5 [json_name = "host_cluster"];
+  // primary_domain is used to build the domain of components within the cluster.
+  string primary_domain = 6 [json_name = "primary_domain"];
+  // worker_type maybe pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
+  string worker_type = 7 [json_name = "worker_type"];
+  // api_server specifies the API server address of the cluster.
+  string api_server = 8 [json_name = "api_server"];
+  // components_list List of third-party components.
+  ComponentsList components_list = 9 [json_name="components_list"];
+  // // reserved_namespaces_allowed_products key is namespace name, value is the product name list witch can use namespace.
+  map<string, google.protobuf.ListValue> reserved_namespaces_allowed_products = 10 [json_name = "reserved_namespaces_allowed_products"];
+  // // product_allowed_cluster_resources key is product name, value is the list of cluster resources.
+  map<string, google.protobuf.ListValue> product_allowed_cluster_resources = 11 [json_name = "product_allowed_cluster_resources"];
+}
+
+// ListsRequest represents a request to list clusters.
+message ListsRequest {
+  // Filter the list by field. 
+  // eg: field_selector=cluster_type=physical,usage=worker,worker_type=pipeline
+  // Field Support:
+  // cluster_type: exact match
+  // usage: exact match
+  // worker_type: exact match
+  string field_selector = 1 [json_name = "field_selector"];
+}
+
+// ListsReply represents a response to a list request.
+message ListsReply {
+  repeated GetReply items = 1; 
+}
+
+// SaveRequest represents a request to save a cluster.
+message SaveRequest { 
+  // Body represents the body of the save request.
+  message Body {
+    // api_server specifies the API server address of the cluster.
+    string api_server = 1 [json_name = "api_server", (validate.rules).string.min_len = 1];
+    // cluster_kind specifies the kind of the cluster.
+    string cluster_kind = 2 [json_name = "cluster_kind", (validate.rules).string.min_len = 1];
+    // cluster_type specifies the type of the cluster. It can be "physical" or "virtual".
+    string cluster_type = 3 [json_name = "cluster_type", (validate.rules).string = {in: ["physical", "virtual"]}];
+    // usage specifies the usage of the cluster. It can be "host" or "worker".
+    string usage = 4 [json_name = "usage", (validate.rules).string = {in: ["host", "worker"]}];
+    // host_cluster specifies the host cluster name if the cluster is a virtual cluster.
+    string host_cluster = 5 [json_name = "host_cluster"];
+    // argocd_host specifies the ArgoCD host name.
+    string argocd_host = 6 [json_name = "argocd_host"];
+    // vcluster specifies the configuration of the virtual cluster.
+    Vcluster vcluster = 7 [json_name = "vcluster"];
+    // traefik specifies the configuration of the Traefik ingress controller.
+    Traefik traefik = 9 [json_name = "traefik"];
+    // kubeconfig specifies the Kubeconfig file of the cluster.
+    string kubeconfig = 10 [json_name = "kubeconfig"];
+    // worker_type maybe pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
+    string worker_type = 11 [json_name = "worker_type"];
+    // primary_domain is used to build the domain of components within the cluster.
+    string primary_domain = 12 [json_name = "primary_domain"];
+    // tekton_host is the domain for the tekton dashboard, and it must be a subdomain of the PrimaryDomain
+    string tekton_host = 13 [json_name = "tekton_host"];
+    // reserved_namespaces_allowed_products key is namespace name, value is the product name list witch can use namespace.
+    map<string, google.protobuf.ListValue> reserved_namespaces_allowed_products = 14 [json_name = "reserved_namespaces_allowed_products"];
+    // product_allowed_cluster_resources key is product name, value is the list of cluster resources.
+	  map<string, google.protobuf.ListValue> product_allowed_cluster_resources = 15 [json_name = "product_allowed_cluster_resources"];
+    // components_list List of third-party components.
+    ComponentsList components_list = 16 [json_name="components_list"];
+  }
+  // cluster_name specifies the name of the cluster.
+  string cluster_name = 2 [json_name = "cluster_name"];
+  // insecureSkipCheck specifies whether to skip the certificate check when connecting to the API server.
+  bool insecure_skip_check = 3 [json_name = "insecure_skip_check"];
+  // body specifies the body of the save request.
+  Body body = 4;
+}
+
+// SaveReply represents a response to a save request.
+message SaveReply {
+  // msg specifies the message of the save response.
+  string msg = 1 [json_name = "message"];
+}
+
+// DeleteRequest represents a request to delete a cluster.
+message DeleteRequest {
+    // ClusterName is the name of the cluster.
+  string cluster_name = 1 [json_name = "cluster_name"];
+  // InsecureSkipCheck specifies whether to skip security checks.  
+  bool insecure_skip_check = 2 [json_name = "insecure_skip_check"];
+}
+
+// DeleteReply represents a response to a delete request.
+message DeleteReply {
+  // msg specifies the message of the delete response.
+  string msg = 1 [json_name = "message"];
+}
+
+message StringList {
+  repeated string items = 1;
+}
+
+message ComponentsList  {
+  Component multi_tenant = 1 [json_name = "multi_tenant"];
+	Component cert_mgt = 2 [json_name = "cert_mgt"];
+	Component secret_mgt = 3 [json_name = "secret_mgt"];
+	Component secret_sync = 4 [json_name = "secret_sync"];
+	Component ingress_controller = 5 [json_name = "ingress_controller"];
+  Component deployment = 6 [json_name = "deployment"];
+	Component progressive_delivery = 7 [json_name = "progressive_delivery"];
+  Component pipeline = 8 [json_name = "pipeline"];
+  Component event_listener = 9 [json_name = "event_listener"];
+}
+
+message Component {
+	string name = 1 [json_name = "name"];
+	string namespace = 2 [json_name = "namespace"];
+}
+
+message ClusterResourceInfoList {
+	repeated ClusterResourceInfo items = 1 [json_name = "items"];
+}
+
+message ClusterResourceInfo {
+	string kind = 1 [json_name = "kind"];
+	string group = 2 [json_name = "group"];
+}

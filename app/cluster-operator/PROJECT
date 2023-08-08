@@ -1,0 +1,12 @@
+domain: resource.nautes.io
+layout:
+- go.kubebuilder.io/v3
+projectName: cluster-operator
+repo: github.com/nautes-labs/nautes/app/cluster-operator
+resources:
+- controller: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: Cluster
+  version: v1alpha1
+version: "3"

@@ -1,0 +1,156 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package api.product.v1;
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+
+option go_package = "github.com/nautes-labs/api-server/api/product/v1;v1";
+
+service Product {
+  rpc GetProduct (GetProductRequest) returns (GetProductReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{product_name}"
+    };
+  }
+  rpc ListProducts (ListProductsRequest) returns (ListProductsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products"
+    };
+  }
+  rpc SaveProduct (SaveProductRequest) returns (SaveProductReply) {
+    option (google.api.http) = {
+      post: "/api/v1/products/{product_name}"
+      body: "*"
+    };
+  }
+  rpc DeleteProduct (DeleteProductRequest) returns (DeleteProductReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/products/{product_name}"
+    };
+  }
+}
+
+message Gitlab {
+  // The name of the Gitlab repository
+  string name = 1 [json_name = "name"];
+
+  // The path of the Gitlab repository
+  string path = 2 [json_name = "path"];
+
+  // The visibility of the Gitlab repository, which can only be "public" or "private"
+  string visibility = 3 [json_name = "visibility", (validate.rules).string = {in: ["public", "private"]}];
+
+  // The description of the Gitlab repository
+  string description = 4 [json_name = "description"];
+}
+
+message Github {
+  // The name of the Github repository
+  string name = 1 [json_name = "name"];
+
+  // The path of the Github repository
+  string path = 2 [json_name = "path"];
+
+  // The visibility of the Github repository, which can only be "public" or "private"
+  string visibility = 3 [json_name = "visibility", (validate.rules).string = {in: ["public", "private"]}];
+
+  // The description of the Github repository
+  string description = 4 [json_name = "description"];
+}
+
+message Git {
+  // The Gitlab repository of the Git group
+  Gitlab gitlab = 1 [json_name = "gitlab"];
+
+  // The Github repository of the Git group
+  Github github = 2 [json_name = "github"];
+}
+
+message GitlabGroup {
+  // The path of the Gitlab group
+  string path = 2 [json_name = "path"];
+
+  // The visibility of the Gitlab group
+  string visibility = 3 [json_name = "visibility"];
+
+  // The description of the Gitlab group
+  string description = 4 [json_name = "description"];
+}
+
+message GithubGroup {
+  // The path of the Github group
+  string path = 2 [json_name = "path"];
+
+  // The visibility of the Github group
+  string visibility = 3 [json_name = "visibility"];
+
+  // The description of the Github group
+  string description = 4 [json_name = "description"];
+}
+
+message GitGroup {
+  // The Gitlab group of the Git group
+  GitlabGroup gitlab = 1 [json_name = "gitlab"];
+
+  // The Github group of the Git group
+  GithubGroup github = 2 [json_name = "github"];
+}
+
+message GetProductRequest {
+  // The name of the product to get
+  string product_name = 1 [json_name = "product_name"];
+}
+
+message GetProductReply {
+  // The name of the product
+  string Name = 1 [json_name = "name"];
+
+  // The Git group of the product
+  GitGroup git = 2 [json_name = "git"];
+}
+
+message ListProductsRequest {};
+
+message ListProductsReply {
+  // The list of products
+  repeated GetProductReply items = 1 [json_name = "items"];
+}
+  
+message SaveProductRequest {
+  // The name of the product to save
+  string product_name = 1 [json_name = "product_name"];
+
+  // The Git group of the product
+  Git git = 2 [json_name = "git", (validate.rules).message.required = true];
+}
+
+message SaveProductReply {
+  // The message returned after saving the product
+  string msg = 1 [json_name = "message"];
+}
+
+message DeleteProductRequest {
+  // The name of the product to delete
+  string product_name = 1 [json_name = "product_name"];
+}
+
+message DeleteProductReply {
+  // The message returned after deleting the product
+  string msg = 1 [json_name = "message"];
+}

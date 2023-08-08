@@ -1,0 +1,25 @@
+domain: nautes.io
+layout:
+- go.kubebuilder.io/v3
+projectName: argo-operator
+repo: argo-operator
+resources:
+- api:
+    crdVersion: v1alpha1
+    namespaced: true
+  controller: true
+  domain: nautes.io
+  group: resource
+  kind: CodeRepo
+  path: argo-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1alpha1
+    namespaced: true
+  controller: true
+  domain: nautes.io
+  group: resource
+  kind: Cluster
+  path: argo-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"
