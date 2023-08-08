@@ -1,0 +1,57 @@
+# This kustomization.yaml is not intended to be run by itself,
+# since it depends on service name and namespace that are out of this kustomize package.
+# It should be run by config/default
+resources:
+- bases/nautes.resource.nautes.io_clusters.yaml
+- bases/nautes.resource.nautes.io_coderepoes.yaml
+- bases/nautes.resource.nautes.io_projects.yaml
+- bases/nautes.resource.nautes.io_coderepoproviders.yaml
+- bases/nautes.resource.nautes.io_products.yaml
+- bases/nautes.resource.nautes.io_productproviders.yaml
+- bases/nautes.resource.nautes.io_environments.yaml
+- bases/nautes.resource.nautes.io_projectartifactrepoes.yaml
+- bases/nautes.resource.nautes.io_projectpipelineruntimes.yaml
+- bases/nautes.resource.nautes.io_deploymentruntimes.yaml
+- bases/nautes.resource.nautes.io_artifactrepoes.yaml
+- bases/nautes.resource.nautes.io_artifactrepoproviders.yaml
+- bases/nautes.resource.nautes.io_coderepobindings.yaml
+#+kubebuilder:scaffold:crdkustomizeresource
+
+patchesStrategicMerge:
+# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
+# patches here are for enabling the conversion webhook for each CRD
+#- patches/webhook_in_clusters.yaml
+#- patches/webhook_in_coderepoes.yaml
+#- patches/webhook_in_projects.yaml
+#- patches/webhook_in_coderepoproviders.yaml
+#- patches/webhook_in_products.yaml
+#- patches/webhook_in_productproviders.yaml
+#- patches/webhook_in_environments.yaml
+#- patches/webhook_in_projectartifactrepoes.yaml
+#- patches/webhook_in_projectpipelineruntimes.yaml
+#- patches/webhook_in_deploymentruntimes.yaml
+#- patches/webhook_in_artifactrepoes.yaml
+#- patches/webhook_in_artifactrepoproviders.yaml
+#- patches/webhook_in_coderepobindings.yaml
+#+kubebuilder:scaffold:crdkustomizewebhookpatch
+
+# [CERTMANAGER] To enable cert-manager, uncomment all the sections with [CERTMANAGER] prefix.
+# patches here are for enabling the CA injection for each CRD
+#- patches/cainjection_in_clusters.yaml
+#- patches/cainjection_in_coderepoes.yaml
+#- patches/cainjection_in_projects.yaml
+#- patches/cainjection_in_coderepoproviders.yaml
+#- patches/cainjection_in_products.yaml
+#- patches/cainjection_in_productproviders.yaml
+#- patches/cainjection_in_environments.yaml
+#- patches/cainjection_in_projectartifactrepoes.yaml
+#- patches/cainjection_in_projectpipelineruntimes.yaml
+#- patches/cainjection_in_deploymentruntimes.yaml
+#- patches/cainjection_in_artifactrepoes.yaml
+#- patches/cainjection_in_artifactrepoproviders.yaml
+#- patches/cainjection_in_coderepobindings.yaml
+#+kubebuilder:scaffold:crdkustomizecainjectionpatch
+
+# the following config is for teaching kustomize how to do kustomization for CRDs.
+configurations:
+- kustomizeconfig.yaml

@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nautes-configs
+  namespace: system
+data:
+  resources_layout.yaml: |
+    level: 1
+    name: default.project
+    optional: false
+    sub:
+    - level: 2
+      name: projects
+      optional: false
+      sub:
+      - level: 3
+        name: any
+        optional: false
+        sub:
+        - count: 1
+          kind: Project
+          level: 4
+          name: any
+          optional: false
+        - count: -1
+          kind: ProjectPipelineRuntime
+          level: 4
+          name: any
+          optional: true
+    - level: 2
+      name: envs
+      optional: false
+      sub:
+      - count: 1
+        kind: Environment
+        level: 3
+        name: any
+        optional: false
+    - level: 2
+      name: artifact-repos
+      optional: false
+      sub:
+      - level: 3
+        name: any
+        optional: false
+        sub:
+        - count: -1
+          kind: ArtifactRepo
+          level: 4
+          name: any
+          optional: true
+    - level: 2
+      name: code-repos
+      optional: false
+      sub:
+      - level: 3
+        name: any
+        optional: false
+        sub:
+        - count: 1
+          kind: CodeRepo
+          level: 4
+          name: any
+          optional: false
+        - count: -1
+          kind: CodeRepoBinding
+          level: 4
+          name: any
+          optional: false
+    - level: 2
+      name: runtimes
+      optional: false
+      sub:
+      - count: -1
+        kind: DeploymentRuntime
+        level: 3
+        name: any
+        optional: true

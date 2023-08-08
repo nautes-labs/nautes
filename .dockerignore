@@ -1,0 +1,3 @@
+bin/k8s
+bin/setup-envtest
+bin/controller-gen

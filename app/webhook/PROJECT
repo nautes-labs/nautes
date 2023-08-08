@@ -1,0 +1,131 @@
+domain: resource.nautes.io
+layout:
+- go.kubebuilder.io/v3
+projectName: pkg
+repo: github.com/nautes-labs/nautes/app/webhook
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: Cluster
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: CodeRepo
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: Project
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: CodeRepoProvider
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: Product
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: ProductProvider
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: Environment
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: ProjectArtifactRepo
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: ProjectPipelineRuntime
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: DeploymentRuntime
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: ArtifactRepo
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: ArtifactRepoProvider
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: CodeRepoBinding
+  path: github.com/nautes-labs/nautes/api/kubernetes/v1alpha1
+  version: v1alpha1
+version: "3"

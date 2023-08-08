@@ -1,0 +1,20 @@
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: api-
+
+# Labels to add to all resources and selectors.
+commonLabels:
+  control-plane: api-server
+
+resources:
+- ../../base
+- service.yaml
+
+patchesStrategicMerge:
+- manager_patch.yaml
+- kratos_configs.yaml
+- resources_layout.yaml
+- third_part_components.yaml

@@ -6,11 +6,11 @@
 <p align=center>
 <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
 <a href="https://img.shields.io/badge/kubernetes-1.21-green"><img src="https://img.shields.io/badge/kubernetes-1.21-green" alt="Kubernetes"></a>
-<a href="https://img.shields.io/badge/version-v0.3.0-green"><img src="https://img.shields.io/badge/version-v0.3.0-green" alt="Version"></a>
+<a href="https://img.shields.io/badge/version-v0.3.7-green"><img src="https://img.shields.io/badge/version-v0.3.7-green" alt="Version"></a>
 </p>
 </div>
 
-> [English](README_en.md) | 中文
+> [English](./README_en.md) | 中文
 
 ## Nautes 是什么？
 
@@ -100,22 +100,22 @@ Nautes 主要包含以下组件：
 
 <details>
   <summary><b>👤 Base Operator</b></summary>
-  处理产品实体和权限实体从提供者到目标服务的同步。<a href="https://github.com/nautes-labs/base-operator">了解更多</a>。
+  处理产品实体和权限实体从提供者到目标服务的同步。<a href="./app/base-operator">了解更多</a>。
 </details>
 
 <details>
   <summary><b>🖥️ Cluster Operator</b></summary>
-  提供了一个用于调谐 Cluster 资源事件的 Controller，调谐内容主要是管理 Cluster 资源所声明的 Kubernetes 集群的密钥信息，使参与集群管理的其他组件可以从租户的密钥管理系统中正确获取到集群的密钥。<a href="https://github.com/nautes-labs/cluster-operator">了解更多</a>。
+  提供了一个用于调谐 Cluster 资源事件的 Controller，调谐内容主要是管理 Cluster 资源所声明的 Kubernetes 集群的密钥信息，使参与集群管理的其他组件可以从租户的密钥管理系统中正确获取到集群的密钥。<a href="./app/cluster-operator">了解更多</a>。
 </details>
 
 <details>
   <summary><b>🔗 Argo Operator</b></summary>
-  提供了一组用于调谐 Cluster 资源和 CodeRepo 资源事件的 Controller，调谐内容主要是将 Cluster 资源所声明的 Kubernetes 集群和 CodeRepo 资源所声明的代码库同步到同集群的 ArgoCD 中，使 ArgoCD 中使用了这些 Kubernetes 集群和代码库的 Application 可以正常工作。<a href="https://github.com/nautes-labs/argo-operator">了解更多</a>。
+  提供了一组用于调谐 Cluster 资源和 CodeRepo 资源事件的 Controller，调谐内容主要是将 Cluster 资源所声明的 Kubernetes 集群和 CodeRepo 资源所声明的代码库同步到同集群的 ArgoCD 中，使 ArgoCD 中使用了这些 Kubernetes 集群和代码库的 Application 可以正常工作。<a href="./app/argo-operator">了解更多</a>。
 </details>
 
 <details>
   <summary><b>⚙️ Runtime Operator</b></summary>
-  提供了一组用于调谐 Project Pipeline Runtime 资源和 Deployment Runtime 资源事件的 Controller，调谐内容主要是根据两类运行时资源的声明信息，在目标集群上同步流水线执行或应用部署所需的基础环境。<a href="https://github.com/nautes-labs/runtime-operator">了解更多</a>。
+  提供了一组用于调谐 Project Pipeline Runtime 资源和 Deployment Runtime 资源事件的 Controller，调谐内容主要是根据两类运行时资源的声明信息，在目标集群上同步流水线执行或应用部署所需的基础环境。<a href="./app/runtime-operator">了解更多</a>。
 </details>
 
 <details>
@@ -125,7 +125,7 @@ Nautes 主要包含以下组件：
 
 <details>
   <summary><b>🌐 API Server</b></summary>
-  Nautes 的设计是遵循了 GitOps 的最佳实践，用户应用环境以及 Nautes 自身环境的配置声明均存储在版本库中。声明数据分为两类：密钥数据是存储在 Vault 中，其他数据是存储在 Git（目前只支持 GitLab）仓库中，API Server 项目则提供了一组用于操作这些配置声明的 REST API。<a href="https://github.com/nautes-labs/api-server">了解更多</a>。
+  Nautes 的设计是遵循了 GitOps 的最佳实践，用户应用环境以及 Nautes 自身环境的配置声明均存储在版本库中。声明数据分为两类：密钥数据是存储在 Vault 中，其他数据是存储在 Git（目前只支持 GitLab）仓库中，API Server 项目则提供了一组用于操作这些配置声明的 REST API。<a href="./app/api-server">了解更多</a>。
 </details>
 
 <details>

@@ -1,0 +1,18 @@
+componentConfig: true
+domain: resource.nautes.io
+layout:
+- go.kubebuilder.io/v3
+projectName: runtime-operator
+repo: github.com/nautes-labs/nautes/app/runtime-operator
+resources:
+- controller: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: DeploymentRuntime
+  version: v1alpha1
+- controller: true
+  domain: resource.nautes.io
+  group: nautes
+  kind: ProjectPipelineRuntime
+  version: v1alpha1
+version: "3"

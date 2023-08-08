@@ -1,0 +1,146 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package api.deploymentruntime.v1;
+
+option go_package = "github.com/nautes-labs/api-server/api/deploymentruntime/v1;v1";
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+
+service Deploymentruntime {
+  rpc GetDeploymentRuntime (GetRequest) returns (GetReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{productName}/deploymentruntimes/{deploymentruntimeName}"
+    };
+  }
+  rpc ListDeploymentRuntimes (ListsRequest) returns (ListsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{productName}/deploymentruntimes"
+    };
+  }
+  rpc SaveDeploymentRuntime (SaveRequest) returns (SaveReply) {
+    option (google.api.http) = {
+      post: "/api/v1/products/{productName}/deploymentruntimes/{deploymentruntimeName}"
+      body: "body"
+    };
+  }
+  rpc DeleteDeploymentRuntime (DeleteRequest) returns (DeleteReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/products/{productName}/deploymentruntimes/{deploymentruntimeName}"
+    };
+  }
+}
+
+// ManifestSource is a message representing the source of the deployment manifest.
+message ManifestSource {
+  // CodeRepo specifies the code repository of the git platform.
+  string CodeRepo = 1 [json_name = "code_repo", (validate.rules).string.min_len = 1];
+  // TargetRevision is the corresponding code repository revision, eg: main.
+  string TargetRevision = 2 [json_name = "target_revision", (validate.rules).string.min_len = 1];
+  // Path is the deploy the specified path.
+  string Path  = 3 [json_name = "path", (validate.rules).string.min_len = 1];
+}
+
+// GetRequest is a message for retrieving a Deployment Runtime.
+message GetRequest {
+    // ProductName is the name of the product.
+    string productName = 1 [json_name = "product_name"];
+    // DeploymentRuntimeName is the name of the Deployment Runtime.
+    string deploymentruntimeName = 2 [json_name = "deploymentruntime_name"];
+}
+
+// GetReply is a message that returns a Deployment Runtime.
+message GetReply {
+  // Product is the name of the product.
+  string product = 1 [json_name = "product"];
+  // Name is the name of the Deployment Runtime.
+  string name = 2 [json_name = "name"];
+  // ProjectsRef is a list of project references.
+  repeated string projectsRef = 3 [json_name = "projects_ref"];
+  // ManifestSource is the source of the deployment manifest.
+  ManifestSource manifestSource = 4 [json_name = "manifest_source"];
+  // Destination is the destination and custom namespaces for the deployment.
+  DeploymentRuntimesDestination destination = 5 [json_name = "destination"];
+}
+
+// ListsRequest is a message for retrieving a list of Deployment Runtimes.
+message ListsRequest {
+  // To list the product name of the repository.
+  string productName = 1 [json_name = "product_name"];
+  // Filter the list by field.
+  // eg: field_selector=projects_ref.in=project1,manifestSource.codeRepo=codeRepo1,destination=env1
+  // Field Support:
+  // projects_ref: fuzzy match 
+  // manifestSource.codeRepo: fuzzy match
+  // destination: fuzzy match 
+  string field_selector = 2 [json_name = "field_selector"];
+}
+
+// ListsReply is a message that returns a list of Deployment Runtimes.
+message ListsReply {
+  // Items is a list of Deployment Runtimes.
+  repeated GetReply items = 1;
+}
+
+// SaveRequest is a message for saving a Deployment Runtime.
+message SaveRequest { 
+  // Body is the message body.
+  message Body {
+     // ProjectsRef is a list of project references.
+     repeated string projectsRef = 1 [json_name = "projects_ref"];
+     // ManifestSource is the source of the deployment manifest.
+     ManifestSource manifestSource = 2 [json_name = "manifest_source", (validate.rules).message.required = true];
+     // Destination is the destination and custom namespaces for the deployment.
+     DeploymentRuntimesDestination destination = 3 [json_name = "destination"];
+  }
+  // ProductName is the name of the product.
+  string productName = 1 [json_name = "product_name"];
+  // DeploymentRuntimeName is the name of the Deployment Runtime.
+  string deploymentruntimeName = 2 [json_name = "deploymentruntime_name"];
+  // InsecureSkipCheck specifies whether to skip security checks.
+  bool insecureSkipCheck = 3 [json_name = "insecure_skip_check"];
+  // Body is the message body.
+  Body body = 4;
+}
+
+// SaveReply is a message that confirms a Deployment Runtime has been saved.
+message SaveReply {
+  // Msg is a message confirming the save.
+  string msg = 1 [json_name = "message"];
+}
+
+// Represents a request to delete a deployment runtime manifest.
+message DeleteRequest {
+  // ProductName is the name of the product.
+  string productName = 1 [json_name = "product_name"];
+  // DeploymentRuntimeName is the name of the Deployment Runtime.
+  string deploymentruntimeName = 2 [json_name = "deploymentruntime_name"];
+  // InsecureSkipCheck specifies whether to skip security checks.
+  bool insecureSkipCheck = 3 [json_name = "insecure_skip_check"];
+}
+
+// Represents a response to a DeleteRequest message.
+message DeleteReply {
+  // Msg is a message confirming the delete.  
+  string msg = 1 [json_name = "message"];
+}
+
+message DeploymentRuntimesDestination {
+  string environment = 1 [json_name = "environment", (validate.rules).string.min_len = 1];
+  repeated string namespaces = 2 [json_name = "namespaces"];
+}

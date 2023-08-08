@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        volumeMounts:
+        - name: configs
+          mountPath: /opt/nautes/config
+      volumes:
+      - name: configs
+        configMap:
+          name: nautes-configs

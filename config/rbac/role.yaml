@@ -1,0 +1,310 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - appprojects
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - hnc.x-k8s.io
+  resources:
+  - hierarchyconfigurations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - artifactrepoes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - artifactrepoproviders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - clusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - clusters
+  - deploymentruntimes
+  - environments
+  - projectpipelineruntimes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - clusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - clusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepobindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepoes
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepoes
+  - coderepoproviders
+  - products
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepoes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepoes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - coderepoproviders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - deploymentruntimes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - deploymentruntimes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - deploymentruntimes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - environments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - productproviders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - productproviders/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - productproviders/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - products
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - products/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - products/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - projectpipelineruntimes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - projectpipelineruntimes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - projectpipelineruntimes/status
+  verbs:
+  - get
+  - patch
+  - update
