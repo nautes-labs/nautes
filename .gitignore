@@ -40,5 +40,5 @@ ca/*
 **/sample
 
 # log
-log
+.log/**
 *.log
