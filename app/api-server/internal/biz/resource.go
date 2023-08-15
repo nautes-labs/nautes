@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
+	commonv1 "github.com/nautes-labs/nautes/api/api-server/common/v1"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	utilstrings "github.com/nautes-labs/nautes/app/api-server/util/string"
 	"github.com/tidwall/sjson"
@@ -96,6 +97,12 @@ func (r *ResourcesUsecase) Get(ctx context.Context, resourceKind, productName st
 func (r *ResourcesUsecase) List(ctx context.Context, gid interface{}, operator nodestree.NodesOperator) (*nodestree.Node, error) {
 	_, project, err := r.GetGroupAndProjectByGroupID(ctx, gid)
 	if err != nil {
+		if commonv1.IsProjectNotFound(err) {
+			return nil, commonv1.ErrorProjectNotFound("%s is non product, missing metadata", gid)
+		}
+		if commonv1.IsGroupNotFound(err) {
+			return nil, commonv1.ErrorGroupNotFound(err.Error())
+		}
 		return nil, err
 	}
 
