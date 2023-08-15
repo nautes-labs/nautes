@@ -280,7 +280,7 @@ func (p *ProductUsecase) DeleteProduct(ctx context.Context, productID string) er
 		return err
 	}
 
-	codeRepos, err := p.codeRepo.ListGroupCodeRepos(ctx, int(group.ID))
+	codeRepos, err := p.codeRepo.ListGroupCodeRepos(ctx, int(group.ID), &ListGroupProjectsOptions{})
 	if err != nil {
 		return err
 	}
