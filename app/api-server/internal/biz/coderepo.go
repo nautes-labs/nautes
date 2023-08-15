@@ -116,11 +116,59 @@ func (c *CodeRepoUsecase) ListCodeRepos(ctx context.Context, productName string)
 
 	codeRepoNodes := nodestree.ListsResourceNodes(*nodes, nodestree.CodeRepo)
 
+	result, err := c.listProjectCodeRepos(ctx, productName, codeRepoNodes)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *CodeRepoUsecase) listProjectCodeRepos(ctx context.Context, productName string, codeRepoNodes []*nodestree.Node) ([]*ProjectCodeRepo, error) {
+	options := &ListGroupProjectsOptions{
+		ListOptions: ListOptions{
+			PerPage: PerPage,
+			Page:    Page,
+		},
+	}
+
 	items := make([]*ProjectCodeRepo, 0)
-	for _, node := range codeRepoNodes {
-		projectCodeRepo := c.getProjectByNode(ctx, node)
-		if projectCodeRepo != nil {
-			items = append(items, projectCodeRepo)
+
+	for {
+		projects, err := c.codeRepo.ListGroupCodeRepos(ctx, productName, options)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, project := range projects {
+			for idx, node := range codeRepoNodes {
+				codeRepo, ok := node.Content.(*resourcev1alpha1.CodeRepo)
+				if !ok {
+					return nil, fmt.Errorf("failed to get %s CodeRepo", node.Name)
+				}
+
+				pid, err := utilstring.ExtractNumber(RepoPrefix, codeRepo.Name)
+				if err != nil {
+					return nil, err
+				}
+
+				if int(project.ID) == pid &&
+					project.Name == codeRepo.Spec.RepoName {
+					// Convert product name.
+					codeRepo.Spec.Product = productName
+
+					items = append(items, &ProjectCodeRepo{CodeRepo: codeRepo, Project: project})
+
+					// When hitting the target, remove the element.
+					codeRepoNodes = append(codeRepoNodes[:idx], codeRepoNodes[idx+1:]...)
+				}
+			}
+		}
+
+		if len(projects) < PerPage {
+			break
+		} else {
+			options.ListOptions.Page += 1
 		}
 	}
 
@@ -256,30 +304,6 @@ func (c *CodeRepoUsecase) DeleteCodeRepo(ctx context.Context, options *BizOption
 	}
 
 	return nil
-}
-
-func (c *CodeRepoUsecase) getProjectByNode(ctx context.Context, node *nodestree.Node) *ProjectCodeRepo {
-	codeRepo, ok := node.Content.(*resourcev1alpha1.CodeRepo)
-	if !ok {
-		return nil
-	}
-
-	err := c.convertProductToGroupName(ctx, codeRepo)
-	if err != nil {
-		return nil
-	}
-
-	pid, err := utilstring.ExtractNumber(RepoPrefix, codeRepo.Name)
-	if err != nil {
-		return nil
-	}
-
-	project, err := c.codeRepo.GetCodeRepo(ctx, pid)
-	if err != nil {
-		return nil
-	}
-
-	return &ProjectCodeRepo{Project: project, CodeRepo: codeRepo}
 }
 
 func (c *CodeRepoUsecase) getCodeRepoByName(ctx context.Context, nodes *nodestree.Node, codeRepoName string) (*resourcev1alpha1.CodeRepo, error) {
