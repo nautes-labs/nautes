@@ -38,7 +38,7 @@ type CodeRepo interface {
 	UpdateGroup(ctx context.Context, gid interface{}, git *GitGroupOptions) (*Group, error)
 	GetGroup(ctx context.Context, gid interface{}) (*Group, error)
 	ListAllGroups(ctx context.Context) ([]*Group, error)
-	ListGroupCodeRepos(ctx context.Context, gid interface{}, opts ...string) ([]*Project, error)
+	ListGroupCodeRepos(ctx context.Context, gid interface{}, opts *ListGroupProjectsOptions) ([]*Project, error)
 	ListCodeRepos(ctx context.Context, search string) ([]*Project, error)
 	ListAccessTokens(ctx context.Context, pid interface{}, opt *ListOptions) ([]*ProjectAccessToken, error)
 	GetProjectAccessToken(ctx context.Context, pid interface{}, id int) (*ProjectAccessToken, error)

@@ -293,7 +293,7 @@ func (g *gitlabRepo) GetGroup(ctx context.Context, gid interface{}) (*biz.Group,
 	}, nil
 }
 
-func (g *gitlabRepo) ListGroupCodeRepos(ctx context.Context, gid interface{}, opts ...string) ([]*biz.Project, error) {
+func (g *gitlabRepo) ListGroupCodeRepos(ctx context.Context, gid interface{}, opts *biz.ListGroupProjectsOptions) ([]*biz.Project, error) {
 	var projects []*gitlab.Project
 	var result []*biz.Project
 
@@ -302,12 +302,7 @@ func (g *gitlabRepo) ListGroupCodeRepos(ctx context.Context, gid interface{}, op
 		return nil, err
 	}
 
-	search := ""
-	for _, opt := range opts {
-		search = opt
-	}
-
-	opt := &gitlab.ListGroupProjectsOptions{Search: gitlab.String(search)}
+	opt := &gitlab.ListGroupProjectsOptions{Search: gitlab.String(opts.Search), ListOptions: gitlab.ListOptions{Page: opts.Page, PerPage: opts.PerPage}}
 	projects, _, err = client.ListGroupProjects(gid, opt)
 	if err != nil {
 		return nil, err

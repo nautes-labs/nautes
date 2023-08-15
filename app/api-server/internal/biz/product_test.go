@@ -263,7 +263,7 @@ var _ = Describe("Save product", func() {
 		codeRepo := NewMockCodeRepo(ctl)
 		codeRepo.EXPECT().GetGroup(gomock.Any(), productName).Return(defaultProductGroup, nil)
 		codeRepo.EXPECT().UpdateGroup(gomock.Any(), int(defaultProductGroup.ID), gitOptions).Return(nil, fmt.Errorf("Unable to update defaultProductGroup"))
-		codeRepo.EXPECT().ListGroupCodeRepos(gomock.Any(), int(defaultProductGroup.ID)).Return([]*Project{defautlProject}, nil).AnyTimes()
+		codeRepo.EXPECT().ListGroupCodeRepos(gomock.Any(), int(defaultProductGroup.ID), &ListGroupProjectsOptions{}).Return([]*Project{defautlProject}, nil).AnyTimes()
 
 		secretRepo := NewMockSecretrepo(ctl)
 
@@ -390,7 +390,7 @@ var _ = Describe("Delete product", func() {
 	It("will delete product successfully", func() {
 		codeRepo := NewMockCodeRepo(ctl)
 		codeRepo.EXPECT().GetGroup(gomock.Any(), ProductID).Return(defaultProductGroup, nil)
-		codeRepo.EXPECT().ListGroupCodeRepos(gomock.Any(), int(defaultProductGroup.ID)).Return([]*Project{defautlProject}, nil)
+		codeRepo.EXPECT().ListGroupCodeRepos(gomock.Any(), int(defaultProductGroup.ID), &ListGroupProjectsOptions{}).Return([]*Project{defautlProject}, nil)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), defaultProjectPath).Return(defautlProject, nil)
 		codeRepo.EXPECT().DeleteGroup(gomock.Any(), int(defaultProductGroup.ID)).Return(nil)
 
@@ -412,7 +412,7 @@ var _ = Describe("Delete product", func() {
 	It("failed to delete product", func() {
 		codeRepo := NewMockCodeRepo(ctl)
 		codeRepo.EXPECT().GetGroup(gomock.Any(), ProductID).Return(defaultProductGroup, nil)
-		codeRepo.EXPECT().ListGroupCodeRepos(gomock.Any(), int(defaultProductGroup.ID)).Return([]*Project{defautlProject, TestProject}, nil)
+		codeRepo.EXPECT().ListGroupCodeRepos(gomock.Any(), int(defaultProductGroup.ID), &ListGroupProjectsOptions{}).Return([]*Project{defautlProject, TestProject}, nil)
 
 		secretRepo := NewMockSecretrepo(ctl)
 
