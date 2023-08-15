@@ -131,6 +131,12 @@ type ListOptions struct {
 	PerPage int `url:"per_page,omitempty" json:"per_page,omitempty"`
 }
 
+type ListGroupProjectsOptions struct {
+	ListOptions
+	Search string `url:"search,omitempty" json:"search,omitempty"`
+	Sort   string `url:"sort,omitempty" json:"sort,omitempty"`
+}
+
 // Project Access token type definition.
 type ISOTime time.Time
 
