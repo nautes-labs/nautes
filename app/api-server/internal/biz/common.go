@@ -19,7 +19,6 @@ import (
 	"fmt"
 )
 
-// Common
 const (
 	// Argo-operator Index key, Used to obtain roles from the configuration
 	ArgoOperator = "Argo"
@@ -29,11 +28,10 @@ const (
 )
 
 const (
-	// When pushing code configuration, there is a key with a context retry
+	// When pushing code configuration, there is a key with a context retry.
 	RretryCount RretryCountType = "RretryCount"
 )
 
-// prefix...
 const (
 	// Product naming prefix
 	ProductPrefix = "product-"
@@ -41,7 +39,7 @@ const (
 	RepoPrefix = "repo-"
 )
 
-// Secret store Constants
+// Secret store Constants.
 const (
 	// Secret Repo stores git related data engine name
 	SecretsGitEngine = "git"
@@ -57,14 +55,12 @@ const (
 	DeployKeyID = "id"
 )
 
-// Deploykey
 const (
 	// Git read-only and read-write permissions
 	ReadOnly  DeployKeyType = "readonly"
 	ReadWrite DeployKeyType = "readwrite"
 )
 
-// Access token
 const (
 	// AccessToken fingerprint data ID
 	AccessTokenID = "id"
@@ -79,19 +75,25 @@ const (
 )
 
 const (
-	// layout resouce directory names
+	// layout resouce directory names.
 	CodeReposSubDir = "code-repos"
 	RuntimesDir     = "runtimes"
 	EnvSubDir       = "envs"
 	ProjectsDir     = "projects"
 )
 
-// Constants used to store commit information
+// Constants used to store commit information.
 const (
 	ResourceInfoKey = "ResourceInfoKey"
-	// How to mark this request method
+	// mark this request method
 	SaveMethod   = "Save"
 	DeleteMethod = "Delete"
+)
+
+// This is inital page options.
+const (
+	PerPage = 40
+	Page    = 1
 )
 
 type ResourceInfo struct {
