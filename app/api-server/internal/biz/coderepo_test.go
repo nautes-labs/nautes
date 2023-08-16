@@ -138,15 +138,12 @@ var _ = Describe("List coderepos", func() {
 		fakeResource = createFakeCodeRepoResource(resourceName)
 		fakeNode     = createFakeCodeRepoNode(fakeResource)
 		fakeNodes    = createFakeCcontainingCodeRepoNodes(fakeNode)
-		gid, _       = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
-		group        = &Group{ID: int32(gid), Name: fakeResource.Spec.Product, Path: fakeResource.Spec.Product}
 		pid, _       = utilstrings.ExtractNumber(RepoPrefix, resourceName)
 		project      = &Project{ID: int32(pid), Name: fakeResource.Spec.RepoName, Path: fakeResource.Spec.RepoName}
 	)
 
 	It("will list successfully", testUseCase.ListResourceSuccess(fakeNodes, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetGroup(gomock.Any(), gomock.Eq(gid)).Return(group, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pid)).Return(project, nil)
+		codeRepo.EXPECT().ListGroupCodeRepos(gomock.Any(), gomock.Eq(defaultGroupName), gomock.Any()).Return([]*Project{project}, nil).AnyTimes()
 
 		biz := NewCodeRepoUsecase(logger, codeRepo, secretRepo, nodestree, nautesConfigs, resourceUseCase, nil, nil)
 		_, err := biz.ListCodeRepos(ctx, defaultGroupName)
