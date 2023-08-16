@@ -22,12 +22,10 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/golang/mock/gomock"
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 
 	"github.com/nautes-labs/nautes/app/api-server/pkg/kubernetes"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
-	utilstrings "github.com/nautes-labs/nautes/app/api-server/util/string"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -94,9 +92,6 @@ var _ = Describe("Get project", func() {
 		fakeNodes    = createProjectNodes(fakeNode)
 	)
 	It("will get project success", testUseCase.GetResourceSuccess(fakeNodes, fakeNode, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourcesUsecase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		id, _ := utilstrings.ExtractNumber("product-", fakeResource.Spec.Product)
-		codeRepo.EXPECT().GetGroup(gomock.Any(), id).Return(defaultProductGroup, nil)
-
 		biz := NewProjectUsecase(logger, codeRepo, nil, nodestree, nautesConfigs, resourcesUsecase)
 		result, err := biz.GetProject(context.Background(), resourceName, defaultGroupName)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -120,9 +115,6 @@ var _ = Describe("List projects", func() {
 	)
 
 	It("will successfully", testUseCase.ListResourceSuccess(fakeNodes, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		id, _ := utilstrings.ExtractNumber("product-", fakeResource.Spec.Product)
-		codeRepo.EXPECT().GetGroup(gomock.Any(), id).Return(defaultProductGroup, nil)
-
 		biz := NewProjectUsecase(logger, codeRepo, nil, nodestree, nautesConfigs, resourceUseCase)
 		results, err := biz.ListProjects(ctx, defaultGroupName)
 		Expect(err).ShouldNot(HaveOccurred())
