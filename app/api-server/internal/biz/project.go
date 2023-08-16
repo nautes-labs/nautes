@@ -47,21 +47,6 @@ func NewProjectUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretre
 	return project
 }
 
-func (c *ProjectUsecase) convertProductToGroupName(ctx context.Context, project *resourcev1alpha1.Project) error {
-	if project.Spec.Product == "" {
-		return fmt.Errorf("the product field value of project %s should not be empty", project.Name)
-	}
-
-	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, project.Spec.Product)
-	if err != nil {
-		return err
-	}
-
-	project.Spec.Product = groupName
-
-	return nil
-}
-
 func (p *ProjectUsecase) GetProject(ctx context.Context, projectName, productName string) (*resourcev1alpha1.Project, error) {
 	resourceNode, err := p.resourcesUsecase.Get(ctx, nodestree.Project, productName, p, func(nodes nodestree.Node) (string, error) {
 		return projectName, nil
@@ -75,10 +60,7 @@ func (p *ProjectUsecase) GetProject(ctx context.Context, projectName, productNam
 		return nil, err
 	}
 
-	err = p.convertProductToGroupName(ctx, project)
-	if err != nil {
-		return nil, err
-	}
+	project.Spec.Product = productName
 
 	return project, nil
 }
@@ -97,31 +79,9 @@ func (p *ProjectUsecase) ListProjects(ctx context.Context, productName string) (
 		return nil, err
 	}
 
-	projects, err := p.listProjects(*nodes)
+	projects, err := p.listProjects(*nodes, productName)
 	if err != nil {
 		return nil, err
-	}
-
-	for _, project := range projects {
-		err = p.convertProductToGroupName(ctx, project)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return projects, nil
-}
-
-func (p *ProjectUsecase) listProjects(nodes nodestree.Node) ([]*resourcev1alpha1.Project, error) {
-	var projects []*resourcev1alpha1.Project
-
-	projectNodes := nodestree.ListsResourceNodes(nodes, nodestree.Project)
-	for _, node := range projectNodes {
-		project, err := p.nodeToProject(node)
-		if err != nil {
-			return nil, err
-		}
-		projects = append(projects, project)
 	}
 
 	return projects, nil
@@ -147,6 +107,41 @@ func (p *ProjectUsecase) SaveProject(ctx context.Context, options *BizOptions, d
 	}
 
 	return nil
+}
+
+func (p *ProjectUsecase) DeleteProject(ctx context.Context, options *BizOptions) error {
+	resourceOptions := &resourceOptions{
+		resourceKind:      nodestree.Project,
+		productName:       options.ProductName,
+		insecureSkipCheck: options.InsecureSkipCheck,
+		operator:          p,
+	}
+	err := p.resourcesUsecase.Delete(ctx, resourceOptions, func(nodes nodestree.Node) (string, error) {
+		return options.ResouceName, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *ProjectUsecase) listProjects(nodes nodestree.Node, productName string) ([]*resourcev1alpha1.Project, error) {
+	var projects []*resourcev1alpha1.Project
+
+	projectNodes := nodestree.ListsResourceNodes(nodes, nodestree.Project)
+	for _, node := range projectNodes {
+		project, err := p.nodeToProject(node)
+		if err != nil {
+			return nil, err
+		}
+
+		project.Spec.Product = productName
+
+		projects = append(projects, project)
+	}
+
+	return projects, nil
 }
 
 func (p *ProjectUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
@@ -240,21 +235,4 @@ func (p *ProjectUsecase) CreateResource(kind string) interface{} {
 	}
 
 	return &resourcev1alpha1.Project{}
-}
-
-func (p *ProjectUsecase) DeleteProject(ctx context.Context, options *BizOptions) error {
-	resourceOptions := &resourceOptions{
-		resourceKind:      nodestree.Project,
-		productName:       options.ProductName,
-		insecureSkipCheck: options.InsecureSkipCheck,
-		operator:          p,
-	}
-	err := p.resourcesUsecase.Delete(ctx, resourceOptions, func(nodes nodestree.Node) (string, error) {
-		return options.ResouceName, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
