@@ -141,3 +141,16 @@ func (v *validateClient) ListProjectPipelineRuntimes(ctx context.Context, produc
 
 	return items, nil
 }
+
+func (v *validateClient) ListEnvironments(ctx context.Context) ([]resourcev1alpha1.Environment, error) {
+	items := make([]resourcev1alpha1.Environment, 0)
+	list := resourcev1alpha1.EnvironmentList{}
+	err := v.client.List(ctx, &list)
+	if err != nil {
+		return nil, err
+	}
+
+	items = append(items, list.Items...)
+
+	return items, nil
+}

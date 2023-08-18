@@ -26,11 +26,15 @@ func (r *ProjectPipelineRuntime) GetProduct() string {
 }
 
 func (r *ProjectPipelineRuntime) GetDestination() string {
-	return r.Spec.Destination
+	return r.Spec.Destination.Environment
 }
 
 func (r *ProjectPipelineRuntime) GetNamespaces() []string {
-	return []string{r.Name}
+	namespace := r.Spec.Destination.Namespace
+	if namespace == "" {
+		namespace = r.Name
+	}
+	return []string{namespace}
 }
 
 func (r *ProjectPipelineRuntime) GetEventSource(name string) (*EventSource, error) {

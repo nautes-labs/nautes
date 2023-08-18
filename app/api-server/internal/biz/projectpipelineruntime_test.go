@@ -40,8 +40,11 @@ func createProjectPiepeLineResource(name string) *resourcev1alpha1.ProjectPipeli
 		Spec: resourcev1alpha1.ProjectPipelineRuntimeSpec{
 			Project:        _TestProject,
 			PipelineSource: "pipelineCodeRepo",
-			Destination:    "env1",
-			Isolation:      "shared",
+			Destination: resourcev1alpha1.ProjectPipelineDestination{
+				Environment: "env1",
+				Namespace:   name,
+			},
+			Isolation: "shared",
 			Pipelines: []resourcev1alpha1.Pipeline{
 				{
 					Name:  "pipeline1",
@@ -168,8 +171,11 @@ var _ = Describe("Save project pipeline runtime", func() {
 			Spec: resourcev1alpha1.ProjectPipelineRuntimeSpec{
 				Project:        _TestProject,
 				PipelineSource: projectForPipeline.Name,
-				Destination:    "env1",
-				Isolation:      "shared",
+				Destination: resourcev1alpha1.ProjectPipelineDestination{
+					Environment: "env1",
+					Namespace:   fakeResource.Name,
+				},
+				Isolation: "shared",
 				Pipelines: []resourcev1alpha1.Pipeline{
 					{
 						Name:  "pipeline1",
@@ -200,17 +206,35 @@ var _ = Describe("Save project pipeline runtime", func() {
 						Revision:    "main",
 					},
 				},
+				AdditionalResources: &resourcev1alpha1.ProjectPipelineRuntimeAdditionalResources{
+					Git: &resourcev1alpha1.ProjectPipelineRuntimeAdditionalResourcesGit{
+						CodeRepo: "repo-2124",
+						URL:      "",
+						Revision: "main",
+						Path:     "deployment",
+					},
+				},
 			},
 		}
-		pipelineSourceCodeRepoPath = fmt.Sprintf("%s/%s", defaultProductGroup.Path, projectForPipeline.Name)
-		codeRepoSourcePath         = fmt.Sprintf("%s/%s", defaultProductGroup.Path, projectForBase.Name)
-		pipelineSouceProject       = &Project{ID: 12}
-		codeRepoSouceProject       = &Project{ID: 13}
-		bizOptions                 = &BizOptions{
+		bizOptions = &BizOptions{
 			ResouceName: resourceName,
 			ProductName: defaultGroupName,
 		}
 	)
+
+	var (
+		pipelineSourceCodeRepoPath, eventSourcesGitlabRepoPath, additionalCodeRepoPath string
+		projectFromPipelineSouce, projectFromEventSources, projectFromAdditional       *Project
+	)
+
+	BeforeEach(func() {
+		pipelineSourceCodeRepoPath = fmt.Sprintf("%s/%s", defaultProductGroup.Path, projectForPipeline.Name)
+		eventSourcesGitlabRepoPath = fmt.Sprintf("%s/%s", defaultProductGroup.Path, data.Spec.EventSources[0].Gitlab.RepoName)
+		additionalCodeRepoPath = fmt.Sprintf("%s/%s", defaultProductGroup.Path, data.Spec.AdditionalResources.Git.CodeRepo)
+		projectFromPipelineSouce = &Project{ID: 12}
+		projectFromEventSources = &Project{ID: 2123}
+		projectFromAdditional = &Project{ID: 2124}
+	})
 
 	AfterEach(func() {
 		data.Spec.PipelineSource = projectForPipeline.Name
@@ -226,8 +250,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("failed to get default project info", testUseCase.GetDefaultProjectFail(func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -235,8 +260,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("will created successfully", testUseCase.CreateResourceSuccess(fakeNodes, fakeNode, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -244,8 +270,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("will updated successfully", testUseCase.UpdateResoureSuccess(fakeNodes, fakeNode, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -253,8 +280,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("auto merge conflict, updated successfully", testUseCase.UpdateResourceAndAutoMerge(fakeNodes, fakeNode, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -262,8 +290,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("failed to auto merge conflict", testUseCase.MergeConflictFail(fakeNodes, fakeNode, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -271,8 +300,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("failed to push code retry three times", testUseCase.CreateResourceAndAutoRetry(fakeNodes, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -280,8 +310,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("modify resource but non compliant layout", testUseCase.UpdateResourceButNotConformTemplate(fakeNodes, fakeNode, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -289,8 +320,9 @@ var _ = Describe("Save project pipeline runtime", func() {
 	}))
 
 	It("failed to save config", testUseCase.SaveConfigFail(fakeNodes, fakeNode, func(codeRepo *MockCodeRepo, secretRepo *MockSecretrepo, resourceUseCase *ResourcesUsecase, nodestree *nodestree.MockNodesTree, gitRepo *MockGitRepo, client *kubernetes.MockClient) {
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(pipelineSouceProject, nil)
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(codeRepoSourcePath)).Return(codeRepoSouceProject, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(pipelineSourceCodeRepoPath)).Return(projectFromPipelineSouce, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(additionalCodeRepoPath)).Return(projectFromAdditional, nil)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(eventSourcesGitlabRepoPath)).Return(projectFromEventSources, nil)
 
 		biz := NewProjectPipelineRuntimeUsecase(logger, codeRepo, nodestree, resourceUseCase, client, nautesConfigs)
 		err := biz.SaveProjectPipelineRuntime(context.Background(), bizOptions, data)
@@ -358,7 +390,7 @@ var _ = Describe("Save project pipeline runtime", func() {
 		It("pipeline source reference not found", func() {
 			projectName := fakeResource.Spec.Project
 			projectNodes := createProjectNodes(createProjectNode(createProjectResource(projectName)))
-			env := fakeResource.Spec.Destination
+			env := fakeResource.Spec.Destination.Environment
 			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, _TestClusterHostEnvType, _TestDeploymentClusterName)))
 			fakeNodes.Children = append(fakeNodes.Children, projectNodes.Children...)
 			fakeNodes.Children = append(fakeNodes.Children, envProjects.Children...)
@@ -379,7 +411,7 @@ var _ = Describe("Save project pipeline runtime", func() {
 		It("pipeline repository not found in event sources", func() {
 			projectName := fakeResource.Spec.Project
 			projectNodes := createProjectNodes(createProjectNode(createProjectResource(projectName)))
-			env := fakeResource.Spec.Destination
+			env := fakeResource.Spec.Destination.Environment
 			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, _TestClusterHostEnvType, _TestDeploymentClusterName)))
 			fakeNodes.Children = append(fakeNodes.Children, projectNodes.Children...)
 			fakeNodes.Children = append(fakeNodes.Children, envProjects.Children...)
@@ -406,7 +438,7 @@ var _ = Describe("Save project pipeline runtime", func() {
 		It("will successed", func() {
 			projectName := fakeResource.Spec.Project
 			projectNodes := createProjectNodes(createProjectNode(createProjectResource(projectName)))
-			env := fakeResource.Spec.Destination
+			env := fakeResource.Spec.Destination.Environment
 			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, _TestClusterHostEnvType, _TestDeploymentClusterName)))
 			codeRepoNodes := createFakeCcontainingCodeRepoNodes(createFakeCodeRepoNode(createFakeCodeRepoResource(projectForPipelineRepoID)))
 			codeRepoNodes.Children = append(codeRepoNodes.Children, createFakeCodeRepoNode(createFakeCodeRepoResource(projectForBaseRepoID)))
@@ -444,6 +476,7 @@ var _ = Describe("Save project pipeline runtime", func() {
 
 			client := kubernetes.NewMockClient(ctl)
 			client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 			biz := NewProjectPipelineRuntimeUsecase(logger, nil, nodestree, nil, client, nautesConfigs)
 			ok, err := biz.CheckReference(options, fakeNode, nil)

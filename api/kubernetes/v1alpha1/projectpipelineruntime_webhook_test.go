@@ -39,11 +39,25 @@ var _ = Describe("cluster webhook", func() {
 	var source *CodeRepo
 	var eventRepo *CodeRepo
 	var codeRepoBinding *CodeRepoBinding
+	var cleanBox []client.Object
+	var cleanBoxNamespace []client.Object
 	BeforeEach(func() {
 		ctx = context.Background()
 		seed := randNum()
+		cleanBox = []client.Object{}
+		cleanBoxNamespace = []client.Object{}
 		productName = fmt.Sprintf("product-%s", seed)
 		projectName = fmt.Sprintf("project-%s", seed)
+
+		ns = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: productName,
+			},
+		}
+		err := k8sClient.Create(ctx, ns)
+		Expect(err).Should(BeNil())
+		cleanBoxNamespace = append(cleanBoxNamespace, ns)
+
 		cluster = &Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("cluster-%s", seed),
@@ -59,14 +73,7 @@ var _ = Describe("cluster webhook", func() {
 				WorkerType:    ClusterWorkTypePipeline,
 			},
 		}
-
-		ns = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: productName,
-			},
-		}
-		err := k8sClient.Create(ctx, ns)
-		Expect(err).Should(BeNil())
+		cleanBox = append(cleanBox, cluster)
 
 		env = &Environment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -79,6 +86,7 @@ var _ = Describe("cluster webhook", func() {
 				EnvType: "test",
 			},
 		}
+		cleanBox = append(cleanBox, env)
 
 		source = &CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
@@ -96,8 +104,10 @@ var _ = Describe("cluster webhook", func() {
 				Webhook:           nil,
 			},
 		}
+		cleanBox = append(cleanBox, source)
 
 		eventRepo = source.DeepCopyObject().(*CodeRepo)
+		cleanBox = append(cleanBox, eventRepo)
 
 		codeRepoBinding = &CodeRepoBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -111,6 +121,7 @@ var _ = Describe("cluster webhook", func() {
 				Permissions: "",
 			},
 		}
+		cleanBox = append(cleanBox, codeRepoBinding)
 
 		runtimeName := fmt.Sprintf("runtime-%s", seed)
 		runtime = &ProjectPipelineRuntime{
@@ -122,22 +133,25 @@ var _ = Describe("cluster webhook", func() {
 				Project:        projectName,
 				PipelineSource: source.Name,
 				Pipelines:      []Pipeline{},
-				Destination:    env.Name,
+				Destination: ProjectPipelineDestination{
+					Environment: env.Name,
+					Namespace:   "",
+				},
 				EventSources: []EventSource{
 					{
-						Name: fmt.Sprintf("evName-%s", seed),
+						Name: "evname",
 						Gitlab: &Gitlab{
 							RepoName: eventRepo.Name,
 							Revision: "main",
 							Events:   []string{},
 						},
-						Calendar: &Calendar{},
 					},
 				},
 				Isolation:        "",
 				PipelineTriggers: []PipelineTrigger{},
 			},
 		}
+		cleanBox = append(cleanBox, runtime)
 
 		err = k8sClient.Create(ctx, env)
 		Expect(err).Should(BeNil())
@@ -152,27 +166,17 @@ var _ = Describe("cluster webhook", func() {
 	})
 
 	AfterEach(func() {
-		err := k8sClient.Delete(ctx, runtime)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = k8sClient.Delete(ctx, codeRepoBinding)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+		for _, obj := range cleanBox {
+			err := k8sClient.Delete(ctx, obj)
+			Expect(client.IgnoreNotFound(err)).Should(BeNil())
+			err = waitForDelete(obj)
+			Expect(err).Should(BeNil())
+		}
 
-		err = k8sClient.Delete(ctx, source)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = waitForDelete(source)
-		Expect(err).Should(BeNil())
-
-		err = k8sClient.Delete(ctx, eventRepo)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = waitForDelete(eventRepo)
-		Expect(err).Should(BeNil())
-
-		err = k8sClient.Delete(ctx, env)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = k8sClient.Delete(ctx, ns)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
-		err = k8sClient.Delete(ctx, cluster)
-		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+		for _, obj := range cleanBoxNamespace {
+			err := k8sClient.Delete(ctx, obj)
+			Expect(client.IgnoreNotFound(err)).Should(BeNil())
+		}
 	})
 
 	It("if source and runtime in the same project, create will success", func() {
@@ -288,5 +292,64 @@ var _ = Describe("cluster webhook", func() {
 
 		err = runtime.ValidateCreate()
 		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("when namespace is used by other runtime, create will failed", func() {
+		var err error
+		runtime02 := runtime.DeepCopy()
+		runtime02.Name = fmt.Sprintf("%s-02", runtime02.Name)
+		runtime02.Spec.Destination.Namespace = runtime.Name
+
+		err = k8sClient.Create(ctx, source)
+		Expect(err).Should(BeNil())
+		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
+		Expect(err).Should(BeNil())
+
+		err = k8sClient.Create(ctx, runtime)
+		Expect(err).Should(BeNil())
+
+		err = k8sClient.Create(ctx, runtime02)
+		Expect(err).Should(BeNil())
+		cleanBox = append(cleanBox, runtime02)
+
+		err = runtime.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("when additional resource code repo has not perrmission, create will failed", func() {
+		additionalRepo := source.DeepCopy()
+		additionalRepo.Name = fmt.Sprintf("%s-addional-repo", source.Name)
+		additionalRepo.Spec.Project = "other"
+
+		err := k8sClient.Create(ctx, source)
+		Expect(err).Should(BeNil())
+		err = waitForIndexFieldUpdateCodeRepo(1, source.Name)
+		Expect(err).Should(BeNil())
+
+		err = k8sClient.Create(ctx, additionalRepo)
+		Expect(err).Should(BeNil())
+		err = waitForIndexFieldUpdateCodeRepo(1, additionalRepo.Name)
+		Expect(err).Should(BeNil())
+		cleanBox = append(cleanBox, additionalRepo)
+
+		runtime.Spec.AdditionalResources = &ProjectPipelineRuntimeAdditionalResources{
+			Git: &ProjectPipelineRuntimeAdditionalResourcesGit{
+				CodeRepo: additionalRepo.Name,
+				Revision: "main",
+				Path:     "/deploy",
+			},
+		}
+
+		err = runtime.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
+
+		codeRepoBinding.Spec.CodeRepo = additionalRepo.Name
+		err = k8sClient.Create(ctx, codeRepoBinding)
+		Expect(err).Should(BeNil())
+		err = waitForIndexFieldUpdateBinding(1, productName, additionalRepo.Name)
+		Expect(err).Should(BeNil())
+
+		err = runtime.ValidateCreate()
+		Expect(err).Should(BeNil())
 	})
 })

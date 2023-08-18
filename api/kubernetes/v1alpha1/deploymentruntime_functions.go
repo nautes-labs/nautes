@@ -23,5 +23,9 @@ func (r *DeploymentRuntime) GetDestination() string {
 }
 
 func (r *DeploymentRuntime) GetNamespaces() []string {
-	return r.Spec.Destination.Namespaces
+	namespaces := r.Spec.Destination.Namespaces
+	if len(namespaces) == 0 {
+		namespaces = []string{r.Name}
+	}
+	return namespaces
 }

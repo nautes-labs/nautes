@@ -127,7 +127,7 @@ func (s *CodeRepoBindingService) SaveCodeRepoBinding(ctx context.Context, req *c
 		return nil, err
 	}
 
-	codeRepoResourceName, err := s.resourcesUsecase.ConvertRepoNameToCodeRepo(ctx, req.ProductName, req.Body.Coderepo)
+	codeRepoResourceName, err := s.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, req.ProductName, req.Body.Coderepo)
 	if err != nil {
 		return nil, err
 	}

@@ -148,7 +148,9 @@ var _ = Describe("Argoevents", func() {
 						Path:  "pipelines",
 					},
 				},
-				Destination: destination.Name,
+				Destination: nautescrd.ProjectPipelineDestination{
+					Environment: destination.Name,
+				},
 				EventSources: []nautescrd.EventSource{
 					{
 						Name: evName,

@@ -89,11 +89,31 @@ message Pipeline {
 
 message PipelineTriggers {
   // Key of the event source.
-  string event_source = 1[json_name = "event_source", (validate.rules).string.min_len = 1];
+  string event_source = 1 [json_name = "event_source", (validate.rules).string.min_len = 1];
   // Key of the pipeline.
   string pipeline = 2 [json_name = "pipeline", (validate.rules).string.min_len = 1];
   // Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
   string revision = 3 [json_name = "revision"];
+}
+
+message ProjectPipelineDestination {
+  // Environment for pipeline deployment.
+  string environment = 1 [json_name = "environment", (validate.rules).string.min_len = 1];
+  // Set the namespace for the pipeline.
+  string namespace = 2 [json_name = "namespace"];
+}
+
+message ProjectPipelineRuntimeAdditionalResources {
+  // ProjectPipelineRuntimeAdditionalResourcesGit defines the additional resources if it comes from git
+  ProjectPipelineRuntimeAdditionalResourcesGit git = 1 [json_name = "git"];
+}
+
+message ProjectPipelineRuntimeAdditionalResourcesGit {
+  string coderepo = 1 [json_name="coderepo"];
+  // If git repo is a public repo, use url instead
+  string url = 2 [json_name = "url"];
+  string revision = 3 [json_name = "revision"];
+  string path = 4 [json_name = "path"];
 }
 
 // Request message format for getting pipeline information.
@@ -119,9 +139,11 @@ message GetReply {
   // Pipeline event triggers.  
   repeated PipelineTriggers pipeline_triggers = 6 [json_name = "pipeline_triggers"];
   // Target deployment environment.
-  string destination = 7 [json_name = "destination"];
+  ProjectPipelineDestination destination = 7 [json_name = "destination"];
   // Isolation definition of pipeline runtime related resources: shared(default) or exclusive.
   string isolation = 8 [json_name = "isolation"];
+  // ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
+  ProjectPipelineRuntimeAdditionalResources additional_resources = 9 [json_name = "additional_resources"];
 }
 
 // Request message format for listing pipelines.
@@ -158,9 +180,11 @@ message SaveRequest {
     // Pipeline event triggers.
     repeated PipelineTriggers pipeline_triggers = 5 [json_name = "pipeline_triggers", (validate.rules).repeated.min_items = 1];
     // The definition of pipeline.
-    string destination = 6 [json_name = "destination", (validate.rules).string.min_len = 1];
+    ProjectPipelineDestination destination = 6 [json_name = "destination"];
     // Isolation definition of pipeline runtime related resources: shared(default) or exclusive
     string isolation = 7 [json_name = "isolation", (validate.rules).string = {in: ["shared", "exclusive"]}];
+    // ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
+    ProjectPipelineRuntimeAdditionalResources additional_resources = 8 [json_name = "additional_resources"];
   }
   // Name of the product associated with the pipeline.
   string product_name = 1 [json_name = "product_name"];
