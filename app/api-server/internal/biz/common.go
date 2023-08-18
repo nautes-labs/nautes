@@ -111,6 +111,17 @@ type ResourceInfo struct {
 	ResourceName string
 }
 
+type CodeRepoPermission struct {
+	Projects  []string
+	IsProduct bool
+}
+
+type CodeRepoTotalPermission struct {
+	CodeRepoName string
+	ReadWrite    *CodeRepoPermission
+	ReadOnly     *CodeRepoPermission
+}
+
 // SetResourceContext is mount resource information to context.
 func SetResourceContext(ctx context.Context, productName, method, parentResouceKind, parentResouceName, resourceKind, resourceName string) context.Context {
 	info := &ResourceInfo{

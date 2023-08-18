@@ -198,11 +198,6 @@ var _ = Describe("Save codeRepo", func() {
 			ResouceName: resourceName,
 			ProductName: defaultGroupName,
 		}
-		projectDeployKey = &ProjectDeployKey{
-			ID:    2013,
-			Key:   "Key1",
-			Title: "deploykey1",
-		}
 		listDeployKeys = []*ProjectDeployKey{
 			{
 				ID:    2013,
@@ -360,7 +355,6 @@ var _ = Describe("Save codeRepo", func() {
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), int(2014)).Return(nil).AnyTimes()
 		codeRepo.EXPECT().GetProjectAccessToken(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Any()).Return(projectAccessToken, nil).AnyTimes()
 		codeRepo.EXPECT().ListAccessTokens(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Any()).Return(projectAccessTokens, nil).AnyTimes()
-		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil)
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Any()).Return(nil)
 
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(nil, commonv1.ErrorSecretNotFound("secret data is not found")).Times(2)
