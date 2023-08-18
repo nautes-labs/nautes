@@ -186,7 +186,7 @@ func convertAdditionalResources(additionalResources interface{}) interface{} {
 		var additional *resourcev1alpha1.ProjectPipelineRuntimeAdditionalResources
 		if additionalResources != nil {
 			additional = &resourcev1alpha1.ProjectPipelineRuntimeAdditionalResources{}
-			if val.Git != nil {
+			if val != nil && val.Git != nil {
 				additional.Git = &resourcev1alpha1.ProjectPipelineRuntimeAdditionalResourcesGit{
 					CodeRepo: val.Git.Coderepo,
 					URL:      val.Git.Url,
@@ -251,7 +251,7 @@ func (p *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx contex
 		projectPipelineRuntime.Spec.PipelineSource = repoName
 	}
 
-	if projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo != "" {
+	if projectPipelineRuntime.Spec.AdditionalResources != nil && projectPipelineRuntime.Spec.AdditionalResources.Git != nil && projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo != "" {
 		repoName, err := p.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
 		if err != nil {
 			return err

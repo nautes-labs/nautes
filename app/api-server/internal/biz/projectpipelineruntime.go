@@ -85,11 +85,14 @@ func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.C
 	}
 	data.Spec.PipelineSource = codeRepoName
 
-	codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
-	if err != nil {
-		return err
+	// AdditionalResources is optional
+	if data.Spec.AdditionalResources != nil && data.Spec.AdditionalResources.Git != nil {
+		codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
+		if err != nil {
+			return err
+		}
+		data.Spec.AdditionalResources.Git.CodeRepo = codeRepoName
 	}
-	data.Spec.AdditionalResources.Git.CodeRepo = codeRepoName
 
 	for idx, eventSource := range data.Spec.EventSources {
 		if eventSource.Gitlab != nil && eventSource.Gitlab.RepoName != "" {
