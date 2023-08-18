@@ -155,10 +155,12 @@ var _ = Describe("EnvManager", func() {
 				Namespace: productName,
 			},
 			Spec: nautescrd.ProjectPipelineRuntimeSpec{
-				Project:          "",
-				PipelineSource:   runtimeCodeRepo.Name,
-				Pipelines:        nil,
-				Destination:      env.Name,
+				Project:        "",
+				PipelineSource: runtimeCodeRepo.Name,
+				Pipelines:      nil,
+				Destination: nautescrd.ProjectPipelineDestination{
+					Environment: env.Name,
+				},
 				EventSources:     nil,
 				Isolation:        "",
 				PipelineTriggers: nil,
@@ -208,7 +210,9 @@ var _ = Describe("EnvManager", func() {
 			Spec: nautescrd.ProjectPipelineRuntimeSpec{
 				Project:        "project",
 				PipelineSource: runtimeCodeRepo2.Name,
-				Destination:    env.Name,
+				Destination: nautescrd.ProjectPipelineDestination{
+					Environment: env.Name,
+				},
 			},
 		}
 

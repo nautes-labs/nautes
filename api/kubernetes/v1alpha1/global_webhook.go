@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -40,6 +41,7 @@ func getClient() (client.Client, error) {
 type ValidateClient interface {
 	GetCodeRepo(ctx context.Context, name string) (*CodeRepo, error)
 	GetEnvironment(ctx context.Context, productName, name string) (*Environment, error)
+	ListEnvironments(ctx context.Context) ([]Environment, error)
 	GetCluster(ctx context.Context, name string) (*Cluster, error)
 	ListCodeRepoBindings(ctx context.Context, productName, repoName string) ([]CodeRepoBinding, error)
 	// ListDeploymentRuntime will return deployment runtimes in specified product. If product is empty, it will return all deployment runtimes.
@@ -98,6 +100,16 @@ func (c *ValidateClientFromK8s) GetEnvironment(ctx context.Context, productName,
 	}
 
 	return env, nil
+}
+
+func (c *ValidateClientFromK8s) ListEnvironments(ctx context.Context) ([]Environment, error) {
+	envList := &EnvironmentList{}
+
+	if err := c.List(ctx, envList); err != nil {
+		return nil, err
+	}
+
+	return envList.Items, nil
 }
 
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=clusters,verbs=get;list
@@ -204,4 +216,115 @@ func GetClusterByRuntime(ctx context.Context, client ValidateClient, runtime Run
 		return nil, err
 	}
 	return client.GetCluster(ctx, env.Spec.Cluster)
+}
+
+func GetRuntimes(ctx context.Context, client ValidateClient) ([]Runtime, error) {
+	var runtimes []Runtime
+
+	deployRuntimes, err := client.ListDeploymentRuntimes(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineRuntimes, err := client.ListProjectPipelineRuntimes(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < len(deployRuntimes); i++ {
+		runtimes = append(runtimes, &deployRuntimes[i])
+	}
+
+	for i := 0; i < len(pipelineRuntimes); i++ {
+		runtimes = append(runtimes, &pipelineRuntimes[i])
+	}
+
+	return runtimes, nil
+}
+
+type getUsedNamespacesOptions struct {
+	excludeRuntimes []Runtime
+	inCluster       string
+}
+
+// +kubebuilder:object:generate=false
+type GetUsedNamespacesOptions func(*getUsedNamespacesOptions)
+
+func GetUsedNamespaceWithOutRuntimes(runtimes []Runtime) GetUsedNamespacesOptions {
+	return func(opts *getUsedNamespacesOptions) { opts.excludeRuntimes = runtimes }
+}
+
+func GetUsedNamespacesInCluster(cluster string) GetUsedNamespacesOptions {
+	return func(opts *getUsedNamespacesOptions) { opts.inCluster = cluster }
+}
+
+// GetUsedNamespaces will find out namespaces in used by nautes. It will return in format map[cluster]namespaces
+func GetUsedNamespaces(ctx context.Context, client ValidateClient, opts ...GetUsedNamespacesOptions) (map[string][]string, error) {
+	options := &getUsedNamespacesOptions{}
+	for _, fn := range opts {
+		fn(options)
+	}
+
+	runtimes, err := GetRuntimes(ctx, client)
+	if err != nil {
+		return nil, fmt.Errorf("list runtimes failed: %w", err)
+	}
+
+	envs, err := client.ListEnvironments(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list environments failed: %w", err)
+	}
+
+	// map[product][env]cluster
+	envCache := map[string]map[string]string{}
+	for _, env := range envs {
+		product := env.Spec.Product
+		if _, ok := envCache[product]; !ok {
+			envCache[product] = map[string]string{}
+		}
+
+		envCache[product][env.Name] = env.Spec.Cluster
+	}
+
+	// map[cluster]namespaces
+	namespaceUsage := map[string][]string{}
+	for _, runtime := range runtimes {
+		if isExcludeRuntime(runtime, options.excludeRuntimes) {
+			continue
+		}
+
+		product := runtime.GetProduct()
+		envs, ok := envCache[product]
+		if !ok {
+			return nil, fmt.Errorf("product %s not found", product)
+		}
+
+		env := runtime.GetDestination()
+		cluster, ok := envs[env]
+		if !ok {
+			return nil, fmt.Errorf("environment %s not found", env)
+		}
+
+		if options.inCluster != "" && options.inCluster != cluster {
+			continue
+		}
+
+		if _, ok := namespaceUsage[cluster]; !ok {
+			namespaceUsage[cluster] = []string{}
+		}
+		namespaceUsage[cluster] = append(namespaceUsage[cluster], runtime.GetNamespaces()...)
+	}
+
+	return namespaceUsage, nil
+}
+
+func isExcludeRuntime(runtime Runtime, excludeRuntimes []Runtime) bool {
+	for _, excludeRuntime := range excludeRuntimes {
+		if reflect.TypeOf(runtime) == reflect.TypeOf(excludeRuntime) &&
+			runtime.GetProduct() == excludeRuntime.GetProduct() &&
+			runtime.GetName() == excludeRuntime.GetName() {
+			return true
+		}
+	}
+	return false
 }

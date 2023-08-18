@@ -79,18 +79,25 @@ func (p *ProjectPipelineRuntimeUsecase) ListProjectPipelineRuntimes(ctx context.
 }
 
 func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.Context, options *BizOptions, data *ProjectPipelineRuntimeData) error {
-	source, err := p.resourcesUsecase.ConvertRepoNameToCodeRepo(ctx, options.ProductName, data.Spec.PipelineSource)
+	codeRepoName, err := p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.PipelineSource)
 	if err != nil {
 		return err
 	}
-	data.Spec.PipelineSource = source
+	data.Spec.PipelineSource = codeRepoName
+
+	codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
+	if err != nil {
+		return err
+	}
+	data.Spec.AdditionalResources.Git.CodeRepo = codeRepoName
 
 	for idx, eventSource := range data.Spec.EventSources {
 		if eventSource.Gitlab != nil && eventSource.Gitlab.RepoName != "" {
-			eventSource.Gitlab.RepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepo(ctx, options.ProductName, eventSource.Gitlab.RepoName)
+			codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, eventSource.Gitlab.RepoName)
 			if err != nil {
 				return err
 			}
+			eventSource.Gitlab.RepoName = codeRepoName
 			data.Spec.EventSources[idx] = eventSource
 		}
 	}
@@ -215,7 +222,7 @@ func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.Compare
 			projectPipelineRuntime.Name, resourceDirectory)
 	}
 
-	targetEnvironment := projectPipelineRuntime.Spec.Destination
+	targetEnvironment := projectPipelineRuntime.Spec.Destination.Environment
 	ok = nodestree.IsResourceExist(options, targetEnvironment, nodestree.Environment)
 	if !ok {
 		return true, fmt.Errorf(_ResourceDoesNotExistOrUnavailable, nodestree.Environment, targetEnvironment, nodestree.ProjectPipelineRuntime,

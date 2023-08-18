@@ -45,9 +45,39 @@ spec:
           spec:
             description: ProjectPipelineRuntimeSpec defines the desired state of ProjectPipelineRuntime
             properties:
+              additionalResources:
+                description: Optional
+                properties:
+                  git:
+                    description: Optional
+                    properties:
+                      codeRepo:
+                        description: Optional
+                        type: string
+                      path:
+                        type: string
+                      revision:
+                        type: string
+                      url:
+                        description: Optional If git repo is a public repo, use url
+                          instead
+                        type: string
+                    required:
+                    - path
+                    - revision
+                    type: object
+                type: object
               destination:
                 description: The target environment for running the pipeline.
-                type: string
+                properties:
+                  environment:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - environment
+                - namespace
+                type: object
               eventSources:
                 description: Events source that may trigger the pipeline.
                 items:
@@ -71,6 +101,8 @@ spec:
                         timezone:
                           description: Timezone in which to run the schedule
                           type: string
+                      required:
+                      - exclusionDates
                       type: object
                     gitlab:
                       properties:
@@ -87,11 +119,17 @@ spec:
                         revision:
                           description: Supports regular expressions.
                           type: string
+                      required:
+                      - events
+                      - repoName
+                      - revision
                       type: object
                     name:
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
+                  required:
+                  - name
                   type: object
                 type: array
               isolation:
@@ -118,6 +156,9 @@ spec:
                         If it is empty, the trigger will determine the revision of
                         the pipeline based on the revision of the event source
                       type: string
+                  required:
+                  - eventSource
+                  - pipeline
                   type: object
                 type: array
               pipelines:
@@ -127,7 +168,7 @@ spec:
                     corresponds to one declaration file in the Git repository.
                   properties:
                     label:
-                      description: Default is 'default'
+                      description: Optional Default is 'default'
                       type: string
                     name:
                       minLength: 1
@@ -136,10 +177,21 @@ spec:
                     path:
                       description: Pipeline manifest path, wildcard support.
                       type: string
+                  required:
+                  - name
+                  - path
                   type: object
                 type: array
               project:
                 type: string
+            required:
+            - destination
+            - eventSources
+            - isolation
+            - pipelineSource
+            - pipelineTriggers
+            - pipelines
+            - project
             type: object
           status:
             description: ProjectPipelineRuntimeStatus defines the observed state of
@@ -242,6 +294,8 @@ spec:
                             timezone:
                               description: Timezone in which to run the schedule
                               type: string
+                          required:
+                          - exclusionDates
                           type: object
                         gitlab:
                           properties:
@@ -258,11 +312,17 @@ spec:
                             revision:
                               description: Supports regular expressions.
                               type: string
+                          required:
+                          - events
+                          - repoName
+                          - revision
                           type: object
                         name:
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
+                      required:
+                      - name
                       type: object
                     reason:
                       type: string

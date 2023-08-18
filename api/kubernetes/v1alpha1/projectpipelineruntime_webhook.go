@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -127,6 +128,28 @@ func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient Va
 		return nil, err
 	}
 
+	if r.Spec.AdditionalResources != nil &&
+		r.Spec.AdditionalResources.Git != nil &&
+		r.Spec.AdditionalResources.Git.CodeRepo != "" {
+		if err := hasCodeRepoPermission(ctx, validateClient, productName, projectName, r.Spec.AdditionalResources.Git.CodeRepo); err != nil {
+			return nil, fmt.Errorf("pipeline can not use code repo %s in additional resource: %s", r.Spec.AdditionalResources.Git.CodeRepo, err)
+		}
+	}
+
+	namespaceUsage, err := GetUsedNamespaces(ctx, validateClient,
+		GetUsedNamespaceWithOutRuntimes([]Runtime{r}),
+		GetUsedNamespacesInCluster(cluster.Name))
+	if err != nil {
+		return nil, fmt.Errorf("get used namespaces in cluster %s failed: %w", cluster.Name, err)
+	}
+
+	if namespaces, ok := namespaceUsage[cluster.Name]; ok {
+		nsSet := sets.New(namespaces...)
+		if nsSet.Has(r.GetNamespaces()[0]) {
+			return nil, fmt.Errorf("namespace %s is used by other runtime", r.GetNamespaces()[0])
+		}
+	}
+
 	illegalEvnentSources := []IllegalEventSource{}
 	for _, eventSource := range r.Spec.EventSources {
 
@@ -146,6 +169,7 @@ func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient Va
 	return illegalEvnentSources, nil
 }
 
+// StaticCheck check resource is legal without connecting kubernetes
 func (r *ProjectPipelineRuntime) StaticCheck() error {
 	eventSourceNames := make(map[string]bool, 0)
 	for _, es := range r.Spec.EventSources {
@@ -161,6 +185,15 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 			return fmt.Errorf("pipeline %s is duplicate", pipeline.Name)
 		}
 		pipelineNames[pipeline.Name] = true
+	}
+
+	if r.Spec.AdditionalResources != nil {
+		res := r.Spec.AdditionalResources
+		if res.Git != nil {
+			if res.Git.CodeRepo == "" && res.Git.URL == "" {
+				return fmt.Errorf("code repo and url can not be empty at the same time")
+			}
+		}
 	}
 
 	triggerTags := make(map[string]bool, 0)
@@ -235,7 +268,7 @@ func getDependentResourcesOfEnvironmentFromPipelineRuntime(ctx context.Context, 
 
 	dependencies := []string{}
 	for _, runtime := range runtimes {
-		if runtime.Spec.Destination == envName {
+		if runtime.Spec.Destination.Environment == envName {
 			dependencies = append(dependencies, fmt.Sprintf("pipelineRuntime/%s", runtime.Name))
 		}
 	}

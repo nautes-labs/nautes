@@ -21,11 +21,11 @@ import (
 type Gitlab struct {
 	// Gitlab project name.
 	// +kubebuilder:validation:MinLength=1
-	RepoName string `json:"repoName,omitempty"`
+	RepoName string `json:"repoName"`
 	// Supports regular expressions.
-	Revision string `json:"revision,omitempty"`
+	Revision string `json:"revision"`
 	// Gitlab webhook events: push_events, tag_push_events, etc.
-	Events []string `json:"events,omitempty"`
+	Events []string `json:"events"`
 }
 
 type Calendar struct {
@@ -36,7 +36,7 @@ type Calendar struct {
 	// +optional
 	Interval string `json:"interval,omitempty"`
 	// ExclusionDates defines the list of DATE-TIME exceptions for recurring events.
-	ExclusionDates []string `json:"exclusionDates,omitempty"`
+	ExclusionDates []string `json:"exclusionDates"`
 	// Timezone in which to run the schedule
 	// +optional
 	Timezone string `json:"timezone,omitempty"`
@@ -45,7 +45,7 @@ type Calendar struct {
 type EventSource struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// +optional
 	Gitlab *Gitlab `json:"gitlab,omitempty"`
 	// +optional
@@ -56,10 +56,10 @@ type EventSource struct {
 type PipelineTrigger struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
-	EventSource string `json:"eventSource,omitempty"`
+	EventSource string `json:"eventSource"`
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
-	Pipeline string `json:"pipeline,omitempty"`
+	Pipeline string `json:"pipeline"`
 	// Optional
 	// Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
 	Revision string `json:"revision,omitempty"`
@@ -69,27 +69,53 @@ type PipelineTrigger struct {
 type Pipeline struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
+	// Optional
 	// Default is 'default'
 	Label string `json:"label,omitempty"`
 	// Pipeline manifest path, wildcard support.
-	Path string `json:"path,omitempty"`
+	Path string `json:"path"`
 }
 
 // ProjectPipelineRuntimeSpec defines the desired state of ProjectPipelineRuntime
 type ProjectPipelineRuntimeSpec struct {
-	Project string `json:"project,omitempty"`
+	Project string `json:"project"`
 	// The code repo for pipeline manifests.
-	PipelineSource string `json:"pipelineSource,omitempty"`
+	PipelineSource string `json:"pipelineSource"`
 	// The definition of pipeline.
-	Pipelines []Pipeline `json:"pipelines,omitempty"`
+	Pipelines []Pipeline `json:"pipelines"`
 	// The target environment for running the pipeline.
-	Destination string `json:"destination,omitempty"`
+	Destination ProjectPipelineDestination `json:"destination"`
 	// Events source that may trigger the pipeline.
-	EventSources []EventSource `json:"eventSources,omitempty"`
+	EventSources []EventSource `json:"eventSources"`
 	// Isolation definition of pipeline runtime related resources: shared(default) or exclusive
-	Isolation        string            `json:"isolation,omitempty"`
-	PipelineTriggers []PipelineTrigger `json:"pipelineTriggers,omitempty"`
+	Isolation        string            `json:"isolation"`
+	PipelineTriggers []PipelineTrigger `json:"pipelineTriggers"`
+	// Optional
+	AdditionalResources *ProjectPipelineRuntimeAdditionalResources `json:"additionalResources,omitempty"`
+}
+
+// ProjectPipelineRuntimeDestination defines where pipeline runtime will run
+type ProjectPipelineRuntimeDestination struct {
+	Environment string `json:"environment"`
+	Namespace   string `json:"namespace"`
+}
+
+// ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
+type ProjectPipelineRuntimeAdditionalResources struct {
+	// Optional
+	Git *ProjectPipelineRuntimeAdditionalResourcesGit `json:"git,omitempty"`
+}
+
+// ProjectPipelineRuntimeAdditionalResourcesGit defines the additional resources if it comes from git
+type ProjectPipelineRuntimeAdditionalResourcesGit struct {
+	// Optional
+	CodeRepo string `json:"codeRepo,omitempty"`
+	// Optional
+	// If git repo is a public repo, use url instead
+	URL      string `json:"url,omitempty"`
+	Revision string `json:"revision"`
+	Path     string `json:"path"`
 }
 
 // ProjectPipelineRuntimeStatus defines the observed state of ProjectPipelineRuntime
