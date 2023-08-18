@@ -149,7 +149,7 @@ var _ = AfterSuite(func() {
 })
 
 func randNum() string {
-	return fmt.Sprintf("%04d", rand.Intn(9999))
+	return fmt.Sprintf("%04d", rand.Intn(999999))
 }
 
 func waitForDelete(obj client.Object) error {

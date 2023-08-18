@@ -1542,11 +1542,12 @@ components:
                         $ref: '#/components/schemas/api.projectpipelineruntime.v1.PipelineTriggers'
                     description: Pipeline event triggers.
                 destination:
-                    type: string
-                    description: Target deployment environment.
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineDestination'
                 isolation:
                     type: string
                     description: 'Isolation definition of pipeline runtime related resources: shared(default) or exclusive.'
+                additional_resources:
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
             description: Response message format for getting pipeline information.
         api.projectpipelineruntime.v1.Gitlab:
             type: object
@@ -1596,6 +1597,32 @@ components:
                 revision:
                     type: string
                     description: Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
+        api.projectpipelineruntime.v1.ProjectPipelineDestination:
+            type: object
+            properties:
+                environment:
+                    type: string
+                    description: Environment for pipeline deployment.
+                namespace:
+                    type: string
+                    description: Set the namespace for the pipeline.
+        api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources:
+            type: object
+            properties:
+                git:
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResourcesGit'
+        api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResourcesGit:
+            type: object
+            properties:
+                coderepo:
+                    type: string
+                url:
+                    type: string
+                    description: If git repo is a public repo, use url instead
+                revision:
+                    type: string
+                path:
+                    type: string
         api.projectpipelineruntime.v1.SaveReply:
             type: object
             properties:
@@ -1628,11 +1655,12 @@ components:
                         $ref: '#/components/schemas/api.projectpipelineruntime.v1.PipelineTriggers'
                     description: Pipeline event triggers.
                 destination:
-                    type: string
-                    description: The definition of pipeline.
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineDestination'
                 isolation:
                     type: string
                     description: 'Isolation definition of pipeline runtime related resources: shared(default) or exclusive'
+                additional_resources:
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
             description: Message containing the body of the request.
         google.protobuf.ListValue:
             type: object

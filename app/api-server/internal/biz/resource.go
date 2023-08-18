@@ -528,7 +528,7 @@ func (r *ResourcesUsecase) ConvertCodeRepoToRepoName(ctx context.Context, codeRe
 	return project.Name, nil
 }
 
-func (r *ResourcesUsecase) ConvertRepoNameToCodeRepo(ctx context.Context, productName, codeRepoName string) (string, error) {
+func (r *ResourcesUsecase) ConvertRepoNameToCodeRepoName(ctx context.Context, productName, codeRepoName string) (string, error) {
 	pid := fmt.Sprintf("%s/%s", productName, codeRepoName)
 	project, err := r.codeRepo.GetCodeRepo(ctx, pid)
 	if err != nil {

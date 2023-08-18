@@ -675,6 +675,371 @@ var _ interface {
 	ErrorName() string
 } = PipelineTriggersValidationError{}
 
+// Validate checks the field values on ProjectPipelineDestination with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ProjectPipelineDestination) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ProjectPipelineDestination with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ProjectPipelineDestinationMultiError, or nil if none found.
+func (m *ProjectPipelineDestination) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ProjectPipelineDestination) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetEnvironment()) < 1 {
+		err := ProjectPipelineDestinationValidationError{
+			field:  "Environment",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for Namespace
+
+	if len(errors) > 0 {
+		return ProjectPipelineDestinationMultiError(errors)
+	}
+
+	return nil
+}
+
+// ProjectPipelineDestinationMultiError is an error wrapping multiple
+// validation errors returned by ProjectPipelineDestination.ValidateAll() if
+// the designated constraints aren't met.
+type ProjectPipelineDestinationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ProjectPipelineDestinationMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ProjectPipelineDestinationMultiError) AllErrors() []error { return m }
+
+// ProjectPipelineDestinationValidationError is the validation error returned
+// by ProjectPipelineDestination.Validate if the designated constraints aren't met.
+type ProjectPipelineDestinationValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ProjectPipelineDestinationValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ProjectPipelineDestinationValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ProjectPipelineDestinationValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ProjectPipelineDestinationValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ProjectPipelineDestinationValidationError) ErrorName() string {
+	return "ProjectPipelineDestinationValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ProjectPipelineDestinationValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sProjectPipelineDestination.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ProjectPipelineDestinationValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ProjectPipelineDestinationValidationError{}
+
+// Validate checks the field values on
+// ProjectPipelineRuntimeAdditionalResources with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *ProjectPipelineRuntimeAdditionalResources) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ProjectPipelineRuntimeAdditionalResources with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// ProjectPipelineRuntimeAdditionalResourcesMultiError, or nil if none found.
+func (m *ProjectPipelineRuntimeAdditionalResources) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ProjectPipelineRuntimeAdditionalResources) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetGit()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ProjectPipelineRuntimeAdditionalResourcesValidationError{
+					field:  "Git",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ProjectPipelineRuntimeAdditionalResourcesValidationError{
+					field:  "Git",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetGit()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ProjectPipelineRuntimeAdditionalResourcesValidationError{
+				field:  "Git",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ProjectPipelineRuntimeAdditionalResourcesMultiError(errors)
+	}
+
+	return nil
+}
+
+// ProjectPipelineRuntimeAdditionalResourcesMultiError is an error wrapping
+// multiple validation errors returned by
+// ProjectPipelineRuntimeAdditionalResources.ValidateAll() if the designated
+// constraints aren't met.
+type ProjectPipelineRuntimeAdditionalResourcesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ProjectPipelineRuntimeAdditionalResourcesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ProjectPipelineRuntimeAdditionalResourcesMultiError) AllErrors() []error { return m }
+
+// ProjectPipelineRuntimeAdditionalResourcesValidationError is the validation
+// error returned by ProjectPipelineRuntimeAdditionalResources.Validate if the
+// designated constraints aren't met.
+type ProjectPipelineRuntimeAdditionalResourcesValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ProjectPipelineRuntimeAdditionalResourcesValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ProjectPipelineRuntimeAdditionalResourcesValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ProjectPipelineRuntimeAdditionalResourcesValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ProjectPipelineRuntimeAdditionalResourcesValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ProjectPipelineRuntimeAdditionalResourcesValidationError) ErrorName() string {
+	return "ProjectPipelineRuntimeAdditionalResourcesValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ProjectPipelineRuntimeAdditionalResourcesValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sProjectPipelineRuntimeAdditionalResources.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ProjectPipelineRuntimeAdditionalResourcesValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ProjectPipelineRuntimeAdditionalResourcesValidationError{}
+
+// Validate checks the field values on
+// ProjectPipelineRuntimeAdditionalResourcesGit with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *ProjectPipelineRuntimeAdditionalResourcesGit) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ProjectPipelineRuntimeAdditionalResourcesGit with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// ProjectPipelineRuntimeAdditionalResourcesGitMultiError, or nil if none found.
+func (m *ProjectPipelineRuntimeAdditionalResourcesGit) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ProjectPipelineRuntimeAdditionalResourcesGit) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Coderepo
+
+	// no validation rules for Url
+
+	// no validation rules for Revision
+
+	// no validation rules for Path
+
+	if len(errors) > 0 {
+		return ProjectPipelineRuntimeAdditionalResourcesGitMultiError(errors)
+	}
+
+	return nil
+}
+
+// ProjectPipelineRuntimeAdditionalResourcesGitMultiError is an error wrapping
+// multiple validation errors returned by
+// ProjectPipelineRuntimeAdditionalResourcesGit.ValidateAll() if the
+// designated constraints aren't met.
+type ProjectPipelineRuntimeAdditionalResourcesGitMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ProjectPipelineRuntimeAdditionalResourcesGitMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ProjectPipelineRuntimeAdditionalResourcesGitMultiError) AllErrors() []error { return m }
+
+// ProjectPipelineRuntimeAdditionalResourcesGitValidationError is the
+// validation error returned by
+// ProjectPipelineRuntimeAdditionalResourcesGit.Validate if the designated
+// constraints aren't met.
+type ProjectPipelineRuntimeAdditionalResourcesGitValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ProjectPipelineRuntimeAdditionalResourcesGitValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ProjectPipelineRuntimeAdditionalResourcesGitValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ProjectPipelineRuntimeAdditionalResourcesGitValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ProjectPipelineRuntimeAdditionalResourcesGitValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ProjectPipelineRuntimeAdditionalResourcesGitValidationError) ErrorName() string {
+	return "ProjectPipelineRuntimeAdditionalResourcesGitValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ProjectPipelineRuntimeAdditionalResourcesGitValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sProjectPipelineRuntimeAdditionalResourcesGit.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ProjectPipelineRuntimeAdditionalResourcesGitValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ProjectPipelineRuntimeAdditionalResourcesGitValidationError{}
+
 // Validate checks the field values on GetRequest with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -908,9 +1273,65 @@ func (m *GetReply) validate(all bool) error {
 
 	}
 
-	// no validation rules for Destination
+	if all {
+		switch v := interface{}(m.GetDestination()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GetReplyValidationError{
+					field:  "Destination",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GetReplyValidationError{
+					field:  "Destination",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDestination()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GetReplyValidationError{
+				field:  "Destination",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	// no validation rules for Isolation
+
+	if all {
+		switch v := interface{}(m.GetAdditionalResources()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GetReplyValidationError{
+					field:  "AdditionalResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GetReplyValidationError{
+					field:  "AdditionalResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAdditionalResources()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GetReplyValidationError{
+				field:  "AdditionalResources",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return GetReplyMultiError(errors)
@@ -1846,15 +2267,33 @@ func (m *SaveRequest_Body) validate(all bool) error {
 
 	}
 
-	if utf8.RuneCountInString(m.GetDestination()) < 1 {
-		err := SaveRequest_BodyValidationError{
-			field:  "Destination",
-			reason: "value length must be at least 1 runes",
+	if all {
+		switch v := interface{}(m.GetDestination()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SaveRequest_BodyValidationError{
+					field:  "Destination",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SaveRequest_BodyValidationError{
+					field:  "Destination",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
 		}
-		if !all {
-			return err
+	} else if v, ok := interface{}(m.GetDestination()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return SaveRequest_BodyValidationError{
+				field:  "Destination",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
 		}
-		errors = append(errors, err)
 	}
 
 	if _, ok := _SaveRequest_Body_Isolation_InLookup[m.GetIsolation()]; !ok {
@@ -1866,6 +2305,35 @@ func (m *SaveRequest_Body) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetAdditionalResources()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SaveRequest_BodyValidationError{
+					field:  "AdditionalResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SaveRequest_BodyValidationError{
+					field:  "AdditionalResources",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAdditionalResources()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return SaveRequest_BodyValidationError{
+				field:  "AdditionalResources",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
 
 	if len(errors) > 0 {
