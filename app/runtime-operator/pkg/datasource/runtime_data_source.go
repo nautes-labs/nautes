@@ -58,6 +58,8 @@ func (b permissionMatrix) ListCodeReposInProject(name string) []string {
 	return b[name]
 }
 
+//+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=projects,verbs=get;list;watch
+
 type RuntimeDataSource struct {
 	k8sClient           client.Client
 	nautesNamespaceName string
