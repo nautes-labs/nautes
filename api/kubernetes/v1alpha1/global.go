@@ -19,6 +19,7 @@ import (
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -87,6 +88,7 @@ func findConditionIndexByType(conditions []metav1.Condition, t string) int {
 
 // +kubebuilder:object:generate=false
 type Runtime interface {
+	client.Object
 	GetProduct() string
 	GetName() string
 	GetDestination() string
