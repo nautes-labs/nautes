@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: coderepobindings.nautes.resource.nautes.io
 spec:
@@ -15,7 +15,14 @@ spec:
     singular: coderepobinding
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.product
+      name: PRODUCTRESOURCENAME
+      type: string
+    - jsonPath: .spec.coderepo
+      name: CODEREPORESOURCENAME
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CodeRepoBinding is the Schema for the coderepobindings API
@@ -35,7 +42,7 @@ spec:
           spec:
             description: CodeRepoBindingSpec defines the desired state of CodeRepoBinding
             properties:
-              coderepo:
+              codeRepo:
                 description: Authorized Code Repository.
                 type: string
               permissions:
@@ -61,9 +68,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

@@ -21,6 +21,7 @@ import (
 	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/constant"
 	runtimecontext "github.com/nautes-labs/nautes/app/runtime-operator/pkg/context"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
 	interfaces "github.com/nautes-labs/nautes/app/runtime-operator/pkg/interface"
 	nautescfg "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +60,12 @@ func (s *Syncer) Sync(ctx context.Context, runtime interfaces.Runtime) (*interfa
 		return nil, fmt.Errorf("get nautes config from context failed")
 	}
 
-	cluster, err := s.getCluster(ctx, runtime.GetProduct(), runtime.GetDestination(), cfg.Nautes.Namespace)
+	productDB, err := datasource.NewRuntimeDataSource(ctx, s.Client, runtime.GetProduct(), cfg.Nautes.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("collect product infos failed: %w", err)
+	}
+
+	cluster, err := productDB.GetClusterByRuntime(runtime.(nautescrd.Runtime))
 	if err != nil {
 		return nil, fmt.Errorf("get cluster info failed: %w", err)
 	}
@@ -103,6 +109,31 @@ func (s *Syncer) Sync(ctx context.Context, runtime interfaces.Runtime) (*interfa
 		return nil, fmt.Errorf("init env failed: %w", err)
 	}
 
+	initInfo, err := newComponentInitInfo(runtime.(nautescrd.Runtime), productDB, accessInfo.Kubernetes)
+	if err != nil {
+		return nil, fmt.Errorf("get deploy task failed: %w", err)
+	}
+
+	componentDeployment := cluster.Spec.ComponentsList.Deployment
+	if componentDeployment == nil {
+		return nil, fmt.Errorf("cluster %s deployment component is nil", cluster.Name)
+	}
+
+	runtimeSyncer, err := NewRuntimeSyncer(ctx, *initInfo, productDB, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create runtime syncer failed: %w", err)
+	}
+
+	deployer, err := newDeployer(*componentDeployment, *initInfo, productDB)
+	if err != nil {
+		return nil, fmt.Errorf("get deployer failed: %w", err)
+	}
+
+	app, err := newDeployAppV2(runtime.(nautescrd.Runtime), productDB)
+	if err != nil {
+		return nil, fmt.Errorf("get deploy app failed: %w", err)
+	}
+
 	switch deployTask.RuntimeType {
 	case interfaces.RUNTIME_TYPE_DEPLOYMENT:
 		deployApp, err := getDeployApp(ctx, string(cluster.Spec.ClusterKind), cfg)
@@ -131,6 +162,17 @@ func (s *Syncer) Sync(ctx context.Context, runtime interfaces.Runtime) (*interfa
 		if err := pipelineApp.DeployPipelineRuntime(ctx, *deployTask); err != nil {
 			return nil, fmt.Errorf("sync pipeline runtime failed: %w", err)
 		}
+
+		if err := runtimeSyncer.SyncCodeRepos(ctx); err != nil {
+			return nil, fmt.Errorf("sync code repos failed: %w", err)
+		}
+
+		if app != nil {
+			err := deployer.DeployApp(ctx, *app)
+			if err != nil {
+				return nil, fmt.Errorf("deploy app failed: %w", err)
+			}
+		}
 	}
 	return result, nil
 }
@@ -142,7 +184,12 @@ func (s *Syncer) Delete(ctx context.Context, runtime interfaces.Runtime) error {
 		return fmt.Errorf("get nautes config from context failed")
 	}
 
-	cluster, err := s.getCluster(ctx, runtime.GetProduct(), runtime.GetDestination(), cfg.Nautes.Namespace)
+	productDB, err := datasource.NewRuntimeDataSource(ctx, s.Client, runtime.GetProduct(), cfg.Nautes.Namespace)
+	if err != nil {
+		return fmt.Errorf("collect product infos failed: %w", err)
+	}
+
+	cluster, err := productDB.GetClusterByRuntime(runtime.(nautescrd.Runtime))
 	if err != nil {
 		return fmt.Errorf("get cluster info failed: %w", err)
 	}
@@ -163,6 +210,31 @@ func (s *Syncer) Delete(ctx context.Context, runtime interfaces.Runtime) error {
 	})
 	if err != nil {
 		return fmt.Errorf("create deploy task failed: %w", err)
+	}
+
+	initInfo, err := newComponentInitInfo(runtime.(nautescrd.Runtime), productDB, accessInfo.Kubernetes)
+	if err != nil {
+		return fmt.Errorf("get deploy task failed: %w", err)
+	}
+
+	componentDeployment := cluster.Spec.ComponentsList.Deployment
+	if componentDeployment == nil {
+		return fmt.Errorf("cluster %s deployment component is nil", cluster.Name)
+	}
+
+	runtimeSyncer, err := NewRuntimeSyncer(ctx, *initInfo, productDB, cfg)
+	if err != nil {
+		return fmt.Errorf("create runtime syncer failed: %w", err)
+	}
+
+	deployer, err := newDeployer(*componentDeployment, *initInfo, productDB)
+	if err != nil {
+		return fmt.Errorf("get deployer failed: %w", err)
+	}
+
+	app, err := newDeployAppV2(runtime.(nautescrd.Runtime), productDB)
+	if err != nil {
+		return fmt.Errorf("get deploy app failed: %w", err)
 	}
 
 	switch deployTask.RuntimeType {
@@ -188,6 +260,16 @@ func (s *Syncer) Delete(ctx context.Context, runtime interfaces.Runtime) error {
 		pipelineApp, err := getPipelineApp(ctx, string(cluster.Spec.ClusterKind), cfg)
 		if err := pipelineApp.UnDeployPipelineRuntime(ctx, *deployTask); err != nil {
 			return fmt.Errorf("sync pipeline runtime failed: %w", err)
+		}
+
+		if app != nil {
+			if err := deployer.UnDeployApp(ctx, *app); err != nil {
+				return fmt.Errorf("remove deploy app failed: %w", err)
+			}
+		}
+
+		if err := runtimeSyncer.SyncCodeRepos(ctx); err != nil {
+			return fmt.Errorf("sync code repos failed: %w", err)
 		}
 	}
 
