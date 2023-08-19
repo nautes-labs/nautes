@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: clusters.nautes.resource.nautes.io
 spec:
@@ -48,7 +48,7 @@ spec:
           spec:
             description: ClusterSpec defines the desired state of Cluster
             properties:
-              apiserver:
+              apiServer:
                 pattern: https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)
                 type: string
               clusterKind:
@@ -56,13 +56,156 @@ spec:
                 enum:
                 - kubernetes
                 type: string
-              clustertype:
+              clusterType:
                 enum:
                 - physical
                 - virtual
                 type: string
-              hostcluster:
+              componentsList:
+                description: ComponentsList declares the specific components used
+                  by the cluster
+                properties:
+                  certMgt:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  deployment:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  eventListener:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  ingressController:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  multiTenant:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  pipeline:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  progressiveDelivery:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  secretMgt:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  secretSync:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                type: object
+              hostCluster:
                 type: string
+              primaryDomain:
+                description: PrimaryDomain is used to build the domain of components
+                  within the cluster
+                type: string
+              productAllowedClusterResources:
+                additionalProperties:
+                  items:
+                    properties:
+                      group:
+                        minLength: 1
+                        type: string
+                      kind:
+                        minLength: 1
+                        type: string
+                    required:
+                    - group
+                    - kind
+                    type: object
+                  type: array
+                description: ReservedNamespacesAllowedProducts key is product name,
+                  value is the list of cluster resources.
+                type: object
+              reservedNamespacesAllowedProducts:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: ReservedNamespacesAllowedProducts key is namespace name,
+                  value is the product name list witch can use namespace.
+                type: object
               usage:
                 description: the usage of cluster, for user use it directry or deploy
                   vcluster on it
@@ -70,9 +213,18 @@ spec:
                 - host
                 - worker
                 type: string
+              workerType:
+                description: pipeline or deployment, when the cluster usage is 'worker',
+                  the WorkType is required.
+                enum:
+                - ""
+                - pipeline
+                - deployment
+                type: string
             required:
-            - apiserver
-            - clustertype
+            - apiServer
+            - clusterType
+            - componentsList
             - usage
             type: object
           status:
@@ -83,8 +235,8 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{ // Represents the observations of a foo's
-                    current state. // Known .status.conditions.type are: \"Available\",
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
                     \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
                     // +listType=map // +listMapKey=type Conditions []metav1.Condition
                     `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
@@ -145,7 +297,6 @@ spec:
                   - status
                   - type
                   type: object
-                nullable: true
                 type: array
               entryPoints:
                 additionalProperties:
@@ -160,7 +311,6 @@ spec:
                     type:
                       type: string
                   type: object
-                nullable: true
                 type: object
               mgtAuthStatus:
                 properties:
@@ -176,6 +326,12 @@ spec:
                 - lastSuccessTime
                 - secretID
                 type: object
+              productIDMap:
+                additionalProperties:
+                  type: string
+                description: PruoductIDMap records the corresponding relationship
+                  between product name and product in kubernetes.
+                type: object
               sync2ArgoStatus:
                 properties:
                   lastSuccessSpec:
@@ -190,15 +346,29 @@ spec:
                 - lastSuccessTime
                 - secretID
                 type: object
+              warnings:
+                items:
+                  properties:
+                    from:
+                      description: From is which operator recorded this warning.
+                      type: string
+                    id:
+                      description: ID records the unique identifier of the warning.
+                      type: string
+                    message:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - from
+                  - id
+                  - message
+                  - type
+                  type: object
+                type: array
             type: object
         type: object
     served: true
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
