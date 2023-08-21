@@ -245,10 +245,10 @@ func (c *CodeRepoBindingUsecase) applyDeploykey(ctx context.Context, authorizati
 		deploykey, err = c.codeRepo.GetDeployKey(ctx, pid, tmpMap.deployKey.ID)
 		if err != nil {
 			if commonv1.IsDeploykeyNotFound(err) {
-				c.log.Debugf("failed to get deploykey during applyDeploykey, repo id: %d, err: %w", pid, err)
+				c.log.Debugf("failed to get deploykey during applyDeploykey, repo id: %d, err: %v", pid, err)
 				continue
 			}
-			return fmt.Errorf("failed to get deploykey during applyDeploykey, repo id: %d, err: %w", pid, err)
+			return fmt.Errorf("failed to get deploykey during applyDeploykey, repo id: %d, err: %v", pid, err)
 		}
 
 		err = fn(ctx, authorizationpid, deploykey.ID)
