@@ -343,7 +343,7 @@ func (c *ClusterUsecase) GetTenantRepository(ctx context.Context) (*Project, err
 		return nil, fmt.Errorf("tenant repository is not found")
 	}
 
-	pid, _ := utilstrings.ExtractNumber("repo-", codeRepos.Items[0].Name)
+	pid, _ := utilstrings.ExtractNumber(RepoPrefix, codeRepos.Items[0].Name)
 	repository, err := c.codeRepo.GetCodeRepo(ctx, pid)
 	if err != nil {
 		return nil, err
