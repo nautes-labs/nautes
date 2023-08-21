@@ -81,7 +81,7 @@ func (p *ProjectPipelineRuntimeUsecase) ListProjectPipelineRuntimes(ctx context.
 func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.Context, options *BizOptions, data *ProjectPipelineRuntimeData) error {
 	codeRepoName, err := p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.PipelineSource)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get codeRepo name when converting pipeline repository name, err: %v", err)
 	}
 	data.Spec.PipelineSource = codeRepoName
 
@@ -89,7 +89,7 @@ func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.C
 	if data.Spec.AdditionalResources != nil && data.Spec.AdditionalResources.Git != nil {
 		codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get codeRepo name when converting git repository name for additional resources, err: %v", err)
 		}
 		data.Spec.AdditionalResources.Git.CodeRepo = codeRepoName
 	}
@@ -98,7 +98,7 @@ func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.C
 		if eventSource.Gitlab != nil && eventSource.Gitlab.RepoName != "" {
 			codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, eventSource.Gitlab.RepoName)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get codeRepo name when converting git repository name for event source, err: %v", err)
 			}
 			eventSource.Gitlab.RepoName = codeRepoName
 			data.Spec.EventSources[idx] = eventSource

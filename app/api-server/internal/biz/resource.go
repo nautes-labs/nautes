@@ -388,17 +388,17 @@ func (r *ResourcesUsecase) CloneCodeRepo(ctx context.Context, url string) (path 
 func (r *ResourcesUsecase) WriteResource(node *nodestree.Node) (err error) {
 	jsonBytes, err := json.Marshal(node.Content)
 	if err != nil {
-		return fmt.Errorf("failed to convert resource to json data, err: %w", err)
+		return fmt.Errorf("failed to convert resource to json data, err: %v", err)
 	}
 
 	jsonString, err := sjson.Delete(string(jsonBytes), "status")
 	if err != nil {
-		return fmt.Errorf("failed to delete status field of resource, err: %w", err)
+		return fmt.Errorf("failed to delete status field of resource, err: %v", err)
 	}
 
 	yamlBytes, err := yaml.JSONToYAML([]byte(jsonString))
 	if err != nil {
-		return fmt.Errorf("failed to convert json to yaml data, err: %w", err)
+		return fmt.Errorf("failed to convert json to yaml data, err: %v", err)
 	}
 
 	subPath := filepath.Dir(node.Path)
@@ -406,13 +406,13 @@ func (r *ResourcesUsecase) WriteResource(node *nodestree.Node) (err error) {
 	if !os.IsExist(err) {
 		err := os.MkdirAll(subPath, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("failed to write resource directory, err: %w", err)
+			return fmt.Errorf("failed to write resource directory, err: %v", err)
 		}
 	}
 
 	err = os.WriteFile(node.Path, yamlBytes, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to write resource file, err: %w", err)
+		return fmt.Errorf("failed to write resource file, err: %v", err)
 	}
 
 	return
@@ -515,14 +515,14 @@ func (r *ResourcesUsecase) SaveConfig(ctx context.Context, path string) error {
 }
 
 func (r *ResourcesUsecase) ConvertCodeRepoToRepoName(ctx context.Context, codeRepoName string) (string, error) {
-	id, err := utilstrings.ExtractNumber("repo-", codeRepoName)
+	id, err := utilstrings.ExtractNumber(RepoPrefix, codeRepoName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("the codeRepo name %s is illegal and must be in the format 'repo-ID'", codeRepoName)
 	}
 
 	project, err := r.codeRepo.GetCodeRepo(ctx, id)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to convert codeRepo name %s to repository name, err: %v", codeRepoName, err)
 	}
 
 	return project.Name, nil
@@ -532,7 +532,7 @@ func (r *ResourcesUsecase) ConvertRepoNameToCodeRepoName(ctx context.Context, pr
 	pid := fmt.Sprintf("%s/%s", productName, codeRepoName)
 	project, err := r.codeRepo.GetCodeRepo(ctx, pid)
 	if err != nil {
-		return "", fmt.Errorf("invalid authorization code repository specified, err: %v", err)
+		return "", fmt.Errorf("failed to convert repository name %s to codeRepo name, err: %v", codeRepoName, err)
 	}
 
 	return fmt.Sprintf("%s%d", RepoPrefix, int(project.ID)), nil
@@ -548,7 +548,7 @@ func (r *ResourcesUsecase) ConvertProductToGroupName(ctx context.Context, produc
 
 	group, ok := cacheGroup[productName]
 	if !ok {
-		id, err = utilstrings.ExtractNumber("product-", productName)
+		id, err = utilstrings.ExtractNumber(ProductPrefix, productName)
 		if err != nil {
 			return "", err
 		}
@@ -617,8 +617,9 @@ func (r *ResourcesUsecase) retryAutoMerge(ctx context.Context, path string) erro
 func isMergeExceededTimes(ctx context.Context, exceed int) (bool, int, error) {
 	count := getCount(ctx)
 	val, ok := count.(int)
+	// if the count type error, immediately terminate retry.
 	if !ok {
-		return false, 0, fmt.Errorf("count type is not int")
+		return true, exceed, nil
 	}
 
 	if val == exceed {

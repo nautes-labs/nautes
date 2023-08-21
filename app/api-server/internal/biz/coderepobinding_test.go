@@ -114,7 +114,7 @@ var _ = Describe("Get CodeRepoBinding", func() {
 		fakeErrorKindResource = createFakeCodeRepoBindingErrorKindResource(resourceName, "project1")
 		fakeErrorKindNode     = createFakeCodeRepoNode(fakeErrorKindResource)
 		fakeErrorKindNodes    = createFakeContainingCodeRepoBindingNodes(fakeErrorKindNode)
-		gid, _                = utilstrings.ExtractNumber("product-", fakeResource.Spec.Product)
+		gid, _                = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
 		project               = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1")}
 		projectDeployKey      = &ProjectDeployKey{
 			ID:  2013,
@@ -210,7 +210,7 @@ var _ = Describe("List CodeRepoBinding", func() {
 		fakeErrorKindResource = createFakeCodeRepoBindingErrorKindResource(resourceName, "project1")
 		fakeErrorKindNode     = createFakeCodeRepoNode(fakeErrorKindResource)
 		fakeErrorKindNodes    = createFakeContainingCodeRepoBindingNodes(fakeErrorKindNode)
-		gid, _                = utilstrings.ExtractNumber("product-", fakeResource.Spec.Product)
+		gid, _                = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
 		project               = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1")}
 		projectDeployKey      = &ProjectDeployKey{
 			ID:  2013,
@@ -336,7 +336,7 @@ var _ = Describe("Save CodeRepoBinding", func() {
 			Fingerprint: "Fingerprint",
 		}
 		listProjectDeployKeys = []*ProjectDeployKey{projectDeployKey}
-		gid, _                = utilstrings.ExtractNumber("product-", fakeResource1.Spec.Product)
+		gid, _                = utilstrings.ExtractNumber(ProductPrefix, fakeResource1.Spec.Product)
 		codeRepoKind          = nodestree.CodeRepo
 		CodeRepoBindingKind   = nodestree.CodeRepoBinding
 	)
@@ -504,7 +504,7 @@ var _ = Describe("Delete CodeRepoBinding", func() {
 		repoName      = "codeRepo2"
 		fakeResource2 = createFakeCodeRepoResource(repoName)
 		fakeNodes2    = createFakeCodeRepoNode(fakeResource2)
-		gid, _        = utilstrings.ExtractNumber("product-", fakeResource.Spec.Product)
+		gid, _        = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
 		project       = &Project{
 			ID:            1222,
 			HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1"),
