@@ -67,6 +67,7 @@ var (
 	keyIsCodeRepoTrigger        = "isCodeRepoTrigger"
 	keyPipelineLabel            = "pipelineLabel"
 	keyServiceAccountName       = "serviceAccountName"
+	keyRuntimeNamespaceName     = "runtimeNamespaceName"
 )
 
 type eventType string

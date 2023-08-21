@@ -169,6 +169,7 @@ func newRuntimeSyncer(ctx context.Context, task interfaces.RuntimeSyncTask, tena
 		keyPipelineRepoID:           pipelineRepo.Name,
 		keyPipelineRepoURL:          pipelineRepoURL,
 		keyServiceAccountName:       task.ServiceAccountName,
+		keyRuntimeNamespaceName:     pipelineRuntime.GetNamespaces()[0],
 	}
 
 	cluster := &runtimeSyncer{
