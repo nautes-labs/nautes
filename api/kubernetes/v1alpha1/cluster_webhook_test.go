@@ -193,7 +193,7 @@ var _ = Describe("cluster webhook", func() {
 				Namespace: nautesNamespaceName,
 			},
 			Spec: ClusterSpec{
-				ApiServer:   "https://127.0.0.1:31667",
+				ApiServer:   "https://127.0.0.1:31668",
 				ClusterType: CLUSTER_TYPE_PHYSICAL,
 				Usage:       CLUSTER_USAGE_HOST,
 				ComponentsList: ComponentsList{

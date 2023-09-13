@@ -10,97 +10,120 @@ data:
       type: pipeline
       default: true
       general: false
+      properties:
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/tekton
-      - cluster_templates/runtimes/_RUNTIME_/production/tekton-app.yaml
-      - cluster_templates/runtimes/_RUNTIME_/production/tekton-cluster-tasks-app.yaml
+        '*':
+          - cluster_templates/runtimes/_RUNTIME_/tekton
+          - cluster_templates/runtimes/_RUNTIME_/production/tekton-app.yaml
+          - cluster_templates/runtimes/_RUNTIME_/production/tekton-cluster-tasks-app.yaml
     - name: argocd
       namespace: argocd
       type: deployment
       default: true
       general: true
+      properties:
       installPath:
-      - cluster_templates//runtimes/_RUNTIME_/argocd
-    - name: fluxcd
-      namespace: fluxcd
-      type: deployment
-      default: false
-      general: false
-      installPath:
-      - cluster_templates//runtimes/_RUNTIME_/fluxcd
+        '*':
+          - cluster_templates/runtimes/_RUNTIME_/argocd
+          - cluster_templates/tenant/production/runtime-argocd-appset.yaml
     - name: argo-events
       namespace: argo-events
       type: eventListener
       default: true
       general: false
+      properties:
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/argo-events-app.yaml
+        '*':
+          - cluster_templates/runtimes/_RUNTIME_/production/argo-events-app.yaml
+          - cluster_templates/runtimes/_RUNTIME_/argoevents
     - name: argo-rollouts
       namespace: argo-rollouts
       type: progressiveDelivery
       default: true
       general: false
+      properties:
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/argo-rollouts-app.yaml
+        '*':
+          - cluster_templates/runtimes/_RUNTIME_/production/argo-rollouts-app.yaml
     - name: hnc
       namespace: hnc-system
       type: multiTenant
       default: true
       general: true
+      properties:
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/hnc-app.yaml
+        '*':
+          - cluster_templates/runtimes/_RUNTIME_/production/hnc-app.yaml
     - name: cert-manager
       namespace: cert-manager
-      type: certMgt
+      type: certManagement
       default: true
       general: true
+      properties:
       installPath:
-      - tenant-repo-template/cert-manager
+        '*':
+          - ""
     - name: vault
       namespace: vault
-      type: secretMgt
+      type: secretManagement
       default: true
       general: true
+      properties:
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/vault-app.yaml
-      - cluster_templates/runtimes/_RUNTIME_/production/vault-resources-app.yaml
+        'worker&physical':
+          - cluster_templates/runtimes/_RUNTIME_/production/vault-app.yaml
+          - cluster_templates/runtimes/_RUNTIME_/initial/overlays/production/rbac-vault.yaml
+        'worker&virtual':
+          - cluster_templates/runtimes/_RUNTIME_/production/vault-app.yaml
     - name: external-secrets
       namespace: external-secrets
       type: secretSync
       default: true
       general: true
+      properties:
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/external-secrets-app.yaml
-      - cluster_templates/runtimes/_RUNTIME_/production/external-secrets-resources-app.yaml
+        '*':
+          - cluster_templates/runtimes/_RUNTIME_/production/external-secrets-app.yaml
+          - cluster_templates/runtimes/_RUNTIME_/production/external-secrets-resources-app.yaml
     - name: oauth2-proxy
       namespace: oauth2-proxy
-      type: oauth2-proxy
+      type: oauthProxy
       default: true
       general: false
+      properties:
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/oauth2-proxy-app.yaml
-      - cluster_templates/runtimes/_RUNTIME_/production/oauth2-proxy-resources-app.yaml
+        'host&physical':
+        - cluster_templates/host-clusters/_HOST_CLUSTER/production/oauth2-proxy-app.yaml
+        - cluster_templates/host-clusters/_HOST_CLUSTER/production/oauth2-proxy-resources-app.yaml
+        - cluster_templates/host-clusters/_HOST_CLUSTER/oauth2-proxy
+        'worker&physical':
+        - cluster_templates/runtimes/_RUNTIME_/production/oauth2-proxy-app.yaml
+        - cluster_templates/runtimes/_RUNTIME_/production/oauth2-proxy-resources-app.yaml
+        - cluster_templates/runtimes/_RUNTIME_/oauth2-proxy
     - name: traefik
       namespace: traefik
-      type: ingressController
+      type: gateway
       default: true
       general: true
+      properties:
+        - name: httpNodePort
+          type: number
+          regexPattern: ^[0-9]+$
+          required: true
+          default: 30080
+        - name: httpsNodePort
+          type: number
+          regexPattern: ^[0-9]+$
+          required: true
+          default: 30443
       installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/traefik-app.yaml
-      - cluster_templates/runtimes/_RUNTIME_/production/traefik-resources-app.yaml
-    - name: nginx-ingress
-      namespace: nginx-ingress
-      type: ingressController
-      default: false
-      general: false
-      installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/nginx-ingress-app.yaml
-      - cluster_templates/runtimes/_RUNTIME_/production/nginx-ingress-resources-app.yaml
-    - name: apisix-ingress
-      namespace: apisix-ingress
-      type: ingressController
-      default: false
-      general: false
-      installPath:
-      - cluster_templates/runtimes/_RUNTIME_/production/apisix-ingress-app.yaml
-      - cluster_templates/runtimes/_RUNTIME_/production/apisix-ingress-resources-app.yaml
+        'host&physical':
+          - cluster_templates/host-clusters/_HOST_CLUSTER/production/traefik-app.yaml
+          - cluster_templates/host-clusters/_HOST_CLUSTER/production/traefik-resources-app.yaml
+          - cluster_templates/host-clusters/_HOST_CLUSTER/traefik
+        'worker&physical':
+          - cluster_templates/runtimes/_RUNTIME_/production/traefik-app.yaml
+          - cluster_templates/runtimes/_RUNTIME_/production/traefik-resources-app.yaml
+          - cluster_templates/runtimes/_RUNTIME_/traefik
+        'worker&virtual':
+          - cluster_templates/host-clusters/_HOST_CLUSTER/traefik/overlays/production/middleware-oauth.yaml
