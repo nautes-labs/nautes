@@ -17,4 +17,3 @@ patchesStrategicMerge:
 - manager_patch.yaml
 - kratos_configs.yaml
 - resources_layout.yaml
-- third_part_components.yaml

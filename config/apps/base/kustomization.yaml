@@ -11,3 +11,6 @@ patchesStrategicMerge:
 - manager_auth_proxy_patch.yaml
 - manager_configs_patch.yaml
 - manager_log_persistence_patch.yaml
+- third_part_components.yaml
+- component_ategory_definition.yaml
+- cluster_common_config.yaml

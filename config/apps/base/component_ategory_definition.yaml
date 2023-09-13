@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nautes-configs
+  namespace: system
+data:
+  componentCategoryDefinition.yaml: |
+    host:
+      - oauthProxy
+      - gateway
+    worker:
+      virtual:
+          deployment:
+            - multiTenant
+            - secretSync
+            - deployment
+            - progressiveDelivery
+          pipeline:
+            - multiTenant
+            - secretSync
+            - gateway
+            - deployment
+            - eventListener
+            - pipeline
+      physical:
+          deployment:
+            - multiTenant
+            - secretSync
+            - gateway
+            - deployment
+            - progressiveDelivery
+          pipeline:
+            - multiTenant
+            - secretSync
+            - gateway
+            - deployment
+            - eventListener
+            - pipeline
+            - oauthProxy
