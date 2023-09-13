@@ -35,108 +35,6 @@ var (
 	_ = sort.Sort
 )
 
-// Validate checks the field values on Traefik with the rules defined in the
-// proto definition for this message. If any rules are violated, the first
-// error encountered is returned, or nil if there are no violations.
-func (m *Traefik) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on Traefik with the rules defined in the
-// proto definition for this message. If any rules are violated, the result is
-// a list of violation errors wrapped in TraefikMultiError, or nil if none found.
-func (m *Traefik) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *Traefik) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	// no validation rules for HttpNodePort
-
-	// no validation rules for HttpsNodePort
-
-	if len(errors) > 0 {
-		return TraefikMultiError(errors)
-	}
-
-	return nil
-}
-
-// TraefikMultiError is an error wrapping multiple validation errors returned
-// by Traefik.ValidateAll() if the designated constraints aren't met.
-type TraefikMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m TraefikMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m TraefikMultiError) AllErrors() []error { return m }
-
-// TraefikValidationError is the validation error returned by Traefik.Validate
-// if the designated constraints aren't met.
-type TraefikValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e TraefikValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e TraefikValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e TraefikValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e TraefikValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e TraefikValidationError) ErrorName() string { return "TraefikValidationError" }
-
-// Error satisfies the builtin error interface
-func (e TraefikValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sTraefik.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = TraefikValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = TraefikValidationError{}
-
 // Validate checks the field values on Vcluster with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -1398,11 +1296,11 @@ func (m *ComponentsList) validate(all bool) error {
 	}
 
 	if all {
-		switch v := interface{}(m.GetCertMgt()).(type) {
+		switch v := interface{}(m.GetCertManagement()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
 				errors = append(errors, ComponentsListValidationError{
-					field:  "CertMgt",
+					field:  "CertManagement",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
@@ -1410,45 +1308,16 @@ func (m *ComponentsList) validate(all bool) error {
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
 				errors = append(errors, ComponentsListValidationError{
-					field:  "CertMgt",
+					field:  "CertManagement",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
 			}
 		}
-	} else if v, ok := interface{}(m.GetCertMgt()).(interface{ Validate() error }); ok {
+	} else if v, ok := interface{}(m.GetCertManagement()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ComponentsListValidationError{
-				field:  "CertMgt",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	if all {
-		switch v := interface{}(m.GetSecretMgt()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ComponentsListValidationError{
-					field:  "SecretMgt",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ComponentsListValidationError{
-					field:  "SecretMgt",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetSecretMgt()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ComponentsListValidationError{
-				field:  "SecretMgt",
+				field:  "CertManagement",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -1485,11 +1354,11 @@ func (m *ComponentsList) validate(all bool) error {
 	}
 
 	if all {
-		switch v := interface{}(m.GetIngressController()).(type) {
+		switch v := interface{}(m.GetGateway()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
 				errors = append(errors, ComponentsListValidationError{
-					field:  "IngressController",
+					field:  "Gateway",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
@@ -1497,16 +1366,16 @@ func (m *ComponentsList) validate(all bool) error {
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
 				errors = append(errors, ComponentsListValidationError{
-					field:  "IngressController",
+					field:  "Gateway",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
 			}
 		}
-	} else if v, ok := interface{}(m.GetIngressController()).(interface{ Validate() error }); ok {
+	} else if v, ok := interface{}(m.GetGateway()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ComponentsListValidationError{
-				field:  "IngressController",
+				field:  "Gateway",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -1732,6 +1601,8 @@ func (m *Component) validate(all bool) error {
 	// no validation rules for Name
 
 	// no validation rules for Namespace
+
+	// no validation rules for Additions
 
 	if len(errors) > 0 {
 		return ComponentMultiError(errors)
@@ -2120,8 +1991,6 @@ func (m *SaveRequest_Body) validate(all bool) error {
 
 	// no validation rules for HostCluster
 
-	// no validation rules for ArgocdHost
-
 	if all {
 		switch v := interface{}(m.GetVcluster()).(type) {
 		case interface{ ValidateAll() error }:
@@ -2151,42 +2020,11 @@ func (m *SaveRequest_Body) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetTraefik()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, SaveRequest_BodyValidationError{
-					field:  "Traefik",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, SaveRequest_BodyValidationError{
-					field:  "Traefik",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetTraefik()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return SaveRequest_BodyValidationError{
-				field:  "Traefik",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	// no validation rules for Kubeconfig
 
 	// no validation rules for WorkerType
 
 	// no validation rules for PrimaryDomain
-
-	// no validation rules for TektonHost
 
 	{
 		sorted_keys := make([]string, len(m.GetReservedNamespacesAllowedProducts()))

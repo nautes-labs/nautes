@@ -106,7 +106,6 @@ func (cr *ClusterRegistration) InitializeClusterConfig(param *ClusterRegistratio
 		HostCluster:                  hostCluster,
 		Vcluster:                     vcluster,
 		Runtime:                      runtime,
-		Traefik:                      param.Traefik,
 		NautesConfigs:                param.Configs.Nautes,
 		SecretConfigs:                param.Configs.Secret,
 		OauthConfigs:                 param.Configs.OAuth,

@@ -30,6 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+
+	clusterConfig "github.com/nautes-labs/nautes/pkg/config/cluster"
 )
 
 var (
@@ -85,6 +87,16 @@ var _ = Describe("Cluster controller test cases", func() {
 		}
 	)
 
+	BeforeEach(func() {
+		err := clusterConfig.SetClusterValidateConfig()
+		Expect(err).Should(BeNil())
+	})
+
+	AfterEach(func() {
+		err := clusterConfig.DeleteValidateConfig()
+		Expect(err).Should(BeNil())
+	})
+
 	It("successfully create cluster to argocd", func() {
 		var err error
 
@@ -111,33 +123,42 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
-		key := types.NamespacedName{
-			Namespace: DefaultNamespace,
-			Name:      resourceName,
-		}
-
 		toCreate := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
+				Name:      resourceName,
+				Namespace: DefaultNamespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
 		By("Expected resource created successfully")
 		err = k8sClient.Create(context.Background(), toCreate)
 		Expect(err).ShouldNot(HaveOccurred())
+
+		key := types.NamespacedName{
+			Namespace: DefaultNamespace,
+			Name:      resourceName,
+		}
 
 		Eventually(func() bool {
 			cluster := &resourcev1alpha1.Cluster{}
@@ -193,27 +214,35 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
 		}
-
 		toCreate := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
@@ -284,27 +313,35 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, nil, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "physical",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
 		}
-
 		toCreate := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_PHYSICAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
@@ -369,10 +406,21 @@ var _ = Describe("Cluster controller test cases", func() {
 		// Resource
 		spec := resourcev1alpha1.ClusterSpec{
 			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
+			ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+			ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
 			HostCluster: "tenant1",
-			Usage:       "worker",
+			Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+			ComponentsList: resourcev1alpha1.ComponentsList{
+				CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+				Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+				EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+				MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+				Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+				ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+				SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+				SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+				OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+			},
 		}
 
 		var resourceName = spliceResourceName("cluster")
@@ -400,10 +448,22 @@ var _ = Describe("Cluster controller test cases", func() {
 		By("Expected the cluster is to be updated")
 		updateSpec := resourcev1alpha1.ClusterSpec{
 			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
+			ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+			ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
 			HostCluster: "tenant2",
-			Usage:       "worker",
+			Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+			WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+			ComponentsList: resourcev1alpha1.ComponentsList{
+				CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+				Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+				EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+				MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+				Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+				ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+				SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+				SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+				OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+			},
 		}
 
 		toUpdate := &resourcev1alpha1.Cluster{}
@@ -483,27 +543,35 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
 		}
-
 		toCreate := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
@@ -602,27 +670,35 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
 		}
-
 		toCreate := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
@@ -721,27 +797,35 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
 		}
-
 		createdCluster := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
@@ -800,27 +884,35 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
 		}
-
 		createdCluster := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
@@ -879,27 +971,35 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterType: "virtual",
-			ClusterKind: "kubernetes",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
 		}
-
 		createdCluster := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create
@@ -998,15 +1098,6 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		// Resource
-		spec := resourcev1alpha1.ClusterSpec{
-			ApiServer:   k8sDefaultServer,
-			ClusterKind: "kubernetes",
-			ClusterType: "virtual",
-			HostCluster: "tenant1",
-			Usage:       "worker",
-		}
-
 		var resourceName = spliceResourceName("cluster")
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
@@ -1018,7 +1109,25 @@ var _ = Describe("Cluster controller test cases", func() {
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
-			Spec: spec,
+			Spec: resourcev1alpha1.ClusterSpec{
+				ApiServer:   k8sDefaultServer,
+				ClusterType: resourcev1alpha1.CLUSTER_TYPE_VIRTUAL,
+				ClusterKind: resourcev1alpha1.CLUSTER_KIND_KUBERNETES,
+				HostCluster: "tenant1",
+				Usage:       resourcev1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
+			},
 		}
 
 		// Create

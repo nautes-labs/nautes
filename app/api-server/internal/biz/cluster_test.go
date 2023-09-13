@@ -27,6 +27,7 @@ import (
 	clusterregistration "github.com/nautes-labs/nautes/app/api-server/pkg/cluster"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/gitlab"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/kubernetes"
+	clusterConfig "github.com/nautes-labs/nautes/pkg/config/cluster"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +59,18 @@ var _ = Describe("Save cluster", func() {
 				ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
 				Usage:       resourcev1alpha1.ClusterUsage("worker"),
 				HostCluster: "host216",
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
 			},
 		}
 		physcialCluster = &resourcev1alpha1.Cluster{
@@ -74,6 +87,26 @@ var _ = Describe("Save cluster", func() {
 				ClusterType: resourcev1alpha1.ClusterType("physical"),
 				ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
 				Usage:       resourcev1alpha1.ClusterUsage("worker"),
+				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					CertManagement: &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:     &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:  &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+					Gateway: &resourcev1alpha1.Component{
+						Name:      "traefik",
+						Namespace: "traefik",
+						Additions: map[string]string{
+							"httpsNodePort": "30020",
+							"httpNodePort":  "30221",
+						},
+					},
+					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
 			},
 		}
 		hostCluster = &resourcev1alpha1.Cluster{
@@ -90,6 +123,20 @@ var _ = Describe("Save cluster", func() {
 				ClusterType: resourcev1alpha1.ClusterType("physical"),
 				ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
 				Usage:       resourcev1alpha1.ClusterUsage("host"),
+				ComponentsList: resourcev1alpha1.ComponentsList{
+					Gateway: &resourcev1alpha1.Component{
+						Name:      "traefik",
+						Namespace: "traefik",
+						Additions: map[string]string{
+							"httpsNodePort": "30020",
+							"httpNodePort":  "30221",
+						},
+					},
+					OauthProxy: &resourcev1alpha1.Component{
+						Name:      "oauth2-proxy",
+						Namespace: "oauth2-proxy",
+					},
+				},
 			},
 		}
 		clusterTemplateCloneParam = &CloneRepositoryParam{
@@ -133,11 +180,18 @@ var _ = Describe("Save cluster", func() {
 
 		_, err = os.Create(gitlabCertPath)
 		Expect(err).ShouldNot(HaveOccurred())
+
+		err = clusterConfig.SetClusterValidateConfig()
+		Expect(err).Should(BeNil())
+
 	})
 
 	AfterEach(func() {
 		err = os.RemoveAll(gitlabCertPath)
 		Expect(err).ShouldNot(HaveOccurred())
+
+		err = clusterConfig.DeleteValidateConfig()
+		Expect(err).Should(BeNil())
 	})
 
 	It("successfully saved host cluster", func() {

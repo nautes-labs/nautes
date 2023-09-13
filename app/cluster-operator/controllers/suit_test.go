@@ -17,6 +17,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -58,9 +59,6 @@ var logger = logf.Log.WithName("cluster-controller-test")
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cluster operator")
-	// RunSpecsWithDefaultAndCustomReporters(t,
-	// 	"Controller Suite",
-	// 	[]Reporter{})
 }
 
 var _ = BeforeSuite(func() {
@@ -68,12 +66,18 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
+
+	crdPath := filepath.Join("..", "..", "..", "config", "crd", "bases")
+	_, err := os.Stat(crdPath)
+	Expect(err).NotTo(HaveOccurred())
+
+	var use = false
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{crdPath},
 		ErrorIfCRDPathMissing: true,
+		UseExistingCluster:    &use,
 	}
 
-	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
@@ -87,10 +91,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: "nautes"}}
-	err = k8sClient.Create(ctx, ns)
-	Expect(err).NotTo(HaveOccurred())
+	toCreateNamespace := "nautes"
+	if isCreateNamespace(k8sClient, toCreateNamespace) {
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: toCreateNamespace}}
+		err = k8sClient.Create(ctx, ns)
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	factory.GetFactory().AddNewMethod("mock", newMock)
 
@@ -242,3 +249,17 @@ func (m mockSyncer) GetKubeConfig(ctx context.Context, cluster *clustercrd.Clust
 }
 
 func (m mockSyncer) Logout() {}
+
+func isCreateNamespace(k8sClient client.Client, createdNamespace string) bool {
+	namespaces := &corev1.NamespaceList{}
+	err := k8sClient.List(context.Background(), namespaces)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, namespace := range namespaces.Items {
+		if namespace.Name == createdNamespace {
+			return false
+		}
+	}
+
+	return true
+}

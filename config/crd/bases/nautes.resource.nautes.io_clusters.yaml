@@ -65,8 +65,12 @@ spec:
                 description: ComponentsList declares the specific components used
                   by the cluster
                 properties:
-                  certMgt:
+                  certManagement:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -79,6 +83,10 @@ spec:
                     type: object
                   deployment:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -91,6 +99,10 @@ spec:
                     type: object
                   eventListener:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -101,8 +113,12 @@ spec:
                     - name
                     - namespace
                     type: object
-                  ingressController:
+                  gateway:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -115,6 +131,26 @@ spec:
                     type: object
                   multiTenant:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  oauthProxy:
+                    properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -127,6 +163,10 @@ spec:
                     type: object
                   pipeline:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -139,6 +179,10 @@ spec:
                     type: object
                   progressiveDelivery:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -149,8 +193,12 @@ spec:
                     - name
                     - namespace
                     type: object
-                  secretMgt:
+                  secretManagement:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -163,6 +211,10 @@ spec:
                     type: object
                   secretSync:
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        type: object
                       name:
                         minLength: 1
                         type: string

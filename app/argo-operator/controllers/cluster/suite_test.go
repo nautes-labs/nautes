@@ -196,7 +196,7 @@ var _ = AfterSuite(func() {
 
 func startClusterServer() {
 	By("bootstrapping test environment")
-	crdPath := filepath.Join("..", "..", "config", "crd", "bases")
+	crdPath := filepath.Join("..", "..", "..", "..", "config", "crd", "bases")
 	_, err := os.Stat(crdPath)
 	if err != nil {
 		os.Exit(1)

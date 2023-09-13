@@ -26,6 +26,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	clusterConfig "github.com/nautes-labs/nautes/pkg/config/cluster"
 )
 
 var _ = Describe("cluster webhook", func() {
@@ -110,18 +112,26 @@ var _ = Describe("cluster webhook", func() {
 			},
 		}
 
-		Expect(nil).Should(BeNil())
+		err = clusterConfig.SetClusterValidateConfig()
+		Expect(err).Should(BeNil())
+
 	})
 
 	AfterEach(func() {
 		err := k8sClient.Delete(ctx, runtime)
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+
 		err = k8sClient.Delete(ctx, env)
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+
 		err = k8sClient.Delete(ctx, ns)
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+
 		err = k8sClient.Delete(ctx, cluster)
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
+
+		err = clusterConfig.DeleteValidateConfig()
+		Expect(err).Should(BeNil())
 	})
 
 	It("if cluster is a virtual cluster without host cluster, create will failed", func() {
@@ -167,6 +177,38 @@ var _ = Describe("cluster webhook", func() {
 		cluster.Spec.ReservedNamespacesAllowedProducts = map[string][]string{
 			"fake": {},
 		}
+		err := cluster.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("when the cluster does not have a set of components, component check fails", func() {
+		err := cluster.ValidateCreate()
+		Expect(err).ShouldNot(BeNil())
+	})
+
+	It("component required value not filled in verification failed", func() {
+		cluster = &Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("cluster-%s", randNum()),
+				Namespace: nautesNamespaceName,
+			},
+			Spec: ClusterSpec{
+				ApiServer:   "https://127.0.0.1:31667",
+				ClusterType: CLUSTER_TYPE_PHYSICAL,
+				Usage:       CLUSTER_USAGE_HOST,
+				ComponentsList: ComponentsList{
+					Gateway: &Component{
+						Name:      "traefik",
+						Namespace: "traefik",
+					},
+					OauthProxy: &Component{
+						Name:      "oauth2-proxy",
+						Namespace: "oauth2-proxy",
+					},
+				},
+			},
+		}
+
 		err := cluster.ValidateCreate()
 		Expect(err).ShouldNot(BeNil())
 	})

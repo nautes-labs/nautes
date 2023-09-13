@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -26,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	clusterConfig "github.com/nautes-labs/nautes/pkg/config/cluster"
 )
 
 // log is for logging in this package.
@@ -105,6 +108,10 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 		return err
 	}
 
+	if err := checkClusterComponents(r); err != nil {
+		return err
+	}
+
 	if old != nil {
 		dependencies, err := r.GetDependencies(ctx, k8sClient)
 		if err != nil {
@@ -124,6 +131,122 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 	}
 
 	return nil
+}
+
+// checkClusterComponents Get the component categories of the cluster,
+// get components information and verify attribute values.
+func checkClusterComponents(cluster *Cluster) error {
+	config, err := clusterConfig.NewClusterComponentConfig()
+	if err != nil {
+		return err
+	}
+
+	componentsDefinition, err := config.GetClusterComponentsDefinition(&clusterConfig.ClusterInfo{
+		Name:        cluster.Name,
+		Usage:       string(cluster.Spec.Usage),
+		WorkType:    string(cluster.Spec.WorkerType),
+		ClusterType: string(cluster.Spec.ClusterType),
+	})
+	if err != nil {
+		return err
+	}
+
+	components, err := getComponentsByCategories(cluster, componentsDefinition)
+	if err != nil {
+		return err
+	}
+	if len(components) == 0 {
+		return fmt.Errorf("failed to get following components [%s]", strings.Join(componentsDefinition, " | "))
+	}
+
+	err = validateComponents(components, config)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateComponents(components []*Component, config *clusterConfig.ClusterComponentConfig) error {
+	var validationErrors []string
+
+	for _, component := range components {
+		thirdPartyComponent, err := config.GetThirdPartComponentByName(component.Name)
+		if err != nil {
+			return err
+		}
+
+		if err := checkComponentValidity(thirdPartyComponent, component); err != nil {
+			validationErrors = append(validationErrors, err.Error())
+		}
+	}
+
+	if len(validationErrors) > 0 {
+		return fmt.Errorf("validation of component list failed with errors: %s", strings.Join(validationErrors, ", "))
+	}
+
+	return nil
+}
+
+func checkComponentValidity(thirdPartComponent *clusterConfig.ThridPartComponent, component *Component) error {
+	var errMsg []string
+
+	for _, prop := range thirdPartComponent.Properties {
+		val, exists := component.Additions[prop.Name]
+		if err := validatePropertyValue(val, exists, prop, component.Name); err != nil {
+			errMsg = append(errMsg, err.Error())
+		}
+	}
+
+	if len(errMsg) > 0 {
+		return fmt.Errorf(strings.Join(errMsg, " | "))
+	}
+
+	return nil
+}
+
+func validatePropertyValue(val string, exists bool, prop clusterConfig.Propertie, componentName string) error {
+	if prop.Required && !exists {
+		return fmt.Errorf("the '%s' of component %s is a required value", prop.Name, componentName)
+	}
+
+	if exists && !isValidRegex(val, prop.RegexPattern) {
+		return fmt.Errorf("the value %s of the component matches incorrectly, meeting the following rule: %s", val, prop.RegexPattern)
+	}
+
+	return nil
+}
+
+func isValidRegex(value, pattern string) bool {
+	re := regexp.MustCompile(pattern)
+	return re.MatchString(value)
+}
+
+// getComponentsByCategories get components based on cluster component categories.
+func getComponentsByCategories(cluster *Cluster, categories []string) ([]*Component, error) {
+	var componentList = cluster.Spec.ComponentsList
+	var components []*Component
+	var errMsg []string
+
+	componentsListMap := ConvertComponentsListToMap(componentList)
+	for _, category := range categories {
+		component, ok := componentsListMap[category]
+		if !ok {
+			continue
+		}
+
+		if component == nil {
+			errMsg = append(errMsg, category)
+		} else {
+			components = append(components, component)
+		}
+	}
+
+	if len(errMsg) > 0 {
+		return nil, fmt.Errorf("cluster %s is missing the following components [%s]", cluster.Name, strings.Join(errMsg, " | "))
+	}
+
+	return components, nil
 }
 
 func (r *Cluster) staticCheck() error {
@@ -151,7 +274,7 @@ func (r *Cluster) staticCheck() error {
 
 	for namespace := range r.Spec.ReservedNamespacesAllowedProducts {
 		if !reservedNamespace[namespace] {
-			return fmt.Errorf("namespace %s is not in compnent list", namespace)
+			return fmt.Errorf("namespace %s is not in component list", namespace)
 		}
 	}
 

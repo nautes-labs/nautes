@@ -50,17 +50,3 @@ const (
 	_Usage                   = "Spec.Usage"
 	_WorkType                = "Spec.WorkerType"
 )
-
-const (
-	thirdPartComponentsPath = "/opt/nautes/config/thirdPartComponents.yaml"
-	EnvthirdPartComponents  = "thirdPartComponents"
-)
-
-type Component struct {
-	Name        string   `yaml:"name"`
-	Namespace   string   `yaml:"namespace"`
-	Type        string   `yaml:"type"`
-	Default     bool     `yaml:"default"`
-	General     bool     `yaml:"general"`
-	InstallPath []string `yaml:"installPath"`
-}

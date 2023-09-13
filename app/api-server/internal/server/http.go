@@ -75,7 +75,6 @@ func (s *ServiceProductGroup) Register(srv *http.Server) {
 
 // NewHTTPServer new a HTTP server.
 func NewHTTPServer(c *conf.Server, serviceProductGroup *ServiceProductGroup) *http.Server {
-
 	var opts = []http.ServerOption{
 		http.Middleware(
 			recovery.Recovery(),
@@ -99,6 +98,8 @@ func NewHTTPServer(c *conf.Server, serviceProductGroup *ServiceProductGroup) *ht
 	return srv
 }
 
+const BearerToken = "token"
+
 func TokenWithContext() middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
@@ -107,7 +108,7 @@ func TokenWithContext() middleware.Middleware {
 				bearerToken := header.Get("Authorization")
 				token := strings.TrimSpace(strings.Replace(bearerToken, "Bearer", "", 1))
 				if token != "" {
-					ctx = context.WithValue(ctx, "token", token)
+					ctx = context.WithValue(ctx, BearerToken, token)
 				}
 			}
 			return handler(ctx, req)

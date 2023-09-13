@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"reflect"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -86,18 +88,20 @@ type Component struct {
 	Name string `json:"name"`
 	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
+	// +optional
+	Additions map[string]string `json:"additions"`
 }
 
 // ComponentsList declares the specific components used by the cluster
 type ComponentsList struct {
 	// +optional
-	CertMgt *Component `json:"certMgt"`
+	CertManagement *Component `json:"certManagement"`
 	// +optional
 	Deployment *Component `json:"deployment"`
 	// +optional
 	EventListener *Component `json:"eventListener"`
 	// +optional
-	IngressController *Component `json:"ingressController"`
+	Gateway *Component `json:"gateway"`
 	// +optional
 	MultiTenant *Component `json:"multiTenant"`
 	// +optional
@@ -105,9 +109,11 @@ type ComponentsList struct {
 	// +optional
 	ProgressiveDelivery *Component `json:"progressiveDelivery"`
 	// +optional
-	SecretMgt *Component `json:"secretMgt"`
+	SecretManagement *Component `json:"secretManagement"`
 	// +optional
 	SecretSync *Component `json:"secretSync"`
+	// +optional
+	OauthProxy *Component `json:"oauthProxy"`
 }
 
 // ClusterStatus defines the observed state of Cluster
@@ -190,4 +196,23 @@ type ClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&Cluster{}, &ClusterList{})
+}
+
+func ConvertComponentsListToMap(list ComponentsList) map[string]*Component {
+	componentsListMap := make(map[string]*Component, 0)
+
+	val := reflect.ValueOf(list)
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		if field.Type().Kind() != reflect.Ptr {
+			continue
+		}
+
+		compoentType := val.Type().Field(i).Tag.Get("json")
+		component := val.Field(i).Interface().(*Component)
+		componentsListMap[compoentType] = component
+	}
+
+	return componentsListMap
 }

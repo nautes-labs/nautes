@@ -46,13 +46,6 @@ service Cluster {
     };
   }
 }
-// Traefik represents the configuration for the Traefik ingress controller.
-message Traefik {
-  // httpNodePort specifies the NodePort for the HTTP port of the Traefik ingress controller.
-  string http_node_port = 1 [json_name = "http_node_port"];
-  // httpsNodePort specifies the NodePort for the HTTPS port of the Traefik ingress controller.
-  string https_node_port = 2 [json_name = "https_node_port"];
-}
 
 // Vcluster represents the configuration for the virtual cluster.
 message Vcluster {
@@ -122,20 +115,14 @@ message SaveRequest {
     string usage = 4 [json_name = "usage", (validate.rules).string = {in: ["host", "worker"]}];
     // host_cluster specifies the host cluster name if the cluster is a virtual cluster.
     string host_cluster = 5 [json_name = "host_cluster"];
-    // argocd_host specifies the ArgoCD host name.
-    string argocd_host = 6 [json_name = "argocd_host"];
     // vcluster specifies the configuration of the virtual cluster.
     Vcluster vcluster = 7 [json_name = "vcluster"];
-    // traefik specifies the configuration of the Traefik ingress controller.
-    Traefik traefik = 9 [json_name = "traefik"];
     // kubeconfig specifies the Kubeconfig file of the cluster.
     string kubeconfig = 10 [json_name = "kubeconfig"];
     // worker_type maybe pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
     string worker_type = 11 [json_name = "worker_type"];
     // primary_domain is used to build the domain of components within the cluster.
     string primary_domain = 12 [json_name = "primary_domain"];
-    // tekton_host is the domain for the tekton dashboard, and it must be a subdomain of the PrimaryDomain
-    string tekton_host = 13 [json_name = "tekton_host"];
     // reserved_namespaces_allowed_products key is namespace name, value is the product name list witch can use namespace.
     map<string, google.protobuf.ListValue> reserved_namespaces_allowed_products = 14 [json_name = "reserved_namespaces_allowed_products"];
     // product_allowed_cluster_resources key is product name, value is the list of cluster resources.
@@ -177,10 +164,9 @@ message StringList {
 
 message ComponentsList  {
   Component multi_tenant = 1 [json_name = "multi_tenant"];
-	Component cert_mgt = 2 [json_name = "cert_mgt"];
-	Component secret_mgt = 3 [json_name = "secret_mgt"];
+	Component cert_management = 2 [json_name = "cert_management"];
 	Component secret_sync = 4 [json_name = "secret_sync"];
-	Component ingress_controller = 5 [json_name = "ingress_controller"];
+	Component gateway = 5 [json_name = "gateway"];
   Component deployment = 6 [json_name = "deployment"];
 	Component progressive_delivery = 7 [json_name = "progressive_delivery"];
   Component pipeline = 8 [json_name = "pipeline"];
@@ -190,6 +176,7 @@ message ComponentsList  {
 message Component {
 	string name = 1 [json_name = "name"];
 	string namespace = 2 [json_name = "namespace"];
+  map<string, string> additions = 3 [json_name = "additions"];
 }
 
 message ClusterResourceInfoList {
