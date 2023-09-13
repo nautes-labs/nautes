@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package datasource_test
+package database_test
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -56,7 +56,7 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	//+kubebuilder:scaffold:scheme
-	err = nautescrd.AddToScheme(scheme.Scheme)
+	err = v1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

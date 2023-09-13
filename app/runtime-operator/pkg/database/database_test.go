@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package datasource_test
+package database_test
 
 import (
 	"context"
 	"fmt"
 	"reflect"
 
-	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Datasource", func() {
+var _ = Describe("Database", func() {
 	var testObjects []client.Object
 	var testNamespace []corev1.Namespace
 	var productName string
@@ -52,12 +52,12 @@ var _ = Describe("Datasource", func() {
 		deployRuntimeNames = GenerateNames(fmt.Sprintf("dr-%%d-%s", seed), 10)
 		pipelineRuntimeNames = GenerateNames(fmt.Sprintf("pr-%%d-%s", seed), 10)
 
-		codeRepoProvider := nautescrd.CodeRepoProvider{
+		codeRepoProvider := v1alpha1.CodeRepoProvider{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("codeprovider-%s", seed),
 				Namespace: nautesNamespaceName,
 			},
-			Spec: nautescrd.CodeRepoProviderSpec{
+			Spec: v1alpha1.CodeRepoProviderSpec{
 				HttpAddress:  "https://127.0.0.1",
 				SSHAddress:   "ssh://git@127.0.0.1",
 				ApiServer:    "https://127.0.0.1",
@@ -66,48 +66,48 @@ var _ = Describe("Datasource", func() {
 		}
 		testObjects = append(testObjects, &codeRepoProvider)
 
-		cluster01 := nautescrd.Cluster{
+		cluster01 := v1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterNames[1],
 				Namespace: nautesNamespaceName,
 			},
-			Spec: nautescrd.ClusterSpec{
+			Spec: v1alpha1.ClusterSpec{
 				ApiServer:                         "https://127.0.0.1:6443",
-				ClusterType:                       nautescrd.CLUSTER_TYPE_PHYSICAL,
-				ClusterKind:                       nautescrd.CLUSTER_KIND_KUBERNETES,
-				Usage:                             nautescrd.CLUSTER_USAGE_WORKER,
-				WorkerType:                        nautescrd.ClusterWorkTypeDeployment,
-				ComponentsList:                    nautescrd.ComponentsList{},
+				ClusterType:                       v1alpha1.CLUSTER_TYPE_PHYSICAL,
+				ClusterKind:                       v1alpha1.CLUSTER_KIND_KUBERNETES,
+				Usage:                             v1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:                        v1alpha1.ClusterWorkTypeDeployment,
+				ComponentsList:                    v1alpha1.ComponentsList{},
 				ReservedNamespacesAllowedProducts: map[string][]string{},
-				ProductAllowedClusterResources:    map[string][]nautescrd.ClusterResourceInfo{},
+				ProductAllowedClusterResources:    map[string][]v1alpha1.ClusterResourceInfo{},
 			},
 		}
 		testObjects = append(testObjects, &cluster01)
 
-		cluster02 := nautescrd.Cluster{
+		cluster02 := v1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterNames[2],
 				Namespace: nautesNamespaceName,
 			},
-			Spec: nautescrd.ClusterSpec{
+			Spec: v1alpha1.ClusterSpec{
 				ApiServer:                         "https://127.0.0.1:6443",
-				ClusterType:                       nautescrd.CLUSTER_TYPE_PHYSICAL,
-				ClusterKind:                       nautescrd.CLUSTER_KIND_KUBERNETES,
-				Usage:                             nautescrd.CLUSTER_USAGE_WORKER,
-				WorkerType:                        nautescrd.ClusterWorkTypePipeline,
-				ComponentsList:                    nautescrd.ComponentsList{},
+				ClusterType:                       v1alpha1.CLUSTER_TYPE_PHYSICAL,
+				ClusterKind:                       v1alpha1.CLUSTER_KIND_KUBERNETES,
+				Usage:                             v1alpha1.CLUSTER_USAGE_WORKER,
+				WorkerType:                        v1alpha1.ClusterWorkTypePipeline,
+				ComponentsList:                    v1alpha1.ComponentsList{},
 				ReservedNamespacesAllowedProducts: map[string][]string{},
-				ProductAllowedClusterResources:    map[string][]nautescrd.ClusterResourceInfo{},
+				ProductAllowedClusterResources:    map[string][]v1alpha1.ClusterResourceInfo{},
 			},
 		}
 		testObjects = append(testObjects, &cluster02)
 
-		product := nautescrd.Product{
+		product := v1alpha1.Product{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      productName,
 				Namespace: nautesNamespaceName,
 			},
-			Spec: nautescrd.ProductSpec{
+			Spec: v1alpha1.ProductSpec{
 				Name:         fmt.Sprintf("productName-%s", seed),
 				MetaDataPath: "",
 			},
@@ -119,15 +119,15 @@ var _ = Describe("Datasource", func() {
 			},
 		})
 
-		productCodeRepo := nautescrd.CodeRepo{
+		productCodeRepo := v1alpha1.CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("default-repo-%s", seed),
 				Namespace: nautesNamespaceName,
 				Labels: map[string]string{
-					nautescrd.LABEL_FROM_PRODUCT: product.Name,
+					v1alpha1.LABEL_FROM_PRODUCT: product.Name,
 				},
 			},
-			Spec: nautescrd.CodeRepoSpec{
+			Spec: v1alpha1.CodeRepoSpec{
 				CodeRepoProvider: codeRepoProvider.Name,
 				Product:          product.Name,
 				Project:          "",
@@ -137,12 +137,12 @@ var _ = Describe("Datasource", func() {
 		}
 		testObjects = append(testObjects, &productCodeRepo)
 
-		env01 := nautescrd.Environment{
+		env01 := v1alpha1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      envNames[1],
 				Namespace: product.Name,
 			},
-			Spec: nautescrd.EnvironmentSpec{
+			Spec: v1alpha1.EnvironmentSpec{
 				Product: product.Name,
 				Cluster: cluster01.Name,
 				EnvType: "",
@@ -150,12 +150,12 @@ var _ = Describe("Datasource", func() {
 		}
 		testObjects = append(testObjects, &env01)
 
-		env02 := nautescrd.Environment{
+		env02 := v1alpha1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      envNames[2],
 				Namespace: product.Name,
 			},
-			Spec: nautescrd.EnvironmentSpec{
+			Spec: v1alpha1.EnvironmentSpec{
 				Product: product.Name,
 				Cluster: cluster02.Name,
 				EnvType: "",
@@ -163,12 +163,12 @@ var _ = Describe("Datasource", func() {
 		}
 		testObjects = append(testObjects, &env02)
 
-		project01 := nautescrd.Project{
+		project01 := v1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("project-01-%s", seed),
 				Namespace: product.Name,
 			},
-			Spec: nautescrd.ProjectSpec{
+			Spec: v1alpha1.ProjectSpec{
 				Product:  product.Name,
 				Language: "",
 			},
@@ -176,12 +176,12 @@ var _ = Describe("Datasource", func() {
 		testObjects = append(testObjects, &project01)
 
 		repoName := fmt.Sprintf("repoName-01-%s", seed)
-		codeRepo01 := nautescrd.CodeRepo{
+		codeRepo01 := v1alpha1.CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("coderepo-01-%s", seed),
 				Namespace: product.Name,
 			},
-			Spec: nautescrd.CodeRepoSpec{
+			Spec: v1alpha1.CodeRepoSpec{
 				CodeRepoProvider: codeRepoProvider.Name,
 				Product:          product.Name,
 				Project:          project01.Name,
@@ -191,12 +191,12 @@ var _ = Describe("Datasource", func() {
 		testObjects = append(testObjects, &codeRepo01)
 
 		additionalRepoName := fmt.Sprintf("add-repoName-01-%s", seed)
-		additionalCodeRepo01 := nautescrd.CodeRepo{
+		additionalCodeRepo01 := v1alpha1.CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("add-coderepo-01-%s", seed),
 				Namespace: product.Name,
 			},
-			Spec: nautescrd.CodeRepoSpec{
+			Spec: v1alpha1.CodeRepoSpec{
 				CodeRepoProvider: codeRepoProvider.Name,
 				Product:          product.Name,
 				Project:          project01.Name,
@@ -205,20 +205,20 @@ var _ = Describe("Datasource", func() {
 		}
 		testObjects = append(testObjects, &additionalCodeRepo01)
 
-		deployRuntime01 := nautescrd.DeploymentRuntime{
+		deployRuntime01 := v1alpha1.DeploymentRuntime{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deployRuntimeNames[1],
 				Namespace: product.Name,
 			},
-			Spec: nautescrd.DeploymentRuntimeSpec{
+			Spec: v1alpha1.DeploymentRuntimeSpec{
 				Product:     product.Name,
 				ProjectsRef: []string{},
-				ManifestSource: nautescrd.ManifestSource{
+				ManifestSource: v1alpha1.ManifestSource{
 					CodeRepo:       codeRepo01.Name,
 					TargetRevision: "main",
 					Path:           "deploy",
 				},
-				Destination: nautescrd.DeploymentRuntimesDestination{
+				Destination: v1alpha1.DeploymentRuntimesDestination{
 					Environment: env01.Name,
 					Namespaces: []string{
 						deployRuntimeNames[1],
@@ -228,22 +228,22 @@ var _ = Describe("Datasource", func() {
 		}
 		testObjects = append(testObjects, &deployRuntime01)
 
-		pipelineRuntime01 := nautescrd.ProjectPipelineRuntime{
+		pipelineRuntime01 := v1alpha1.ProjectPipelineRuntime{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pipelineRuntimeNames[1],
 				Namespace: product.Name,
 			},
-			Spec: nautescrd.ProjectPipelineRuntimeSpec{
+			Spec: v1alpha1.ProjectPipelineRuntimeSpec{
 				Project:        project01.Name,
 				PipelineSource: codeRepo01.Name,
-				Pipelines:      []nautescrd.Pipeline{},
-				Destination: nautescrd.ProjectPipelineDestination{
+				Pipelines:      []v1alpha1.Pipeline{},
+				Destination: v1alpha1.ProjectPipelineDestination{
 					Environment: env02.Name,
 				},
-				EventSources: []nautescrd.EventSource{
+				EventSources: []v1alpha1.EventSource{
 					{
 						Name: "test",
-						Gitlab: &nautescrd.Gitlab{
+						Gitlab: &v1alpha1.Gitlab{
 							RepoName: codeRepo01.Name,
 							Revision: "main",
 							Events:   []string{},
@@ -251,14 +251,14 @@ var _ = Describe("Datasource", func() {
 					},
 				},
 				Isolation: "",
-				PipelineTriggers: []nautescrd.PipelineTrigger{
+				PipelineTriggers: []v1alpha1.PipelineTrigger{
 					{
 						EventSource: "test",
 						Pipeline:    "test",
 					},
 				},
-				AdditionalResources: &nautescrd.ProjectPipelineRuntimeAdditionalResources{
-					Git: &nautescrd.ProjectPipelineRuntimeAdditionalResourcesGit{
+				AdditionalResources: &v1alpha1.ProjectPipelineRuntimeAdditionalResources{
+					Git: &v1alpha1.ProjectPipelineRuntimeAdditionalResourcesGit{
 						CodeRepo: additionalCodeRepo01.Name,
 						Revision: "main",
 						Path:     "customize",
@@ -296,10 +296,10 @@ var _ = Describe("Datasource", func() {
 	})
 
 	It("can list namespaces in product", func() {
-		db, err := datasource.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
-		requestResult := datasource.NamespaceUsage{
+		requestResult := database.NamespaceUsage{
 			clusterNames[1]: {deployRuntimeNames[1], "otherNamespace", productName},
 			clusterNames[2]: {pipelineRuntimeNames[1], productName},
 		}
@@ -309,44 +309,44 @@ var _ = Describe("Datasource", func() {
 	})
 
 	It("can list namespaces by cluster", func() {
-		db, err := datasource.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
-		requestResult := datasource.NamespaceUsage{
+		requestResult := database.NamespaceUsage{
 			clusterNames[1]: {deployRuntimeNames[1], "otherNamespace", productName},
 		}
-		nsUsage, err := db.ListUsedNamespaces(datasource.InCluster(clusterNames[1]))
+		nsUsage, err := db.ListUsedNamespaces(database.InCluster(clusterNames[1]))
 		Expect(err).Should(BeNil())
 		Expect(reflect.DeepEqual(requestResult, nsUsage)).Should(BeTrue())
 	})
 
 	It("can list namespaces in without specify runtime", func() {
-		db, err := datasource.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
-		runtime := &nautescrd.DeploymentRuntime{
+		runtime := &v1alpha1.DeploymentRuntime{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deployRuntimeNames[1],
 				Namespace: productName,
 			},
-			Spec: nautescrd.DeploymentRuntimeSpec{
+			Spec: v1alpha1.DeploymentRuntimeSpec{
 				Product: productName,
 			},
 		}
 
-		requestResult := datasource.NamespaceUsage{
+		requestResult := database.NamespaceUsage{
 			clusterNames[2]: {
 				pipelineRuntimeNames[1],
 				productName,
 			},
 		}
-		nsUsage, err := db.ListUsedNamespaces(datasource.ExcludeRuntimes([]nautescrd.Runtime{runtime}))
+		nsUsage, err := db.ListUsedNamespaces(database.ExcludeRuntimes([]v1alpha1.Runtime{runtime}))
 		Expect(err).Should(BeNil())
 		Expect(reflect.DeepEqual(requestResult, nsUsage)).Should(BeTrue())
 	})
 
 	It("can list code repo", func() {
-		db, err := datasource.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		codeRepos, err := db.ListUsedCodeRepos()
@@ -355,23 +355,23 @@ var _ = Describe("Datasource", func() {
 	})
 
 	It("can list code repo by cluster", func() {
-		db, err := datasource.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
-		codeRepos, err := db.ListUsedCodeRepos(datasource.InCluster(clusterNames[2]))
+		codeRepos, err := db.ListUsedCodeRepos(database.InCluster(clusterNames[2]))
 		Expect(err).Should(BeNil())
 		Expect(len(codeRepos)).Should(Equal(2))
 	})
 
 	It("will remove trigger and event source if pipeline has no permission", func() {
-		db, err := datasource.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		runtimes, _ := db.ListPipelineRuntimes()
 		Expect(len(runtimes[0].Spec.EventSources)).Should(Equal(1))
 		Expect(len(runtimes[0].Spec.PipelineTriggers)).Should(Equal(1))
 
-		runtime := &nautescrd.ProjectPipelineRuntime{
+		runtime := &v1alpha1.ProjectPipelineRuntime{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pipelineRuntimeNames[1],
 				Namespace: productName,
@@ -383,7 +383,7 @@ var _ = Describe("Datasource", func() {
 		})
 		Expect(err).Should(BeNil())
 
-		db, err = datasource.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err = database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		runtimes, _ = db.ListPipelineRuntimes()

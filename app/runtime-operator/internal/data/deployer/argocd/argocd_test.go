@@ -25,7 +25,7 @@ import (
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/deployer"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/initinfo"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +38,7 @@ const LabelBelongToProduct = "resource.nautes.io/belongsto"
 
 var _ = Describe("", func() {
 	var task initinfo.ComponentInitInfo
-	var namespaces datasource.NamespaceUsage
+	var namespaces database.NamespaceUsage
 	var urls []string
 	var argoCDNamespace *corev1.Namespace
 	var argoDeployer deployer.Deployer
@@ -68,7 +68,7 @@ var _ = Describe("", func() {
 
 		namespaceNames = GenerateNames(fmt.Sprintf("ns-%%d-%s", seed), 5)
 		clusterName := task.ClusterName
-		namespaces = datasource.NamespaceUsage{
+		namespaces = database.NamespaceUsage{
 			clusterName: namespaceNames,
 		}
 

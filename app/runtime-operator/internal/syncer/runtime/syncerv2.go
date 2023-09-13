@@ -23,7 +23,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/deployer"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/initinfo"
 	runtimecontext "github.com/nautes-labs/nautes/app/runtime-operator/pkg/context"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	interfaces "github.com/nautes-labs/nautes/app/runtime-operator/pkg/interface"
 	nautescfg "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	corev1 "k8s.io/api/core/v1"
@@ -39,13 +39,13 @@ var (
 	}
 )
 
-func newComponentInitInfo(runtime nautescrd.Runtime, db datasource.DataSource, cfg *rest.Config) (*initinfo.ComponentInitInfo, error) {
+func newComponentInitInfo(runtime nautescrd.Runtime, db database.Database, cfg *rest.Config) (*initinfo.ComponentInitInfo, error) {
 	cluster, err := db.GetClusterByRuntime(runtime)
 	if err != nil {
 		return nil, err
 	}
 
-	product, err := db.GetProduct()
+	product, err := db.GetProduct(runtime.GetProduct())
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func newComponentInitInfo(runtime nautescrd.Runtime, db datasource.DataSource, c
 	return task, nil
 }
 
-func newDeployer(component nautescrd.Component, task initinfo.ComponentInitInfo, db datasource.DataSource) (deployer.Deployer, error) {
+func newDeployer(component nautescrd.Component, task initinfo.ComponentInitInfo, db database.Database) (deployer.Deployer, error) {
 	fn, ok := deployerNewFuntions[component.Name]
 	if !ok {
 		return nil, fmt.Errorf("deployer not support type %s", component.Name)
@@ -73,7 +73,7 @@ func newDeployer(component nautescrd.Component, task initinfo.ComponentInitInfo,
 	return fn(component.Namespace, task, db)
 }
 
-func newDeployAppV2(runtime nautescrd.Runtime, db datasource.DataSource) (*deployer.Application, error) {
+func newDeployAppV2(runtime nautescrd.Runtime, db database.Database) (*deployer.Application, error) {
 	runtimeNamespaces := runtime.GetNamespaces()
 	if len(runtimeNamespaces) == 0 {
 		return nil, fmt.Errorf("get 0 namespace in runtime %s", runtime.GetName())
@@ -149,10 +149,10 @@ type RuntimeSyncer struct {
 	resourceLabels map[string]string
 	nautesCfg      nautescfg.Config
 	secClient      interfaces.SecretClient
-	db             datasource.DataSource
+	db             database.Database
 }
 
-func NewRuntimeSyncer(ctx context.Context, initInfo initinfo.ComponentInitInfo, db datasource.DataSource, nautescfg nautescfg.Config) (*RuntimeSyncer, error) {
+func NewRuntimeSyncer(ctx context.Context, initInfo initinfo.ComponentInitInfo, db database.Database, nautescfg nautescfg.Config) (*RuntimeSyncer, error) {
 	cfg := initInfo.ClusterConnectInfo.Kubernetes.Config
 	if initInfo.ClusterConnectInfo.Kubernetes.Config == nil {
 		return nil, fmt.Errorf("rest config is null")
@@ -204,8 +204,8 @@ func (rs *RuntimeSyncer) SyncCodeRepos(ctx context.Context) error {
 	errs := []error{}
 
 	tenantCodeRepos, err := rs.db.ListUsedCodeRepos(
-		datasource.InCluster(rs.clusterName),
-		datasource.WithOutDeletedRuntimes(),
+		database.InCluster(rs.clusterName),
+		database.WithOutDeletedRuntimes(),
 	)
 	if err != nil {
 		return fmt.Errorf("list code repos failed: %w", err)

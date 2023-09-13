@@ -22,7 +22,7 @@ import (
 	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/deployer"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/initinfo"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,10 +40,10 @@ type ArgoCD struct {
 	productName     string
 	clusterName     string
 	resourceLabels  map[string]string
-	db              datasource.DataSource
+	db              database.Database
 }
 
-func NewDeployer(namespace string, initInfo initinfo.ComponentInitInfo, db datasource.DataSource) (deployer.Deployer, error) {
+func NewDeployer(namespace string, initInfo initinfo.ComponentInitInfo, db database.Database) (deployer.Deployer, error) {
 	if initInfo.ClusterConnectInfo.ClusterType != initinfo.ClusterTypeKubernetes {
 		return nil, fmt.Errorf("argocd can only work on kubernetes")
 	}
@@ -116,15 +116,15 @@ func (d *ArgoCD) syncAppProject(ctx context.Context) error {
 
 func (d *ArgoCD) getSourceRepos() ([]string, error) {
 	return d.db.ListUsedURLs(
-		datasource.InCluster(d.clusterName),
-		datasource.WithOutDeletedRuntimes(),
+		database.InCluster(d.clusterName),
+		database.WithOutDeletedRuntimes(),
 	)
 }
 
 func (d *ArgoCD) getDestinations() ([]argov1alpha1.ApplicationDestination, error) {
 	namespaces, err := d.db.ListUsedNamespaces(
-		datasource.InCluster(d.clusterName),
-		datasource.WithOutDeletedRuntimes(),
+		database.InCluster(d.clusterName),
+		database.WithOutDeletedRuntimes(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces in cluster %s failed: %w", d.clusterName, err)
@@ -189,9 +189,9 @@ func (d *ArgoCD) UnDeployApp(ctx context.Context, app deployer.Application) erro
 
 	project := d.getEmptyAppProject()
 	namespaces, err := d.db.ListUsedNamespaces(
-		datasource.InCluster(d.clusterName),
-		datasource.WithOutDeletedRuntimes(),
-		datasource.WithOutProductInfo(),
+		database.InCluster(d.clusterName),
+		database.WithOutDeletedRuntimes(),
+		database.WithOutProductInfo(),
 	)
 	if len(namespaces.GetNamespacesInCluster(d.clusterName)) == 0 {
 		return client.IgnoreNotFound(d.k8sClient.Delete(ctx, project))

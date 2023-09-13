@@ -86,6 +86,13 @@ func findConditionIndexByType(conditions []metav1.Condition, t string) int {
 	return -1
 }
 
+type RuntimeType string
+
+const (
+	RuntimeTypeDeploymentRuntime = "deploymentRuntime"
+	RuntimeTypePipelineRuntime   = "pipelineRuntime"
+)
+
 // +kubebuilder:object:generate=false
 type Runtime interface {
 	client.Object

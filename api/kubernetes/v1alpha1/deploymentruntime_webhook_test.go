@@ -282,7 +282,7 @@ var _ = Describe("cluster webhook", func() {
 		Expect(err).ShouldNot(BeNil())
 	})
 
-	It("when namespace is a conponent's namespace, create will failed", func() {
+	It("when namespace is a component's namespace, create will failed", func() {
 		cluster.Spec.ComponentsList.Deployment = &Component{
 			Name:      "x",
 			Namespace: useNamespace,

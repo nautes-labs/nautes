@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package datasource
+package database
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"net/url"
 	"reflect"
 
-	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,23 +63,23 @@ func (b permissionMatrix) ListCodeReposInProject(name string) []string {
 type RuntimeDataSource struct {
 	k8sClient           client.Client
 	nautesNamespaceName string
-	Clusters            map[string]nautescrd.Cluster
-	CodeRepoProviders   map[string]nautescrd.CodeRepoProvider
-	CodeRepos           map[string]nautescrd.CodeRepo
-	DeploymentRuntimes  map[string]nautescrd.DeploymentRuntime
-	Environments        map[string]nautescrd.Environment
-	PipelineRuntimes    map[string]nautescrd.ProjectPipelineRuntime
-	Product             *nautescrd.Product
-	ProductCodeRepo     *nautescrd.CodeRepo
+	Clusters            map[string]v1alpha1.Cluster
+	CodeRepoProviders   map[string]v1alpha1.CodeRepoProvider
+	CodeRepos           map[string]v1alpha1.CodeRepo
+	DeploymentRuntimes  map[string]v1alpha1.DeploymentRuntime
+	Environments        map[string]v1alpha1.Environment
+	PipelineRuntimes    map[string]v1alpha1.ProjectPipelineRuntime
+	Product             *v1alpha1.Product
+	ProductCodeRepo     *v1alpha1.CodeRepo
 	PermissionMatrix    permissionMatrix
-	Projects            map[string]nautescrd.Project
+	Projects            map[string]v1alpha1.Project
 }
 
 func (db *RuntimeDataSource) cacheNautesResoucesFromCluster(ctx context.Context) error {
 	listOptInNautesNamespace := client.InNamespace(db.nautesNamespaceName)
 
-	clusterList := &nautescrd.ClusterList{}
-	codeRepoProviderList := &nautescrd.CodeRepoProviderList{}
+	clusterList := &v1alpha1.ClusterList{}
+	codeRepoProviderList := &v1alpha1.CodeRepoProviderList{}
 
 	nautesObjLists := []client.ObjectList{clusterList, codeRepoProviderList}
 	for _, objList := range nautesObjLists {
@@ -95,7 +95,7 @@ func (db *RuntimeDataSource) cacheNautesResoucesFromCluster(ctx context.Context)
 }
 
 func (db *RuntimeDataSource) cacheProductResourcesFromCluster(ctx context.Context, productName string) error {
-	product := &nautescrd.Product{
+	product := &v1alpha1.Product{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      productName,
 			Namespace: db.nautesNamespaceName,
@@ -107,8 +107,8 @@ func (db *RuntimeDataSource) cacheProductResourcesFromCluster(ctx context.Contex
 
 	db.Product = product
 
-	productCodeRepoList := nautescrd.CodeRepoList{}
-	if err := db.k8sClient.List(ctx, &productCodeRepoList, client.MatchingLabels{nautescrd.LABEL_FROM_PRODUCT: product.Name}); err != nil {
+	productCodeRepoList := v1alpha1.CodeRepoList{}
+	if err := db.k8sClient.List(ctx, &productCodeRepoList, client.MatchingLabels{v1alpha1.LABEL_FROM_PRODUCT: product.Name}); err != nil {
 		return err
 	}
 
@@ -120,11 +120,11 @@ func (db *RuntimeDataSource) cacheProductResourcesFromCluster(ctx context.Contex
 
 	listOptInProductNamespace := client.InNamespace(productName)
 
-	envList := &nautescrd.EnvironmentList{}
-	projectList := &nautescrd.ProjectList{}
-	codeRepoList := &nautescrd.CodeRepoList{}
-	deployRuntimeList := &nautescrd.DeploymentRuntimeList{}
-	pipelineRuntimeList := &nautescrd.ProjectPipelineRuntimeList{}
+	envList := &v1alpha1.EnvironmentList{}
+	projectList := &v1alpha1.ProjectList{}
+	codeRepoList := &v1alpha1.CodeRepoList{}
+	deployRuntimeList := &v1alpha1.DeploymentRuntimeList{}
+	pipelineRuntimeList := &v1alpha1.ProjectPipelineRuntimeList{}
 
 	ObjLists := []client.ObjectList{envList, projectList, codeRepoList, deployRuntimeList, pipelineRuntimeList}
 	for _, objList := range ObjLists {
@@ -146,7 +146,7 @@ func (db *RuntimeDataSource) cachePermissionMatrix(ctx context.Context) error {
 	productName := db.Product.Name
 	listOptInProductNamespace := client.InNamespace(productName)
 
-	codeRepoBindingList := &nautescrd.CodeRepoBindingList{}
+	codeRepoBindingList := &v1alpha1.CodeRepoBindingList{}
 	if err := db.k8sClient.List(ctx, codeRepoBindingList, listOptInProductNamespace); err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func (db *RuntimeDataSource) removeIllegalReposInPipelineRuntime() {
 			delete(db.PipelineRuntimes, runtimeName)
 		}
 
-		newEventSources := []nautescrd.EventSource{}
+		newEventSources := []v1alpha1.EventSource{}
 		for _, envSrc := range runtime.Spec.EventSources {
 			if envSrc.Gitlab == nil || repoSet.Has(envSrc.Gitlab.RepoName) {
 				newEventSources = append(newEventSources, envSrc)
@@ -241,13 +241,13 @@ func (db *RuntimeDataSource) removeIllegalReposInPipelineRuntime() {
 	}
 }
 
-func removeEventSourceInPipelineRuntime(runtime *nautescrd.ProjectPipelineRuntime) {
+func removeEventSourceInPipelineRuntime(runtime *v1alpha1.ProjectPipelineRuntime) {
 	eventSourceNames := map[string]bool{}
 	for _, eventSrc := range runtime.Spec.EventSources {
 		eventSourceNames[eventSrc.Name] = true
 	}
 
-	newTrigger := []nautescrd.PipelineTrigger{}
+	newTrigger := []v1alpha1.PipelineTrigger{}
 	for _, trigger := range runtime.Spec.PipelineTriggers {
 		if !eventSourceNames[trigger.EventSource] {
 			continue
@@ -257,15 +257,23 @@ func removeEventSourceInPipelineRuntime(runtime *nautescrd.ProjectPipelineRuntim
 	runtime.Spec.PipelineTriggers = newTrigger
 }
 
-func (db *RuntimeDataSource) GetProduct() (*nautescrd.Product, error) {
-	if db.Product == nil {
+func (db *RuntimeDataSource) GetProduct(name string) (*v1alpha1.Product, error) {
+	if db.Product == nil || db.Product.Spec.Name != name {
 		return nil, fmt.Errorf("product not found")
 	}
 
 	return db.Product.DeepCopy(), nil
 }
 
-func (db *RuntimeDataSource) GetCodeRepo(name string) (*nautescrd.CodeRepo, error) {
+func (db *RuntimeDataSource) GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error) {
+	if db.ProductCodeRepo.Labels[v1alpha1.LABEL_FROM_PRODUCT] != name {
+		return nil, fmt.Errorf("product coderepo not found")
+	}
+
+	return db.ProductCodeRepo.DeepCopy(), nil
+}
+
+func (db *RuntimeDataSource) GetCodeRepo(name string) (*v1alpha1.CodeRepo, error) {
 	if db.ProductCodeRepo != nil && db.ProductCodeRepo.Name == name {
 		return db.ProductCodeRepo.DeepCopy(), nil
 	}
@@ -274,7 +282,7 @@ func (db *RuntimeDataSource) GetCodeRepo(name string) (*nautescrd.CodeRepo, erro
 	if !ok {
 		return nil, fmt.Errorf("get code repo %s failed", name)
 	}
-	return &repo, nil
+	return repo.DeepCopy(), nil
 }
 
 func (db *RuntimeDataSource) GetCodeRepoURL(name string) (string, error) {
@@ -308,8 +316,8 @@ func (db *RuntimeDataSource) getListOptions(opts []ListOption) *ListOptions {
 	return options
 }
 
-func (db *RuntimeDataSource) ListPipelineRuntimes() ([]nautescrd.ProjectPipelineRuntime, error) {
-	runtimes := make([]nautescrd.ProjectPipelineRuntime, len(db.PipelineRuntimes))
+func (db *RuntimeDataSource) ListPipelineRuntimes() ([]v1alpha1.ProjectPipelineRuntime, error) {
+	runtimes := make([]v1alpha1.ProjectPipelineRuntime, len(db.PipelineRuntimes))
 	i := 0
 	for _, runtime := range db.PipelineRuntimes {
 		runtimes[i] = runtime
@@ -319,8 +327,27 @@ func (db *RuntimeDataSource) ListPipelineRuntimes() ([]nautescrd.ProjectPipeline
 	return runtimes, nil
 }
 
-func (db *RuntimeDataSource) ListRuntimes() []nautescrd.Runtime {
-	runtimes := make([]nautescrd.Runtime, 0)
+func (db *RuntimeDataSource) GetRuntime(name string, runtimeType v1alpha1.RuntimeType) (v1alpha1.Runtime, error) {
+	switch runtimeType {
+	case v1alpha1.RuntimeTypeDeploymentRuntime:
+		runtime, ok := db.DeploymentRuntimes[name]
+		if !ok {
+			return nil, fmt.Errorf("runtime %s not found", name)
+		}
+		return runtime.DeepCopy(), nil
+	case v1alpha1.RuntimeTypePipelineRuntime:
+		runtime, ok := db.PipelineRuntimes[name]
+		if !ok {
+			return nil, fmt.Errorf("runtime %s not found", name)
+		}
+		return runtime.DeepCopy(), nil
+	default:
+		return nil, fmt.Errorf("unknow runtime type %s", runtimeType)
+	}
+}
+
+func (db *RuntimeDataSource) ListRuntimes() []v1alpha1.Runtime {
+	runtimes := make([]v1alpha1.Runtime, 0)
 
 	for _, runtime := range db.DeploymentRuntimes {
 		runtimes = append(runtimes, runtime.DeepCopy())
@@ -333,18 +360,21 @@ func (db *RuntimeDataSource) ListRuntimes() []nautescrd.Runtime {
 	return runtimes
 }
 
-func (db *RuntimeDataSource) GetClusterByRuntime(runtime nautescrd.Runtime) (*nautescrd.Cluster, error) {
+func (db *RuntimeDataSource) GetCluster(name string) (*v1alpha1.Cluster, error) {
+	cluster, ok := db.Clusters[name]
+	if !ok {
+		return nil, fmt.Errorf("get cluster %s failed", name)
+	}
+	return cluster.DeepCopy(), nil
+}
+
+func (db *RuntimeDataSource) GetClusterByRuntime(runtime v1alpha1.Runtime) (*v1alpha1.Cluster, error) {
 	env, ok := db.Environments[runtime.GetDestination()]
 	if !ok {
 		return nil, fmt.Errorf("get env %s failed", runtime.GetDestination())
 	}
 
-	cluster, ok := db.Clusters[env.Spec.Cluster]
-	if !ok {
-		return nil, fmt.Errorf("get cluster %s failed", env.Spec.Cluster)
-	}
-
-	return &cluster, nil
+	return db.GetCluster(env.Spec.Cluster)
 }
 
 func (db *RuntimeDataSource) ListUsedNamespaces(opts ...ListOption) (NamespaceUsage, error) {
@@ -375,10 +405,10 @@ func (db *RuntimeDataSource) ListUsedNamespaces(opts ...ListOption) (NamespaceUs
 	return namespaceUsage, nil
 }
 
-func (db *RuntimeDataSource) ListUsedCodeRepos(opts ...ListOption) ([]nautescrd.CodeRepo, error) {
+func (db *RuntimeDataSource) ListUsedCodeRepos(opts ...ListOption) ([]v1alpha1.CodeRepo, error) {
 	options := db.getListOptions(opts)
 
-	repoSet := map[string]nautescrd.CodeRepo{}
+	repoSet := map[string]v1alpha1.CodeRepo{}
 
 	for _, runtime := range db.DeploymentRuntimes {
 		cluster, err := db.GetClusterByRuntime(&runtime)
@@ -418,7 +448,7 @@ func (db *RuntimeDataSource) ListUsedCodeRepos(opts ...ListOption) ([]nautescrd.
 		}
 	}
 
-	repos := make([]nautescrd.CodeRepo, 0)
+	repos := make([]v1alpha1.CodeRepo, 0)
 	for _, repo := range repoSet {
 		repos = append(repos, repo)
 	}
@@ -465,7 +495,7 @@ func (db *RuntimeDataSource) ListUsedURLs(opts ...ListOption) ([]string, error) 
 	return URLs, nil
 }
 
-func NewRuntimeDataSource(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (DataSource, error) {
+func NewRuntimeDataSource(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Database, error) {
 	return newRuntimeDataSource(ctx, k8sClient, productName, nautesNamespace)
 }
 
@@ -497,13 +527,13 @@ func newRuntimeDataSource(ctx context.Context, k8sClient client.Client, productN
 
 func getEmptyRuntimeDataSource() *RuntimeDataSource {
 	return &RuntimeDataSource{
-		Clusters:           map[string]nautescrd.Cluster{},
-		CodeRepoProviders:  map[string]nautescrd.CodeRepoProvider{},
-		CodeRepos:          map[string]nautescrd.CodeRepo{},
-		DeploymentRuntimes: map[string]nautescrd.DeploymentRuntime{},
-		Environments:       map[string]nautescrd.Environment{},
-		PipelineRuntimes:   map[string]nautescrd.ProjectPipelineRuntime{},
-		Projects:           map[string]nautescrd.Project{},
+		Clusters:           map[string]v1alpha1.Cluster{},
+		CodeRepoProviders:  map[string]v1alpha1.CodeRepoProvider{},
+		CodeRepos:          map[string]v1alpha1.CodeRepo{},
+		DeploymentRuntimes: map[string]v1alpha1.DeploymentRuntime{},
+		Environments:       map[string]v1alpha1.Environment{},
+		PipelineRuntimes:   map[string]v1alpha1.ProjectPipelineRuntime{},
+		Projects:           map[string]v1alpha1.Project{},
 	}
 }
 

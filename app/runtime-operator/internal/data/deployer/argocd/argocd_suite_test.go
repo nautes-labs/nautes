@@ -19,8 +19,9 @@ import (
 	"testing"
 
 	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -71,20 +72,20 @@ var _ = AfterSuite(func() {
 })
 
 type mockDB struct {
-	Namespaces *datasource.NamespaceUsage
+	Namespaces *database.NamespaceUsage
 	URLs       []string
 }
 
 // ListUsedNamespces should return all namespaces used by product
-func (db *mockDB) ListUsedNamespaces(opts ...datasource.ListOption) (datasource.NamespaceUsage, error) {
+func (db *mockDB) ListUsedNamespaces(opts ...database.ListOption) (database.NamespaceUsage, error) {
 	return *db.Namespaces, nil
 }
 
-func (db *mockDB) ListUsedURLs(opts ...datasource.ListOption) ([]string, error) {
+func (db *mockDB) ListUsedURLs(opts ...database.ListOption) ([]string, error) {
 	return db.URLs, nil
 }
 
-func (db *mockDB) ListUsedCodeRepos(opts ...datasource.ListOption) ([]nautescrd.CodeRepo, error) {
+func (db *mockDB) ListUsedCodeRepos(opts ...database.ListOption) ([]nautescrd.CodeRepo, error) {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -92,7 +93,7 @@ func (db *mockDB) GetCodeRepo(name string) (*nautescrd.CodeRepo, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (db *mockDB) GetProduct() (*nautescrd.Product, error) {
+func (db *mockDB) GetProduct(name string) (*nautescrd.Product, error) {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -101,5 +102,13 @@ func (db *mockDB) GetClusterByRuntime(runtime nautescrd.Runtime) (*nautescrd.Clu
 }
 
 func (db *mockDB) ListPipelineRuntimes() ([]nautescrd.ProjectPipelineRuntime, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (db *mockDB) GetCluster(name string) (*v1alpha1.Cluster, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (db *mockDB) GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error) {
 	panic("not implemented") // TODO: Implement
 }

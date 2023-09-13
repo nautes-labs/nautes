@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package datasource
+package database
 
 import (
 	"reflect"
 
-	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 )
 
 // NamespaceUsage store namespaces in each cluster. Format: map[cluster]namespaces
@@ -27,15 +27,17 @@ func (nu NamespaceUsage) GetNamespacesInCluster(name string) []string {
 	return nu[name]
 }
 
-// DataSource store all product resouces in kubernetes.
-type DataSource interface {
-	GetProduct() (*nautescrd.Product, error)
-	GetCodeRepo(name string) (*nautescrd.CodeRepo, error)
-	GetClusterByRuntime(runtime nautescrd.Runtime) (*nautescrd.Cluster, error)
-	ListPipelineRuntimes() ([]nautescrd.ProjectPipelineRuntime, error)
+// Database store all product resouces in kubernetes.
+type Database interface {
+	GetProduct(name string) (*v1alpha1.Product, error)
+	GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error)
+	GetCodeRepo(name string) (*v1alpha1.CodeRepo, error)
+	GetCluster(name string) (*v1alpha1.Cluster, error)
+	GetClusterByRuntime(runtime v1alpha1.Runtime) (*v1alpha1.Cluster, error)
+	ListPipelineRuntimes() ([]v1alpha1.ProjectPipelineRuntime, error)
 	// ListUsedNamespces should return all namespaces used by product
 	ListUsedNamespaces(opts ...ListOption) (NamespaceUsage, error)
-	ListUsedCodeRepos(opts ...ListOption) ([]nautescrd.CodeRepo, error)
+	ListUsedCodeRepos(opts ...ListOption) ([]v1alpha1.CodeRepo, error)
 	ListUsedURLs(opts ...ListOption) ([]string, error)
 }
 
@@ -45,7 +47,7 @@ func InCluster(cluster string) ListOption {
 	return func(lo *ListOptions) { lo.inCluster = cluster }
 }
 
-func ExcludeRuntimes(runtimes []nautescrd.Runtime) ListOption {
+func ExcludeRuntimes(runtimes []v1alpha1.Runtime) ListOption {
 	return func(lo *ListOptions) { lo.excludeRuntimes = runtimes }
 }
 
@@ -59,7 +61,7 @@ func WithOutProductInfo() ListOption {
 
 type ListOptions struct {
 	inCluster              string
-	excludeRuntimes        []nautescrd.Runtime
+	excludeRuntimes        []v1alpha1.Runtime
 	withOutDeletedRuntimes bool
 	withOutProductInfo     bool
 }
@@ -71,7 +73,7 @@ func (o *ListOptions) IsRequestCluster(clusterName string) bool {
 	return true
 }
 
-func (o *ListOptions) IsExcludeRuntime(runtime nautescrd.Runtime) bool {
+func (o *ListOptions) IsExcludeRuntime(runtime v1alpha1.Runtime) bool {
 	for _, excludeRuntime := range o.excludeRuntimes {
 		if reflect.TypeOf(runtime) == reflect.TypeOf(excludeRuntime) &&
 			runtime.GetProduct() == excludeRuntime.GetProduct() &&
@@ -82,7 +84,7 @@ func (o *ListOptions) IsExcludeRuntime(runtime nautescrd.Runtime) bool {
 	return false
 }
 
-func (o *ListOptions) MatchRequest(runtime nautescrd.Runtime, clusterName string) bool {
+func (o *ListOptions) MatchRequest(runtime v1alpha1.Runtime, clusterName string) bool {
 	if o.withOutDeletedRuntimes && !runtime.GetDeletionTimestamp().IsZero() {
 		return false
 	}

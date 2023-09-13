@@ -21,7 +21,7 @@ import (
 	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/constant"
 	runtimecontext "github.com/nautes-labs/nautes/app/runtime-operator/pkg/context"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	interfaces "github.com/nautes-labs/nautes/app/runtime-operator/pkg/interface"
 	nautescfg "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +60,7 @@ func (s *Syncer) Sync(ctx context.Context, runtime interfaces.Runtime) (*interfa
 		return nil, fmt.Errorf("get nautes config from context failed")
 	}
 
-	productDB, err := datasource.NewRuntimeDataSource(ctx, s.Client, runtime.GetProduct(), cfg.Nautes.Namespace)
+	productDB, err := database.NewRuntimeDataSource(ctx, s.Client, runtime.GetProduct(), cfg.Nautes.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("collect product infos failed: %w", err)
 	}
@@ -184,7 +184,7 @@ func (s *Syncer) Delete(ctx context.Context, runtime interfaces.Runtime) error {
 		return fmt.Errorf("get nautes config from context failed")
 	}
 
-	productDB, err := datasource.NewRuntimeDataSource(ctx, s.Client, runtime.GetProduct(), cfg.Nautes.Namespace)
+	productDB, err := database.NewRuntimeDataSource(ctx, s.Client, runtime.GetProduct(), cfg.Nautes.Namespace)
 	if err != nil {
 		return fmt.Errorf("collect product infos failed: %w", err)
 	}
