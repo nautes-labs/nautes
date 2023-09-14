@@ -13,8 +13,8 @@ type Deployment interface {
 
 	// The cache will be stored and passed based on the product name.
 	Product
-	AddProductUser(ctx context.Context, name string, user PermissionRequest) error
-	DeleteUProductUser(ctx context.Context, name string, user PermissionRequest) error
+	AddProductUser(ctx context.Context, request PermissionRequest) error
+	DeleteUProductUser(ctx context.Context, request PermissionRequest) error
 
 	// SyncApp should deploy the given apps, and clean up expired apps in cache.
 	// All apps share one cache.
@@ -32,4 +32,6 @@ type ApplicationGit struct {
 	URL      string
 	Revision string
 	Path     string
+	// CodeRepo will record the source, if url comes from code repo
+	CodeRepo string
 }

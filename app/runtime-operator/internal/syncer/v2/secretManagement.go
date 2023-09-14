@@ -12,13 +12,12 @@ type SecretManagement interface {
 	// GetAccessInfo should return the infomation on how to access the cluster
 	GetAccessInfo(ctx context.Context, clusterName string) (string, error)
 
-	// 如果数据需要缓存，可以在返回值中返回要缓存的信息，下次调用时，会以变量 cache 输入。
-	// 缓存按照 User 区分
+	//// The cache will be stored and passed based on the product name + user name.
 
 	CreateUser(ctx context.Context, user User, cache interface{}) (interface{}, error)
 	DeleteUser(ctx context.Context, user User, cache interface{}) (interface{}, error)
-	GrantPermission(ctx context.Context, repo SecretInfo, user User, cache interface{}) (interface{}, error)
-	RevokePermission(ctx context.Context, repo SecretInfo, user User, cache interface{}) (interface{}, error)
+	GrantPermission(ctx context.Context, repo SecretInfo, user User) error
+	RevokePermission(ctx context.Context, repo SecretInfo, user User) error
 }
 
 type SecretType int32

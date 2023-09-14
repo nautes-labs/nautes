@@ -37,11 +37,13 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
+	var NotUseExistingCluster bool
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "..", "..", "test", "hnc"),
 		},
 		ErrorIfCRDPathMissing: true,
+		UseExistingCluster:    &NotUseExistingCluster,
 	}
 
 	cfg, err := testEnv.Start()
@@ -150,11 +152,11 @@ func (m *mockDeployer) GetProduct(ctx context.Context, name string) (*syncer.Pro
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) AddProductUser(ctx context.Context, name string, user syncer.PermissionRequest) error {
+func (m *mockDeployer) AddProductUser(ctx context.Context, request syncer.PermissionRequest) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) DeleteUProductUser(ctx context.Context, name string, user syncer.PermissionRequest) error {
+func (m *mockDeployer) DeleteUProductUser(ctx context.Context, request syncer.PermissionRequest) error {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -165,5 +167,13 @@ func (m *mockDeployer) SyncApp(ctx context.Context, apps []syncer.Application, c
 }
 
 func (m *mockDeployer) SyncAppUsers(ctx context.Context, requests []syncer.PermissionRequest, cache interface{}) (interface{}, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (db *mockDB) GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (db *mockDB) GetCodeRepoProvider(name string) (*v1alpha1.CodeRepoProvider, error) {
 	panic("not implemented") // TODO: Implement
 }

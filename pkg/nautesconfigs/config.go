@@ -18,6 +18,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	OperatorNameAPI          = "Api"
+	OperatorNameArgo         = "Argo"
+	OperatorNameBase         = "Base"
+	OperatorNameCluster      = "Cluster"
+	OperatorNameArtifactRepo = "Repo"
+	OperatorNameRuntime      = "Runtime"
+)
+
 type Config struct {
 	Deploy   DeployApp  `yaml:"deploy"`
 	EventBus EventBus   `yaml:"eventbus"`

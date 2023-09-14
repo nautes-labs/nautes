@@ -17,11 +17,15 @@ package utils
 import (
 	"context"
 
-	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	interfaces "github.com/nautes-labs/nautes/app/runtime-operator/pkg/interface"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func GetProductLabel(productName string) map[string]string {
+	return map[string]string{v1alpha1.LABEL_BELONG_TO_PRODUCT: productName}
+}
 
 func getEnvClusterMapping(ctx context.Context, k8sClient client.Client, runtimes []interfaces.Runtime) (map[string]string, error) {
 	envClusterMap := map[string]string{}
@@ -29,7 +33,7 @@ func getEnvClusterMapping(ctx context.Context, k8sClient client.Client, runtimes
 		envName := runtime.GetDestination()
 
 		if _, ok := envClusterMap[envName]; !ok {
-			env := &nautescrd.Environment{}
+			env := &v1alpha1.Environment{}
 			key := types.NamespacedName{
 				Namespace: runtime.GetProduct(),
 				Name:      envName,
@@ -44,13 +48,13 @@ func getEnvClusterMapping(ctx context.Context, k8sClient client.Client, runtimes
 }
 
 func getRuntimesInProduct(ctx context.Context, k8sClient client.Client, product string) ([]interfaces.Runtime, error) {
-	deploymentRuntimeList := &nautescrd.DeploymentRuntimeList{}
+	deploymentRuntimeList := &v1alpha1.DeploymentRuntimeList{}
 	listOpt := client.InNamespace(product)
 	if err := k8sClient.List(ctx, deploymentRuntimeList, &listOpt); err != nil {
 		return nil, err
 	}
 
-	pipelineRuntimeList := &nautescrd.ProjectPipelineRuntimeList{}
+	pipelineRuntimeList := &v1alpha1.ProjectPipelineRuntimeList{}
 	if err := k8sClient.List(ctx, pipelineRuntimeList, &listOpt); err != nil {
 		return nil, err
 	}
@@ -128,12 +132,12 @@ func GetURLsInCluster(ctx context.Context, k8sClient client.Client, product, clu
 			continue
 		}
 
-		deployRuntime, ok := runtime.(*nautescrd.DeploymentRuntime)
+		deployRuntime, ok := runtime.(*v1alpha1.DeploymentRuntime)
 		if !ok {
 			continue
 		}
 
-		codeRepo := &nautescrd.CodeRepo{}
+		codeRepo := &v1alpha1.CodeRepo{}
 		key := types.NamespacedName{
 			Namespace: product,
 			Name:      deployRuntime.Spec.ManifestSource.CodeRepo,

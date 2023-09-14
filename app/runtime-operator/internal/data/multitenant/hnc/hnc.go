@@ -182,7 +182,7 @@ func (h hnc) addRoleBinding(ctx context.Context, name string) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: name,
-			Labels:    getProductLabel(name),
+			Labels:    utils.GetProductLabel(name),
 		},
 	}
 
@@ -480,10 +480,6 @@ func (h hnc) GetUser(ctx context.Context, productName string, name string) (user
 	return user, nil
 }
 
-func getProductLabel(productName string) map[string]string {
-	return map[string]string{v1alpha1.LABEL_BELONG_TO_PRODUCT: productName}
-}
-
 const (
 	hierarchyConfigurationName = "hierarchy"
 )
@@ -550,7 +546,7 @@ func (h hnc) createNamespace(ctx context.Context, productName, name string) erro
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
-			Labels: getProductLabel(productName),
+			Labels: utils.GetProductLabel(productName),
 		},
 	}
 
@@ -604,7 +600,7 @@ func (h hnc) listNamespaces(ctx context.Context, productName string, opts ...syn
 	}
 
 	namespaceList := &corev1.NamespaceList{}
-	nsListOpt := client.MatchingLabels(getProductLabel(productName))
+	nsListOpt := client.MatchingLabels(utils.GetProductLabel(productName))
 	if err := h.k8sClient.List(ctx, namespaceList, nsListOpt); err != nil {
 		return nil, fmt.Errorf("list namespace failed: %w", err)
 	}

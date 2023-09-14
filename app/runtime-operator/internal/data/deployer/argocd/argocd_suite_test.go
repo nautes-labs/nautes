@@ -112,3 +112,11 @@ func (db *mockDB) GetCluster(name string) (*v1alpha1.Cluster, error) {
 func (db *mockDB) GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error) {
 	panic("not implemented") // TODO: Implement
 }
+
+func (db *mockDB) GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (db *mockDB) GetCodeRepoProvider(name string) (*v1alpha1.CodeRepoProvider, error) {
+	panic("not implemented") // TODO: Implement
+}

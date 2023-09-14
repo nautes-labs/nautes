@@ -31,7 +31,9 @@ func (nu NamespaceUsage) GetNamespacesInCluster(name string) []string {
 type Database interface {
 	GetProduct(name string) (*v1alpha1.Product, error)
 	GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error)
+	GetCodeRepoProvider(name string) (*v1alpha1.CodeRepoProvider, error)
 	GetCodeRepo(name string) (*v1alpha1.CodeRepo, error)
+	GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error)
 	GetCluster(name string) (*v1alpha1.Cluster, error)
 	GetClusterByRuntime(runtime v1alpha1.Runtime) (*v1alpha1.Cluster, error)
 	ListPipelineRuntimes() ([]v1alpha1.ProjectPipelineRuntime, error)
