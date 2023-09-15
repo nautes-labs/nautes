@@ -42,3 +42,4 @@ ca/*
 # log
 .log/**
 *.log
+.DS_Store

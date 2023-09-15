@@ -89,30 +89,41 @@ type Component struct {
 	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
 	// +optional
+	// +nullable
 	Additions map[string]string `json:"additions"`
 }
 
 // ComponentsList declares the specific components used by the cluster
 type ComponentsList struct {
 	// +optional
+	// +nullable
 	CertManagement *Component `json:"certManagement"`
 	// +optional
+	// +nullable
 	Deployment *Component `json:"deployment"`
 	// +optional
+	// +nullable
 	EventListener *Component `json:"eventListener"`
 	// +optional
+	// +nullable
 	Gateway *Component `json:"gateway"`
 	// +optional
+	// +nullable
 	MultiTenant *Component `json:"multiTenant"`
 	// +optional
+	// +nullable
 	Pipeline *Component `json:"pipeline"`
 	// +optional
+	// +nullable
 	ProgressiveDelivery *Component `json:"progressiveDelivery"`
 	// +optional
+	// +nullable
 	SecretManagement *Component `json:"secretManagement"`
 	// +optional
+	// +nullable
 	SecretSync *Component `json:"secretSync"`
 	// +optional
+	// +nullable
 	OauthProxy *Component `json:"oauthProxy"`
 }
 

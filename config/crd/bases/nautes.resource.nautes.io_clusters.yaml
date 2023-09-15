@@ -66,10 +66,12 @@ spec:
                   by the cluster
                 properties:
                   certManagement:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -82,10 +84,12 @@ spec:
                     - namespace
                     type: object
                   deployment:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -98,10 +102,12 @@ spec:
                     - namespace
                     type: object
                   eventListener:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -114,10 +120,12 @@ spec:
                     - namespace
                     type: object
                   gateway:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -130,10 +138,12 @@ spec:
                     - namespace
                     type: object
                   multiTenant:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -146,10 +156,12 @@ spec:
                     - namespace
                     type: object
                   oauthProxy:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -162,10 +174,12 @@ spec:
                     - namespace
                     type: object
                   pipeline:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -178,10 +192,12 @@ spec:
                     - namespace
                     type: object
                   progressiveDelivery:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -194,10 +210,12 @@ spec:
                     - namespace
                     type: object
                   secretManagement:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
@@ -210,10 +228,12 @@ spec:
                     - namespace
                     type: object
                   secretSync:
+                    nullable: true
                     properties:
                       additions:
                         additionalProperties:
                           type: string
+                        nullable: true
                         type: object
                       name:
                         minLength: 1
