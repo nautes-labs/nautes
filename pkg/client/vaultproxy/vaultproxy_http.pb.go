@@ -22,13 +22,14 @@ const _ = http.SupportPackageIsVersion1
 const OperationSecretCreateCluster = "/api.vaultproxy.v1.Secret/CreateCluster"
 const OperationSecretCreateGit = "/api.vaultproxy.v1.Secret/CreateGit"
 const OperationSecretCreatePki = "/api.vaultproxy.v1.Secret/CreatePki"
-const OperationSecretCreateRepo = "/api.vaultproxy.v1.Secret/CreateRepo"
+const OperationSecretCreateRepoAccount = "/api.vaultproxy.v1.Secret/CreateRepoAccount"
 const OperationSecretCreateTenantRepo = "/api.vaultproxy.v1.Secret/CreateTenantRepo"
 const OperationSecretCreteTenantGit = "/api.vaultproxy.v1.Secret/CreteTenantGit"
 const OperationSecretDeleteCluster = "/api.vaultproxy.v1.Secret/DeleteCluster"
 const OperationSecretDeleteGit = "/api.vaultproxy.v1.Secret/DeleteGit"
 const OperationSecretDeletePki = "/api.vaultproxy.v1.Secret/DeletePki"
-const OperationSecretDeleteRepo = "/api.vaultproxy.v1.Secret/DeleteRepo"
+const OperationSecretDeleteRepoAccountProduct = "/api.vaultproxy.v1.Secret/DeleteRepoAccountProduct"
+const OperationSecretDeleteRepoAccountProject = "/api.vaultproxy.v1.Secret/DeleteRepoAccountProject"
 const OperationSecretDeleteTenantGit = "/api.vaultproxy.v1.Secret/DeleteTenantGit"
 const OperationSecretDeleteTenantRepo = "/api.vaultproxy.v1.Secret/DeleteTenantRepo"
 
@@ -36,14 +37,15 @@ type SecretHTTPServer interface {
 	CreateCluster(context.Context, *ClusterRequest) (*CreateClusterReply, error)
 	CreateGit(context.Context, *GitRequest) (*CreateGitReply, error)
 	CreatePki(context.Context, *PkiRequest) (*CreatePkiReply, error)
-	CreateRepo(context.Context, *RepoRequest) (*CreateRepoReply, error)
+	CreateRepoAccount(context.Context, *RepoRequest) (*CreateRepoReply, error)
 	// CreateTenantRepo////////////////////////////////////////////////////////////////
 	CreateTenantRepo(context.Context, *TenantRepoRequest) (*CreateTenantRepoReply, error)
 	CreteTenantGit(context.Context, *TenantGitRequest) (*CreateTenantGitReply, error)
 	DeleteCluster(context.Context, *ClusterRequest) (*DeleteClusterReply, error)
 	DeleteGit(context.Context, *GitRequest) (*DeleteGitReply, error)
 	DeletePki(context.Context, *PkiRequest) (*DeletePkiReply, error)
-	DeleteRepo(context.Context, *RepoRequest) (*DeleteRepoReply, error)
+	DeleteRepoAccountProduct(context.Context, *RepoRequest) (*DeleteRepoReply, error)
+	DeleteRepoAccountProject(context.Context, *RepoRequest) (*DeleteRepoReply, error)
 	DeleteTenantGit(context.Context, *TenantGitRequest) (*DeleteTenantGitReply, error)
 	DeleteTenantRepo(context.Context, *TenantRepoRequest) (*DeleteTenantRepoReply, error)
 }
@@ -54,8 +56,9 @@ func RegisterSecretHTTPServer(s *http.Server, srv SecretHTTPServer) {
 	r.DELETE("/v1/git/{meta.provider_type}/{meta.id}/{meta.username}/{meta.permission}", _Secret_DeleteGit0_HTTP_Handler(srv))
 	r.POST("/v1/pki", _Secret_CreatePki0_HTTP_Handler(srv))
 	r.DELETE("/v1/pki/{domain}", _Secret_DeletePki0_HTTP_Handler(srv))
-	r.POST("/v1/repo", _Secret_CreateRepo0_HTTP_Handler(srv))
-	r.DELETE("/v1/repo/{meta.provider_id}/{meta.type}/{meta.id}/{meta.username}/{meta.permission}", _Secret_DeleteRepo0_HTTP_Handler(srv))
+	r.POST("/v1/repo", _Secret_CreateRepoAccount0_HTTP_Handler(srv))
+	r.DELETE("/v1/repo/{meta.provider_id}/product/{meta.product}", _Secret_DeleteRepoAccountProduct0_HTTP_Handler(srv))
+	r.DELETE("/v1/repo/{meta.provider_id}/product/{meta.product}/project/{meta.project}", _Secret_DeleteRepoAccountProject0_HTTP_Handler(srv))
 	r.POST("/v1/tenant/git", _Secret_CreteTenantGit0_HTTP_Handler(srv))
 	r.DELETE("/v1/tenant/git/{meta.id}", _Secret_DeleteTenantGit0_HTTP_Handler(srv))
 	r.POST("/v1/tenant/repos", _Secret_CreateTenantRepo0_HTTP_Handler(srv))
@@ -68,6 +71,9 @@ func _Secret_CreateGit0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context
 	return func(ctx http.Context) error {
 		var in GitRequest
 		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 		http.SetOperation(ctx, OperationSecretCreateGit)
@@ -111,6 +117,9 @@ func _Secret_CreatePki0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
 		http.SetOperation(ctx, OperationSecretCreatePki)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.CreatePki(ctx, req.(*PkiRequest))
@@ -146,15 +155,18 @@ func _Secret_DeletePki0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context
 	}
 }
 
-func _Secret_CreateRepo0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context) error {
+func _Secret_CreateRepoAccount0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in RepoRequest
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationSecretCreateRepo)
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationSecretCreateRepoAccount)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.CreateRepo(ctx, req.(*RepoRequest))
+			return srv.CreateRepoAccount(ctx, req.(*RepoRequest))
 		})
 		out, err := h(ctx, &in)
 		if err != nil {
@@ -165,7 +177,7 @@ func _Secret_CreateRepo0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Contex
 	}
 }
 
-func _Secret_DeleteRepo0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context) error {
+func _Secret_DeleteRepoAccountProduct0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in RepoRequest
 		if err := ctx.BindQuery(&in); err != nil {
@@ -174,9 +186,31 @@ func _Secret_DeleteRepo0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Contex
 		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationSecretDeleteRepo)
+		http.SetOperation(ctx, OperationSecretDeleteRepoAccountProduct)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.DeleteRepo(ctx, req.(*RepoRequest))
+			return srv.DeleteRepoAccountProduct(ctx, req.(*RepoRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*DeleteRepoReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Secret_DeleteRepoAccountProject0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in RepoRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationSecretDeleteRepoAccountProject)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.DeleteRepoAccountProject(ctx, req.(*RepoRequest))
 		})
 		out, err := h(ctx, &in)
 		if err != nil {
@@ -191,6 +225,9 @@ func _Secret_CreteTenantGit0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Co
 	return func(ctx http.Context) error {
 		var in TenantGitRequest
 		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 		http.SetOperation(ctx, OperationSecretCreteTenantGit)
@@ -234,6 +271,9 @@ func _Secret_CreateTenantRepo0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
 		http.SetOperation(ctx, OperationSecretCreateTenantRepo)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.CreateTenantRepo(ctx, req.(*TenantRepoRequest))
@@ -275,6 +315,9 @@ func _Secret_CreateCluster0_HTTP_Handler(srv SecretHTTPServer) func(ctx http.Con
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
 		http.SetOperation(ctx, OperationSecretCreateCluster)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.CreateCluster(ctx, req.(*ClusterRequest))
@@ -314,13 +357,14 @@ type SecretHTTPClient interface {
 	CreateCluster(ctx context.Context, req *ClusterRequest, opts ...http.CallOption) (rsp *CreateClusterReply, err error)
 	CreateGit(ctx context.Context, req *GitRequest, opts ...http.CallOption) (rsp *CreateGitReply, err error)
 	CreatePki(ctx context.Context, req *PkiRequest, opts ...http.CallOption) (rsp *CreatePkiReply, err error)
-	CreateRepo(ctx context.Context, req *RepoRequest, opts ...http.CallOption) (rsp *CreateRepoReply, err error)
+	CreateRepoAccount(ctx context.Context, req *RepoRequest, opts ...http.CallOption) (rsp *CreateRepoReply, err error)
 	CreateTenantRepo(ctx context.Context, req *TenantRepoRequest, opts ...http.CallOption) (rsp *CreateTenantRepoReply, err error)
 	CreteTenantGit(ctx context.Context, req *TenantGitRequest, opts ...http.CallOption) (rsp *CreateTenantGitReply, err error)
 	DeleteCluster(ctx context.Context, req *ClusterRequest, opts ...http.CallOption) (rsp *DeleteClusterReply, err error)
 	DeleteGit(ctx context.Context, req *GitRequest, opts ...http.CallOption) (rsp *DeleteGitReply, err error)
 	DeletePki(ctx context.Context, req *PkiRequest, opts ...http.CallOption) (rsp *DeletePkiReply, err error)
-	DeleteRepo(ctx context.Context, req *RepoRequest, opts ...http.CallOption) (rsp *DeleteRepoReply, err error)
+	DeleteRepoAccountProduct(ctx context.Context, req *RepoRequest, opts ...http.CallOption) (rsp *DeleteRepoReply, err error)
+	DeleteRepoAccountProject(ctx context.Context, req *RepoRequest, opts ...http.CallOption) (rsp *DeleteRepoReply, err error)
 	DeleteTenantGit(ctx context.Context, req *TenantGitRequest, opts ...http.CallOption) (rsp *DeleteTenantGitReply, err error)
 	DeleteTenantRepo(ctx context.Context, req *TenantRepoRequest, opts ...http.CallOption) (rsp *DeleteTenantRepoReply, err error)
 }
@@ -372,11 +416,11 @@ func (c *SecretHTTPClientImpl) CreatePki(ctx context.Context, in *PkiRequest, op
 	return &out, err
 }
 
-func (c *SecretHTTPClientImpl) CreateRepo(ctx context.Context, in *RepoRequest, opts ...http.CallOption) (*CreateRepoReply, error) {
+func (c *SecretHTTPClientImpl) CreateRepoAccount(ctx context.Context, in *RepoRequest, opts ...http.CallOption) (*CreateRepoReply, error) {
 	var out CreateRepoReply
 	pattern := "/v1/repo"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationSecretCreateRepo))
+	opts = append(opts, http.Operation(OperationSecretCreateRepoAccount))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -450,11 +494,24 @@ func (c *SecretHTTPClientImpl) DeletePki(ctx context.Context, in *PkiRequest, op
 	return &out, err
 }
 
-func (c *SecretHTTPClientImpl) DeleteRepo(ctx context.Context, in *RepoRequest, opts ...http.CallOption) (*DeleteRepoReply, error) {
+func (c *SecretHTTPClientImpl) DeleteRepoAccountProduct(ctx context.Context, in *RepoRequest, opts ...http.CallOption) (*DeleteRepoReply, error) {
 	var out DeleteRepoReply
-	pattern := "/v1/repo/{meta.provider_id}/{meta.type}/{meta.id}/{meta.username}/{meta.permission}"
+	pattern := "/v1/repo/{meta.provider_id}/product/{meta.product}"
 	path := binding.EncodeURL(pattern, in, true)
-	opts = append(opts, http.Operation(OperationSecretDeleteRepo))
+	opts = append(opts, http.Operation(OperationSecretDeleteRepoAccountProduct))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "DELETE", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
+func (c *SecretHTTPClientImpl) DeleteRepoAccountProject(ctx context.Context, in *RepoRequest, opts ...http.CallOption) (*DeleteRepoReply, error) {
+	var out DeleteRepoReply
+	pattern := "/v1/repo/{meta.provider_id}/product/{meta.product}/project/{meta.project}"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationSecretDeleteRepoAccountProject))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "DELETE", path, nil, &out, opts...)
 	if err != nil {
@@ -515,6 +572,9 @@ func _Auth_CreateAuth0_HTTP_Handler(srv AuthHTTPServer) func(ctx http.Context) e
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
 		http.SetOperation(ctx, OperationAuthCreateAuth)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.CreateAuth(ctx, req.(*AuthRequest))
@@ -554,6 +614,9 @@ func _Auth_CreateAuthrole0_HTTP_Handler(srv AuthHTTPServer) func(ctx http.Contex
 	return func(ctx http.Context) error {
 		var in AuthroleRequest
 		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 		if err := ctx.BindVars(&in); err != nil {
@@ -705,6 +768,9 @@ func _AuthGrant_GrantAuthroleGitPolicy0_HTTP_Handler(srv AuthGrantHTTPServer) fu
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
 		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
@@ -747,6 +813,9 @@ func _AuthGrant_GrantAuthroleRepoPolicy0_HTTP_Handler(srv AuthGrantHTTPServer) f
 	return func(ctx http.Context) error {
 		var in AuthroleRepoPolicyRequest
 		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 		if err := ctx.BindVars(&in); err != nil {
@@ -793,6 +862,9 @@ func _AuthGrant_GrantAuthroleClusterPolicy0_HTTP_Handler(srv AuthGrantHTTPServer
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
 		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
@@ -837,6 +909,9 @@ func _AuthGrant_GrantAuthroleTenantGitPolicy0_HTTP_Handler(srv AuthGrantHTTPServ
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
 		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
@@ -879,6 +954,9 @@ func _AuthGrant_GrantAuthroleTenantRepoPolicy0_HTTP_Handler(srv AuthGrantHTTPSer
 	return func(ctx http.Context) error {
 		var in AuthroleTenantRepoPolicyRequest
 		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
 		if err := ctx.BindVars(&in); err != nil {

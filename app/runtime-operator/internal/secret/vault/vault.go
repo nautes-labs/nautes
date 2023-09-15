@@ -152,15 +152,14 @@ func (s *Vault) getSecretKeyGit(ctx context.Context, repo runtimeinterface.Secre
 func (s *Vault) getSecretKeyArtifact(ctx context.Context, repo runtimeinterface.SecretInfo) (string, error) {
 	meta := vaultproxy.RepoMeta{
 		ProviderId: repo.AritifaceRepo.ProviderName,
-		Type:       repo.AritifaceRepo.RepoType,
-		Id:         repo.AritifaceRepo.ID,
-		Username:   repo.AritifaceRepo.User,
-		Permission: repo.AritifaceRepo.Permission,
+		Product:    "",
+		Project:    "",
 	}
 	secretMeta, err := meta.GetNames()
 	if err != nil {
 		return "", err
 	}
+
 	return secretMeta.SecretPath, nil
 }
 

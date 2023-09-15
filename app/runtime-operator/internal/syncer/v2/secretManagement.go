@@ -9,8 +9,10 @@ import (
 type NewSecretManagement func(opt v1alpha1.Component, info ComponentInitInfo) (SecretManagement, error)
 
 type SecretManagement interface {
+	Component
+
 	// GetAccessInfo should return the infomation on how to access the cluster
-	GetAccessInfo(ctx context.Context, clusterName string) (string, error)
+	GetAccessInfo(ctx context.Context) (string, error)
 
 	//// The cache will be stored and passed based on the product name + user name.
 
@@ -20,11 +22,11 @@ type SecretManagement interface {
 	RevokePermission(ctx context.Context, repo SecretInfo, user User) error
 }
 
-type SecretType int32
+type SecretType string
 
 const (
-	SecretTypeCodeRepo = iota
-	SecretTypeArtifactRepo
+	SecretTypeCodeRepo     = "CodeRepo"
+	SecretTypeArtifactRepo = "ArtifactRepo"
 )
 
 type SecretInfo struct {

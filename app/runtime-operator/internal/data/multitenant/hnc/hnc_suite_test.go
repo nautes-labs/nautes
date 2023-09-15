@@ -40,7 +40,7 @@ var _ = BeforeSuite(func() {
 	var NotUseExistingCluster bool
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "..", "test", "hnc"),
+			filepath.Join("..", "..", "..", "..", "..", "..", "test", "crd", "hnc"),
 		},
 		ErrorIfCRDPathMissing: true,
 		UseExistingCluster:    &NotUseExistingCluster,

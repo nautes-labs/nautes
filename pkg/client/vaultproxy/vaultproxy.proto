@@ -58,15 +58,20 @@ service Secret {
             delete: "/v1/pki/{domain}"
         };
     }
-    rpc CreateRepo (RepoRequest) returns (CreateRepoReply) {
+    rpc CreateRepoAccount (RepoRequest) returns (CreateRepoReply) {
         option (google.api.http) = {
             post: "/v1/repo"
             body: "*"
         };
     };
-    rpc DeleteRepo (RepoRequest) returns (DeleteRepoReply) {
+    rpc DeleteRepoAccountProduct (RepoRequest) returns (DeleteRepoReply) {
         option (google.api.http) = {
-            delete: "/v1/repo/{meta.provider_id}/{meta.type}/{meta.id}/{meta.username}/{meta.permission}"
+            delete: "/v1/repo/{meta.provider_id}/product/{meta.product}"
+        };
+    };
+    rpc DeleteRepoAccountProject (RepoRequest) returns (DeleteRepoReply) {
+        option (google.api.http) = {
+            delete: "/v1/repo/{meta.provider_id}/product/{meta.product}/project/{meta.project}"
         };
     };
     rpc CreteTenantGit (TenantGitRequest) returns (CreateTenantGitReply) {
@@ -162,22 +167,34 @@ message DeletePkiReply {
 
 // REPO DEFINE
 message RepoAccount {
-    string username = 1;
-    string password = 2;
+    // auth method of this repo account, it must in [ token, password ].
+    // if token, it will load data will from token.
+    // if password, it will load data from account.
+    string auth_type = 1 [json_name = "auth_type"];
+    Token token = 2;
+    Account account = 3;
+    map<string,string> additionals = 4;
+}
+
+message Token {
+    string token = 1 [(validate.rules).string.min_len = 1];
+}
+
+message Account{
+    string username = 1 [(validate.rules).string.min_len = 1];
+    string password = 2 [(validate.rules).string.min_len = 1];
 }
 
 message RepoMeta {
     string provider_id = 1  [json_name = "provider_id", (validate.rules).string.min_len = 1];
     // Witch kind of repo it is, such as pip, docker images.
-    string type = 2         [(validate.rules).string.min_len = 1];
-    string id = 3           [(validate.rules).string.min_len = 1];
-    string username = 4     [(validate.rules).string.min_len = 1];
-    string permission = 5   [(validate.rules).string.min_len = 1];
+    string product = 2      [(validate.rules).string.min_len = 1];
+    string project = 3;
 }
 
 message RepoRequest {
     RepoMeta meta = 1       [(validate.rules).message.required = true];
-    RepoAccount account = 2 [(validate.rules).message.required = true];
+    RepoAccount account = 2 ;
 }
 
 message CreateRepoReply {

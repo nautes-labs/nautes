@@ -43,8 +43,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "..", "..", "..", "test", "hnc"),
-			filepath.Join("..", "..", "..", "..", "..", "..", "test", "argocd"),
+			filepath.Join("..", "..", "..", "..", "..", "..", "test", "crd", "argocd"),
 		},
 		ErrorIfCRDPathMissing: true,
 		UseExistingCluster:    &NotUseExistingCluster,
@@ -102,8 +101,14 @@ var _ = AfterSuite(func() {
 // Generate by m *mockSecMgr syncer.SecretManagement
 type mockSecMgr struct{}
 
+// When the component generates cache information, implement this method to clean datas.
+// This method will be automatically called by the syncer after each tuning is completed.
+func (m *mockSecMgr) CleanUp() error {
+	panic("not implemented") // TODO: Implement
+}
+
 // GetAccessInfo should return the infomation on how to access the cluster
-func (m *mockSecMgr) GetAccessInfo(ctx context.Context, clusterName string) (string, error) {
+func (m *mockSecMgr) GetAccessInfo(ctx context.Context) (string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
