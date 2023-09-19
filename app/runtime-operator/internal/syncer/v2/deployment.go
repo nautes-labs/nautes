@@ -6,20 +6,18 @@ import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 )
 
-type NewDeployment func(opt v1alpha1.Component, info ComponentInitInfo) (Deployment, error)
+type NewDeployment func(opt v1alpha1.Component, info *ComponentInitInfo) (Deployment, error)
 
 type Deployment interface {
 	Component
 
-	// The cache will be stored and passed based on the product name.
 	Product
 	AddProductUser(ctx context.Context, request PermissionRequest) error
-	DeleteUProductUser(ctx context.Context, request PermissionRequest) error
+	DeleteProductUser(ctx context.Context, request PermissionRequest) error
 
-	// SyncApp should deploy the given apps, and clean up expired apps in cache.
-	// All apps share one cache.
-	SyncApp(ctx context.Context, apps []Application, cache interface{}) (interface{}, error)
-	SyncAppUsers(ctx context.Context, requests []PermissionRequest, cache interface{}) (interface{}, error)
+	CreateApp(ctx context.Context, app Application) error
+	DeleteApp(ctx context.Context, app Application) error
+	// SyncApp(ctx context.Context, apps []Application, cache interface{}) (interface{}, error)
 }
 
 type Application struct {

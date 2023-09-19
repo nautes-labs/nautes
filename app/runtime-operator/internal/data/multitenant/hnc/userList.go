@@ -18,7 +18,6 @@ func newUserList(userString string) userList {
 	return userList{
 		Users: sets.New(users...),
 	}
-
 }
 
 func (u *userList) hasUser(name string) bool {

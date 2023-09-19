@@ -87,17 +87,17 @@ var _ = Describe("HNC", func() {
 			RuntimeType:  "",
 			NautesDB:     db,
 			NautesConfig: configs.Config{},
-			Components: syncer.ComponentList{
+			Components: &syncer.ComponentList{
 				Deployment: &mockDeployer{},
 			},
 		}
-		mt, err = hnc.NewHNC(opts, initInfo)
+		mt, err = hnc.NewHNC(opts, &initInfo)
 		Expect(err).Should(BeNil())
 	})
 
 	AfterEach(func() {
 		for _, space := range spaces {
-			_, err := mt.DeleteSpace(ctx, productName, space, nil)
+			err := mt.DeleteSpace(ctx, productName, space)
 			Expect(err).Should(BeNil())
 
 			ns := &corev1.Namespace{
@@ -111,7 +111,7 @@ var _ = Describe("HNC", func() {
 			Expect(ok).Should(BeTrue())
 		}
 
-		_, err := mt.DeleteProduct(ctx, productName, nil)
+		err := mt.DeleteProduct(ctx, productName)
 		Expect(err).Should(BeNil())
 
 		ns := &corev1.Namespace{
@@ -125,7 +125,7 @@ var _ = Describe("HNC", func() {
 	})
 
 	It("create product", func() {
-		_, err := mt.CreateProduct(ctx, productName, nil)
+		err := mt.CreateProduct(ctx, productName)
 		Expect(err).Should(BeNil())
 
 		ns := &corev1.Namespace{
@@ -150,7 +150,7 @@ var _ = Describe("HNC", func() {
 	})
 
 	It("can create space", func() {
-		_, err := mt.CreateSpace(ctx, productName, spaces[0], nil)
+		err := mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
 		ns := &corev1.Namespace{
@@ -180,13 +180,13 @@ var _ = Describe("HNC", func() {
 	})
 
 	It("can create user and add user to space", func() {
-		_, err := mt.CreateProduct(ctx, productName, nil)
+		err := mt.CreateProduct(ctx, productName)
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateSpace(ctx, productName, spaces[0], nil)
+		err = mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateUser(ctx, productName, users[0], nil)
+		err = mt.CreateUser(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		err = mt.AddSpaceUser(ctx, syncer.PermissionRequest{
@@ -223,13 +223,13 @@ var _ = Describe("HNC", func() {
 	})
 
 	It("can delete user from space", func() {
-		_, err := mt.CreateProduct(ctx, productName, nil)
+		err := mt.CreateProduct(ctx, productName)
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateSpace(ctx, productName, spaces[0], nil)
+		err = mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateUser(ctx, productName, users[0], nil)
+		err = mt.CreateUser(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		request := syncer.PermissionRequest{
@@ -270,10 +270,10 @@ var _ = Describe("HNC", func() {
 	})
 
 	It("will remove space permission when user is deleted", func() {
-		_, err := mt.CreateProduct(ctx, productName, nil)
+		err := mt.CreateProduct(ctx, productName)
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateSpace(ctx, productName, spaces[0], nil)
+		err = mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
 		hncParentConfig := &hncv1alpha2.HierarchyConfiguration{
@@ -293,7 +293,7 @@ var _ = Describe("HNC", func() {
 		err = k8sClient.Update(ctx, hncParentConfig)
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateUser(ctx, productName, users[0], nil)
+		err = mt.CreateUser(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		request := syncer.PermissionRequest{
@@ -309,7 +309,7 @@ var _ = Describe("HNC", func() {
 		err = mt.AddSpaceUser(ctx, request)
 		Expect(err).Should(BeNil())
 
-		_, err = mt.DeleteUser(ctx, productName, users[0], nil)
+		err = mt.DeleteUser(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		ns := &corev1.Namespace{
@@ -341,13 +341,13 @@ var _ = Describe("HNC", func() {
 	})
 
 	It("can list spaces", func() {
-		_, err := mt.CreateProduct(ctx, productName, nil)
+		err := mt.CreateProduct(ctx, productName)
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateSpace(ctx, productName, spaces[0], nil)
+		err = mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
-		_, err = mt.CreateUser(ctx, productName, users[0], nil)
+		err = mt.CreateUser(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		request := syncer.PermissionRequest{
@@ -371,7 +371,7 @@ var _ = Describe("HNC", func() {
 		Expect(len(spaceStatus)).Should(Equal(1))
 		Expect(spaceStatus[0].Name).Should(Equal(spaces[0]))
 
-		_, err = mt.DeleteSpace(ctx, productName, spaces[0], nil)
+		err = mt.DeleteSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
 		spaceStatus, err = mt.ListSpaces(ctx, productName, syncer.IgnoreResourceInDeletion())

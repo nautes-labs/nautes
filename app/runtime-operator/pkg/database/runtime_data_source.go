@@ -161,7 +161,7 @@ func (db *RuntimeDataBase) cachePermissionMatrix(ctx context.Context) error {
 			continue
 		}
 
-		projects := []string{}
+		var projects []string
 		if len(rb.Spec.Projects) == 0 {
 			projects = matrix.ListProjects()
 		} else {
@@ -258,7 +258,7 @@ func removeEventSourceInPipelineRuntime(runtime *v1alpha1.ProjectPipelineRuntime
 }
 
 func (db *RuntimeDataBase) GetProduct(name string) (*v1alpha1.Product, error) {
-	if db.Product == nil || db.Product.Spec.Name != name {
+	if db.Product == nil || db.Product.Name != name {
 		return nil, fmt.Errorf("product not found")
 	}
 

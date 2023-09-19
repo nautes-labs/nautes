@@ -36,7 +36,7 @@ type vault struct {
 	secMgrMap   map[syncer.SecretType]secretManager
 }
 
-func NewSecretManagement(opt v1alpha1.Component, info syncer.ComponentInitInfo) (syncer.SecretManagement, error) {
+func NewSecretManagement(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.SecretManagement, error) {
 	return NewVaultClient(opt, info)
 }
 
@@ -50,7 +50,7 @@ func SetNewVaultProxyClientFunction(fn NewVaultProxy) newOption {
 	return func(no *newOptions) { no.NewVaultProxyClient = fn }
 }
 
-func NewVaultClient(opt v1alpha1.Component, info syncer.ComponentInitInfo, opts ...newOption) (*vault, error) {
+func NewVaultClient(opt v1alpha1.Component, info *syncer.ComponentInitInfo, opts ...newOption) (*vault, error) {
 	options := &newOptions{
 		NewVaultProxyClient: newVaultProxyClient,
 	}
@@ -96,8 +96,6 @@ const (
 	clusterKubeconfigKey = "kubeconfig"
 )
 
-// When the component generates cache information, implement this method to clean datas.
-// This method will be automatically called by the syncer after each tuning is completed.
 func (v *vault) CleanUp() error {
 	err := v.client.Auth().Token().RevokeSelf("")
 	if err != nil {
@@ -107,7 +105,7 @@ func (v *vault) CleanUp() error {
 	return nil
 }
 
-// GetAccessInfo should return the infomation on how to access the cluster
+// GetAccessInfo should return the information on how to access the cluster
 func (v *vault) GetAccessInfo(ctx context.Context) (string, error) {
 	path := fmt.Sprintf(clusterPathTemplate, v.clusterName)
 	secret, err := v.client.KVv2(clusterEngineName).Get(ctx, path)
@@ -121,8 +119,7 @@ func (v *vault) GetAccessInfo(ctx context.Context) (string, error) {
 	return kubeconfig.(string), nil
 }
 
-// // The cache will be stored and passed based on the product name + user name.
-func (v *vault) CreateUser(ctx context.Context, user syncer.User, _ interface{}) (interface{}, error) {
+func (v *vault) CreateUser(ctx context.Context, user syncer.User) error {
 	roleInfo := &vaultproxy.AuthroleRequest_Kubernetes{
 		Kubernetes: &vaultproxy.KubernetesAuthRoleMeta{},
 	}
@@ -145,21 +142,21 @@ func (v *vault) CreateUser(ctx context.Context, user syncer.User, _ interface{})
 	}
 
 	if _, err := v.AuthHTTPClient.CreateAuthrole(ctx, req); err != nil {
-		return nil, err
+		return err
 	}
-	return nil, nil
+	return nil
 }
 
-func (v *vault) DeleteUser(ctx context.Context, user syncer.User, _ interface{}) (interface{}, error) {
+func (v *vault) DeleteUser(ctx context.Context, user syncer.User) error {
 	req := &vaultproxy.AuthroleRequest{
 		ClusterName: v.clusterName,
 		DestUser:    user.Name,
 	}
 
 	if _, err := v.AuthHTTPClient.DeleteAuthrole(ctx, req); err != nil {
-		return nil, err
+		return err
 	}
-	return nil, nil
+	return nil
 }
 
 func (v *vault) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
@@ -209,7 +206,7 @@ func newVaultRawClient(cfg configs.SecretRepo) (*vaultapi.Client, error) {
 	var vaultOpts []vaultauthkubernetes.LoginOption
 	vaultOpts = append(vaultOpts, vaultauthkubernetes.WithMountPath(cfg.Vault.MountPath))
 
-	roleName, ok := cfg.OperatorName[cfg.OperatorName[configs.OperatorNameRuntime]]
+	roleName, ok := cfg.OperatorName[configs.OperatorNameRuntime]
 	if !ok {
 		return nil, fmt.Errorf("role name not found in nautes config")
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagent/vault"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagement/vault"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
@@ -70,9 +70,9 @@ var _ = Describe("Vault", func() {
 					},
 				},
 			},
-			Components: syncer.ComponentList{},
+			Components: nil,
 		}
-		secMgr, err = vault.NewVaultClient(opt, initInfo, vault.SetNewVaultProxyClientFunction(getMockVaultProxyClient))
+		secMgr, err = vault.NewVaultClient(opt, &initInfo, vault.SetNewVaultProxyClientFunction(getMockVaultProxyClient))
 		Expect(err).Should(BeNil())
 	})
 
@@ -87,7 +87,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("can create user", func() {
-		_, err := secMgr.CreateUser(ctx, user, nil)
+		err := secMgr.CreateUser(ctx, user)
 		Expect(err).Should(BeNil())
 
 		path := fmt.Sprintf("auth/%s/role/%s", authName, user.Name)
@@ -101,10 +101,10 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("can delete user", func() {
-		_, err := secMgr.CreateUser(ctx, user, nil)
+		err := secMgr.CreateUser(ctx, user)
 		Expect(err).Should(BeNil())
 
-		_, err = secMgr.DeleteUser(ctx, user, nil)
+		err = secMgr.DeleteUser(ctx, user)
 		Expect(err).Should(BeNil())
 		path := fmt.Sprintf("auth/%s/role/%s", authName, user.Name)
 		sec, err := vaultClientRoot.Logical().Read(path)
@@ -114,7 +114,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("grant code repo permission to user", func() {
-		_, err := secMgr.CreateUser(ctx, user, nil)
+		err := secMgr.CreateUser(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{
@@ -142,7 +142,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("revoke code repo permission from user", func() {
-		_, err := secMgr.CreateUser(ctx, user, nil)
+		err := secMgr.CreateUser(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{
@@ -168,7 +168,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("grant artifact account permission to user", func() {
-		_, err := secMgr.CreateUser(ctx, user, nil)
+		err := secMgr.CreateUser(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{
@@ -195,7 +195,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("revoke artifact account permission from user", func() {
-		_, err := secMgr.CreateUser(ctx, user, nil)
+		err := secMgr.CreateUser(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{

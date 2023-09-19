@@ -19,8 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	interfaces "github.com/nautes-labs/nautes/app/runtime-operator/pkg/interface"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,10 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	secprovider "github.com/nautes-labs/nautes/app/runtime-operator/internal/secret/provider"
-
-	runtimecontext "github.com/nautes-labs/nautes/app/runtime-operator/pkg/context"
-	nautescfg "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	// Required for Watching
 )
 
@@ -55,9 +51,8 @@ const (
 // DeploymentRuntimeReconciler reconciles a DeploymentRuntime object
 type DeploymentRuntimeReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	Syncer       interfaces.RuntimeSyncer
-	NautesConfig nautescfg.NautesConfigs
+	Scheme *runtime.Scheme
+	Syncer syncer.Syncer
 }
 
 var reconcileFrequency = time.Second * 60
@@ -85,77 +80,66 @@ var reconcileFrequency = time.Second * 60
 func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	runtime := &nautescrd.DeploymentRuntime{}
-	err := r.Client.Get(ctx, req.NamespacedName, runtime)
+	dr := &v1alpha1.DeploymentRuntime{}
+	err := r.Client.Get(ctx, req.NamespacedName, dr)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cfg, err := r.NautesConfig.GetConfigByClient(r.Client)
+	task, err := r.Syncer.NewTasks(ctx, dr, dr.Status.DeployStatus)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get nautes config failed: %w", err)
+		return ctrl.Result{}, fmt.Errorf("init runtime deployment task failed: %w", err)
 	}
-	ctx = runtimecontext.NewNautesConfigContext(ctx, *cfg)
 
-	secClient, err := secprovider.GetSecretClient(ctx)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get secret provider failed: %w", err)
-	}
-	ctx = runtimecontext.NewSecretClientContext(ctx, secClient)
-	defer secClient.Logout()
-
-	if !runtime.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(runtime, runtimeFinalizerName) {
+	if !dr.DeletionTimestamp.IsZero() {
+		if !controllerutil.ContainsFinalizer(dr, runtimeFinalizerName) {
 			return ctrl.Result{}, nil
 		}
 
-		if runtime.Status.DeployHistory != nil {
-			if err := r.Syncer.Delete(ctx, runtime); err != nil {
-				setDeployRuntimeStatus(runtime, nil, nil, err)
-				if err := r.Status().Update(ctx, runtime); err != nil {
-					logger.Error(err, "update status failed")
-				}
-				return ctrl.Result{}, err
+		cache, err := task.Delete(ctx)
+		if err != nil {
+			setDeployRuntimeStatus(dr, cache, nil, err)
+			if err := r.Status().Update(ctx, dr); err != nil {
+				logger.Error(err, "update status failed")
 			}
+			return ctrl.Result{}, err
 		}
 
-		controllerutil.RemoveFinalizer(runtime, runtimeFinalizerName)
-		if err := r.Update(ctx, runtime); err != nil {
+		controllerutil.RemoveFinalizer(dr, runtimeFinalizerName)
+		if err := r.Update(ctx, dr); err != nil {
 			return ctrl.Result{}, err
 		}
 		logger.V(1).Info("delete finish")
 		return ctrl.Result{}, err
 	}
 
-	if !controllerutil.ContainsFinalizer(runtime, runtimeFinalizerName) {
-		controllerutil.AddFinalizer(runtime, runtimeFinalizerName)
-		if err := r.Update(ctx, runtime); err != nil {
+	if !controllerutil.ContainsFinalizer(dr, runtimeFinalizerName) {
+		controllerutil.AddFinalizer(dr, runtimeFinalizerName)
+		if err := r.Update(ctx, dr); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	illegalProjectRefs, err := runtime.Validate(ctx, nautescrd.NewValidateClientFromK8s(r.Client))
+	illegalProjectRefs, err := dr.Validate(ctx, v1alpha1.NewValidateClientFromK8s(r.Client))
 	if err != nil {
-		setDeployRuntimeStatus(runtime, nil, nil, err)
-		if err := r.Status().Update(ctx, runtime); err != nil {
+		setDeployRuntimeStatus(dr, nil, nil, err)
+		if err := r.Status().Update(ctx, dr); err != nil {
 			logger.Error(err, "update status failed")
 		}
 		return ctrl.Result{}, fmt.Errorf("validate runtime failed: %w", err)
 	}
 
-	if len(illegalProjectRefs) != 0 && len(illegalProjectRefs) == len(runtime.Spec.ProjectsRef) {
-		setDeployRuntimeStatus(runtime, nil, illegalProjectRefs, fmt.Errorf("No valid project exists"))
-		if err := r.Status().Update(ctx, runtime); err != nil {
+	if len(illegalProjectRefs) != 0 && len(illegalProjectRefs) == len(dr.Spec.ProjectsRef) {
+		setDeployRuntimeStatus(dr, nil, illegalProjectRefs, fmt.Errorf("no valid project exists"))
+		if err := r.Status().Update(ctx, dr); err != nil {
 			logger.Error(err, "update status failed")
 		}
 		return ctrl.Result{RequeueAfter: reconcileFrequency}, nil
 	}
 
-	legalRuntime := NewDeploymentRuntimeWithOutIllegalProject(*runtime, illegalProjectRefs)
-	deployInfo, err := r.Syncer.Sync(ctx, legalRuntime)
-
-	setDeployRuntimeStatus(runtime, deployInfo, illegalProjectRefs, err)
-	if err := r.Status().Update(ctx, runtime); err != nil {
+	cache, err := task.Run(ctx)
+	setDeployRuntimeStatus(dr, cache, nil, err)
+	if err := r.Status().Update(ctx, dr); err != nil {
 		return ctrl.Result{}, err
 	}
 	logger.V(1).Info("reconcile finish")
@@ -165,8 +149,8 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DeploymentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &nautescrd.DeploymentRuntime{}, codeRepoMapField, func(rawObj client.Object) []string {
-		deploymentRuntime := rawObj.(*nautescrd.DeploymentRuntime)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.DeploymentRuntime{}, codeRepoMapField, func(rawObj client.Object) []string {
+		deploymentRuntime := rawObj.(*v1alpha1.DeploymentRuntime)
 		if deploymentRuntime.Spec.ManifestSource.CodeRepo == "" {
 			return nil
 		}
@@ -176,9 +160,9 @@ func (r *DeploymentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&nautescrd.DeploymentRuntime{}).
+		For(&v1alpha1.DeploymentRuntime{}).
 		Watches(
-			&source.Kind{Type: &nautescrd.CodeRepo{}},
+			&source.Kind{Type: &v1alpha1.CodeRepo{}},
 			handler.EnqueueRequestsFromMapFunc(r.findDeploymentRuntimeForCoderepo),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
@@ -187,7 +171,7 @@ func (r *DeploymentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *DeploymentRuntimeReconciler) findDeploymentRuntimeForCoderepo(coderepo client.Object) []reconcile.Request {
-	attachedDeploymentRuntimes := &nautescrd.DeploymentRuntimeList{}
+	attachedDeploymentRuntimes := &v1alpha1.DeploymentRuntimeList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(codeRepoMapField, coderepo.GetName()),
 		Namespace:     coderepo.GetNamespace(),
@@ -209,36 +193,11 @@ func (r *DeploymentRuntimeReconciler) findDeploymentRuntimeForCoderepo(coderepo 
 	return requests
 }
 
-func (r *DeploymentRuntimeReconciler) updateStatus() error {
-	return nil
-}
-
-func NewDeploymentRuntimeWithOutIllegalProject(runtime nautescrd.DeploymentRuntime, illegalProjects []nautescrd.IllegalProjectRef) *nautescrd.DeploymentRuntime {
-	newRuntime := runtime.DeepCopy().DeepCopyObject().(*nautescrd.DeploymentRuntime)
-	// Set version to 0 to avoid syncer update resource by new runtime
-	newRuntime.ResourceVersion = "0"
-
-	if len(illegalProjects) == 0 {
-		return newRuntime
+func setDeployRuntimeStatus(runtime *v1alpha1.DeploymentRuntime, result *runtime.RawExtension, illegalProjectRefs []v1alpha1.IllegalProjectRef, err error) {
+	if result != nil {
+		runtime.Status.DeployStatus = result
 	}
 
-	indexIllegalProject := map[string]bool{}
-	for _, project := range illegalProjects {
-		indexIllegalProject[project.ProjectName] = true
-	}
-
-	newProjectRef := []string{}
-	for _, project := range runtime.Spec.ProjectsRef {
-		if !indexIllegalProject[project] {
-			newProjectRef = append(newProjectRef, project)
-		}
-	}
-	newRuntime.Spec.ProjectsRef = newProjectRef
-
-	return newRuntime
-}
-
-func setDeployRuntimeStatus(runtime *nautescrd.DeploymentRuntime, result *interfaces.RuntimeDeploymentResult, illegalProjectRefs []nautescrd.IllegalProjectRef, err error) {
 	if err != nil {
 		condition := metav1.Condition{
 			Type:    runtimeConditionType,
@@ -246,25 +205,14 @@ func setDeployRuntimeStatus(runtime *nautescrd.DeploymentRuntime, result *interf
 			Reason:  runtimeConditionReason,
 			Message: err.Error(),
 		}
-		runtime.Status.Conditions = nautescrd.GetNewConditions(runtime.Status.Conditions, []metav1.Condition{condition}, map[string]bool{runtimeConditionType: true})
+		runtime.Status.Conditions = v1alpha1.GetNewConditions(runtime.Status.Conditions, []metav1.Condition{condition}, map[string]bool{runtimeConditionType: true})
 	} else {
 		condition := metav1.Condition{
 			Type:   runtimeConditionType,
 			Status: "True",
 			Reason: runtimeConditionReason,
 		}
-		runtime.Status.Conditions = nautescrd.GetNewConditions(runtime.Status.Conditions, []metav1.Condition{condition}, map[string]bool{runtimeConditionType: true})
-	}
-
-	if result != nil {
-		runtime.Status.Cluster = result.Cluster
-		if result.DeploymentDeploymentResult != nil {
-			runtime.Status.DeployHistory = &nautescrd.DeployHistory{
-				ManifestSource: runtime.Spec.ManifestSource,
-				Destination:    runtime.Spec.Destination,
-				Source:         result.DeploymentDeploymentResult.Source,
-			}
-		}
+		runtime.Status.Conditions = v1alpha1.GetNewConditions(runtime.Status.Conditions, []metav1.Condition{condition}, map[string]bool{runtimeConditionType: true})
 	}
 
 	if len(illegalProjectRefs) != 0 {

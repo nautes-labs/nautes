@@ -34,11 +34,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/deployment/argocd"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/multitenant/hnc"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagement/vault"
 	deployment "github.com/nautes-labs/nautes/app/runtime-operator/internal/deployment/argocd"
 	envmgr "github.com/nautes-labs/nautes/app/runtime-operator/internal/envmanager/kubernetes"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/eventbus/argoevents"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/pipeline/tekton"
 	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/runtime"
+	syncerv2 "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -53,6 +57,9 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(nautesv1alpha1.AddToScheme(scheme))
 
+	syncerv2.NewFunctionMapDeployment["argocd"] = argocd.NewArgoCD
+	syncerv2.NewFunctionMapMultiTenants["hnc"] = hnc.NewHNC
+	syncerv2.NewFunctionMapSecretManagements["vault"] = vault.NewSecretManagement
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -122,10 +129,11 @@ func main() {
 	}
 
 	if err = (&controllers.DeploymentRuntimeReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		Syncer:       syncer,
-		NautesConfig: nautesConfig,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Syncer: syncerv2.Syncer{
+			KubernetesClient: mgr.GetClient(),
+		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeploymentRuntime")
 		os.Exit(1)

@@ -101,6 +101,14 @@ var _ = AfterSuite(func() {
 // Generate by m *mockSecMgr syncer.SecretManagement
 type mockSecMgr struct{}
 
+func (m *mockSecMgr) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+	return nil
+}
+
+func (m *mockSecMgr) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+	return nil
+}
+
 // When the component generates cache information, implement this method to clean datas.
 // This method will be automatically called by the syncer after each tuning is completed.
 func (m *mockSecMgr) CleanUp() error {
@@ -112,59 +120,17 @@ func (m *mockSecMgr) GetAccessInfo(ctx context.Context) (string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-// // The cache will be stored and passed based on the product name + user name.
-func (m *mockSecMgr) CreateUser(ctx context.Context, user syncer.User, cache interface{}) (interface{}, error) {
+func (m *mockSecMgr) CreateUser(ctx context.Context, user syncer.User) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) DeleteUser(ctx context.Context, user syncer.User, cache interface{}) (interface{}, error) {
+func (m *mockSecMgr) DeleteUser(ctx context.Context, user syncer.User) error {
 	panic("not implemented") // TODO: Implement
-}
-
-func (m *mockSecMgr) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
-	return nil
-}
-
-func (m *mockSecMgr) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
-	return nil
 }
 
 // Generate by m *mockMultiTenant syncer.MultiTenant
 type mockMultiTenant struct {
 	spaces []string
-}
-
-// When the component generates cache information, implement this method to clean datas.
-// This method will be automatically called by the syncer after each tuning is completed.
-func (m *mockMultiTenant) CleanUp() error {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *mockMultiTenant) CreateProduct(ctx context.Context, name string, cache interface{}) (interface{}, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *mockMultiTenant) DeleteProduct(ctx context.Context, name string, cache interface{}) (interface{}, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *mockMultiTenant) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-// Space use to manager a logical space in environment.
-// It can be a namespace in kubernetes, a folder in host or some else.
-// The cache will be stored and passed based on the product name + space name.
-func (m *mockMultiTenant) CreateSpace(ctx context.Context, productName string, name string, cache interface{}) (interface{}, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *mockMultiTenant) DeleteSpace(ctx context.Context, productName string, name string, cache interface{}) (interface{}, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *mockMultiTenant) GetSpace(ctx context.Context, productName string, name string) (*syncer.SpaceStatus, error) {
-	panic("not implemented") // TODO: Implement
 }
 
 func (m *mockMultiTenant) ListSpaces(ctx context.Context, productName string, opts ...syncer.ListOption) ([]syncer.SpaceStatus, error) {
@@ -187,6 +153,37 @@ func (m *mockMultiTenant) ListSpaces(ctx context.Context, productName string, op
 	return spaces, nil
 }
 
+// When the component generates cache information, implement this method to clean datas.
+// This method will be automatically called by the syncer after each tuning is completed.
+func (m *mockMultiTenant) CleanUp() error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockMultiTenant) CreateProduct(ctx context.Context, name string) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockMultiTenant) DeleteProduct(ctx context.Context, name string) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockMultiTenant) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+// Space use to manager a logical space in environment.
+func (m *mockMultiTenant) CreateSpace(ctx context.Context, productName string, name string) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockMultiTenant) DeleteSpace(ctx context.Context, productName string, name string) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockMultiTenant) GetSpace(ctx context.Context, productName string, name string) (*syncer.SpaceStatus, error) {
+	panic("not implemented") // TODO: Implement
+}
+
 func (m *mockMultiTenant) AddSpaceUser(ctx context.Context, request syncer.PermissionRequest) error {
 	panic("not implemented") // TODO: Implement
 }
@@ -195,12 +192,11 @@ func (m *mockMultiTenant) DeleteSpaceUser(ctx context.Context, request syncer.Pe
 	panic("not implemented") // TODO: Implement
 }
 
-// The cache will be stored and passed based on the product name + user name.
-func (m *mockMultiTenant) CreateUser(ctx context.Context, productName string, name string, cache interface{}) (interface{}, error) {
+func (m *mockMultiTenant) CreateUser(ctx context.Context, productName string, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockMultiTenant) DeleteUser(ctx context.Context, productName string, name string, cache interface{}) (interface{}, error) {
+func (m *mockMultiTenant) DeleteUser(ctx context.Context, productName string, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 

@@ -3,7 +3,6 @@ package argocd_test
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -156,7 +155,7 @@ var _ = Describe("ArgoCD", func() {
 					},
 				},
 			},
-			Components: syncer.ComponentList{
+			Components: &syncer.ComponentList{
 				MultiTenant: &mockMultiTenant{
 					spaces: spaceNames,
 				},
@@ -164,14 +163,14 @@ var _ = Describe("ArgoCD", func() {
 			},
 		}
 
-		deployer, err = argocd.NewArgoCD(opts, initInfo)
+		deployer, err = argocd.NewArgoCD(opts, &initInfo)
 		Expect(err).Should(BeNil())
 
 		err = nil
 	})
 
 	AfterEach(func() {
-		_, err = deployer.DeleteProduct(ctx, productID, nil)
+		err = deployer.DeleteProduct(ctx, productID)
 		Expect(err).Should(BeNil())
 		appProject := &argov1alpha1.AppProject{
 			ObjectMeta: metav1.ObjectMeta{
@@ -184,7 +183,7 @@ var _ = Describe("ArgoCD", func() {
 	})
 
 	It("can create product", func() {
-		_, err = deployer.CreateProduct(ctx, productID, nil)
+		err = deployer.CreateProduct(ctx, productID)
 		Expect(err).Should(BeNil())
 
 		appProject := &argov1alpha1.AppProject{
@@ -204,7 +203,7 @@ var _ = Describe("ArgoCD", func() {
 	})
 
 	It("can add product user", func() {
-		_, err = deployer.CreateProduct(ctx, productID, nil)
+		err = deployer.CreateProduct(ctx, productID)
 		Expect(err).Should(BeNil())
 
 		err = deployer.AddProductUser(ctx, syncer.PermissionRequest{
@@ -228,6 +227,38 @@ var _ = Describe("ArgoCD", func() {
 		Expect(err).Should(BeNil())
 		matchingStr := fmt.Sprintf("p, role:%s, projects, get, %s, allow", userNames[0], productID)
 		Expect(strings.Contains(cm.Data[rbacKey], matchingStr)).Should(BeTrue())
+	})
+
+	It("can remove product user", func() {
+		err = deployer.CreateProduct(ctx, productID)
+		Expect(err).Should(BeNil())
+
+		req := syncer.PermissionRequest{
+			RequestScope: syncer.RequestScopeProduct,
+			Resource: syncer.Resource{
+				Product: "",
+				Name:    productID,
+			},
+			User:       userNames[0],
+			Permission: syncer.Permission{},
+		}
+
+		err = deployer.AddProductUser(ctx, req)
+		Expect(err).Should(BeNil())
+
+		err = deployer.DeleteProductUser(ctx, req)
+		Expect(err).Should(BeNil())
+
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      argocd.ArgocdRBACConfigMapName,
+				Namespace: argoCDNamespace,
+			},
+		}
+		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+		Expect(err).Should(BeNil())
+		matchingStr := fmt.Sprintf("p, role:%s, projects, get, %s, allow", userNames[0], productID)
+		Expect(strings.Contains(cm.Data[rbacKey], matchingStr)).ShouldNot(BeTrue())
 	})
 
 	It("can create app", func() {
@@ -256,160 +287,8 @@ var _ = Describe("ArgoCD", func() {
 			},
 		}
 
-		cache, err := deployer.SyncApp(ctx, []syncer.Application{app}, nil)
+		err = deployer.CreateApp(ctx, app)
 		Expect(err).Should(BeNil())
-
-		appCache := cache.(*argocd.AppCache)
-		destApp := fmt.Sprintf("%s/%s", productID, appNames[0])
-		Expect(appCache.AppNames[0]).Should(Equal(destApp))
-		destUsage := argocd.CodeReposUsage{
-			repoNames[0]: {
-				Name:  repoNames[0],
-				Users: []string{appNames[0]},
-			},
-		}
-		Expect(reflect.DeepEqual(appCache.CodeReposUsage, destUsage)).Should(BeTrue())
-
-		argoApp := &argov1alpha1.Application{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      appNames[0],
-				Namespace: argoCDNamespace,
-			},
-		}
-
-		destAppSpec := argov1alpha1.ApplicationSpec{
-			Source: argov1alpha1.ApplicationSource{
-				RepoURL:        app.Git.URL,
-				Path:           app.Git.Path,
-				TargetRevision: app.Git.Revision,
-			},
-			Destination: argov1alpha1.ApplicationDestination{
-				Server:    argocd.KubernetesApiServerAddr,
-				Namespace: spaceNames[0],
-			},
-			Project: productID,
-			SyncPolicy: &argov1alpha1.SyncPolicy{
-				Automated: &argov1alpha1.SyncPolicyAutomated{
-					Prune:      true,
-					SelfHeal:   true,
-					AllowEmpty: false,
-				},
-			},
-		}
-		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(argoApp), argoApp)
-		Expect(err).Should(BeNil())
-		Expect(reflect.DeepEqual(argoApp.Spec, destAppSpec)).Should(BeTrue())
-
-		appProject := &argov1alpha1.AppProject{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      productID,
-				Namespace: argoCDNamespace,
-			},
-			Spec: argov1alpha1.AppProjectSpec{},
-		}
-		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(appProject), appProject)
-		Expect(err).Should(BeNil())
-		Expect(len(appProject.Spec.SourceRepos)).Should(Equal(1))
-		Expect(appProject.Spec.SourceRepos[0]).Should(Equal(app.Git.URL))
-	})
-
-	It("can create many app once", func() {
-		app := syncer.Application{
-			Resource: syncer.Resource{
-				Product: productID,
-				Name:    appNames[0],
-			},
-			Git: &syncer.ApplicationGit{
-				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
-				Revision: "main",
-				Path:     "./dest",
-				CodeRepo: repoNames[0],
-			},
-			Destinations: []syncer.Space{
-				{
-					Resource: syncer.Resource{
-						Product: productID,
-						Name:    spaceNames[0],
-					},
-					SpaceType: "",
-					Kubernetes: syncer.SpaceKubernetes{
-						Namespace: spaceNames[0],
-					},
-				},
-			},
-		}
-		app2 := syncer.Application{
-			Resource: syncer.Resource{
-				Product: productID,
-				Name:    appNames[1],
-			},
-			Git: &syncer.ApplicationGit{
-				URL:      db.CodeRepos[repoNames[1]].Spec.URL,
-				Revision: "main",
-				Path:     "./dest",
-				CodeRepo: repoNames[1],
-			},
-			Destinations: []syncer.Space{
-				{
-					Resource: syncer.Resource{
-						Product: productID,
-						Name:    spaceNames[1],
-					},
-					SpaceType: "",
-					Kubernetes: syncer.SpaceKubernetes{
-						Namespace: spaceNames[1],
-					},
-				},
-			},
-		}
-
-		cache, err := deployer.SyncApp(ctx, []syncer.Application{app, app2}, nil)
-		Expect(err).Should(BeNil())
-
-		appCache := cache.(*argocd.AppCache)
-		Expect(len(appCache.AppNames)).Should(Equal(2))
-		destUsage := argocd.CodeRepoUsage{
-			Name:  repoNames[0],
-			Users: []string{appNames[0]},
-		}
-		Expect(reflect.DeepEqual(destUsage, appCache.CodeReposUsage[repoNames[0]])).Should(BeTrue())
-		destUsage = argocd.CodeRepoUsage{
-			Name:  repoNames[1],
-			Users: []string{appNames[1]},
-		}
-		Expect(reflect.DeepEqual(destUsage, appCache.CodeReposUsage[repoNames[1]])).Should(BeTrue())
-
-		app3 := syncer.Application{
-			Resource: syncer.Resource{
-				Product: productID,
-				Name:    appNames[2],
-			},
-			Git: &syncer.ApplicationGit{
-				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
-				Revision: "main",
-				Path:     "./dest",
-				CodeRepo: repoNames[0],
-			},
-			Destinations: []syncer.Space{
-				{
-					Resource: syncer.Resource{
-						Product: productID,
-						Name:    spaceNames[2],
-					},
-					SpaceType: "",
-					Kubernetes: syncer.SpaceKubernetes{
-						Namespace: spaceNames[2],
-					},
-				},
-			},
-		}
-
-		cache, err = deployer.SyncApp(ctx, []syncer.Application{app, app3}, cache)
-		Expect(err).Should(BeNil())
-		appCache = cache.(*argocd.AppCache)
-		Expect(len(appCache.AppNames)).Should(Equal(2))
-		Expect(len(appCache.CodeReposUsage[repoNames[0]].Users)).Should(Equal(2))
-
 	})
 
 	It("can remove app", func() {
@@ -438,15 +317,11 @@ var _ = Describe("ArgoCD", func() {
 			},
 		}
 
-		cache, err := deployer.SyncApp(ctx, []syncer.Application{app}, nil)
+		err := deployer.CreateApp(ctx, app)
 		Expect(err).Should(BeNil())
 
-		cache, err = deployer.SyncApp(ctx, nil, cache)
+		err = deployer.DeleteApp(ctx, app)
 		Expect(err).Should(BeNil())
-
-		appCache := cache.(*argocd.AppCache)
-		Expect(len(appCache.AppNames)).Should(Equal(0))
-		Expect(len(appCache.CodeReposUsage)).Should(Equal(0))
 
 		argoApp := &argov1alpha1.Application{
 			ObjectMeta: metav1.ObjectMeta{
@@ -457,6 +332,88 @@ var _ = Describe("ArgoCD", func() {
 
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(argoApp), argoApp)
 		Expect(apierrors.IsNotFound(err)).Should(BeTrue())
+	})
+
+	It("will remove coderepo when coderepo is not used", func() {
+		app := syncer.Application{
+			Resource: syncer.Resource{
+				Product: productID,
+				Name:    appNames[0],
+			},
+			Git: &syncer.ApplicationGit{
+				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
+				Revision: "main",
+				Path:     "./dest",
+				CodeRepo: repoNames[0],
+			},
+			Destinations: []syncer.Space{
+				{
+					Resource: syncer.Resource{
+						Product: productID,
+						Name:    spaceNames[0],
+					},
+					SpaceType: "",
+					Kubernetes: syncer.SpaceKubernetes{
+						Namespace: spaceNames[0],
+					},
+				},
+			},
+		}
+
+		err := deployer.CreateApp(ctx, app)
+		Expect(err).Should(BeNil())
+
+		err = deployer.DeleteApp(ctx, app)
+		Expect(err).Should(BeNil())
+
+		err = deployer.CleanUp()
+		Expect(err).Should(BeNil())
+
+		codeRepo := &v1alpha1.CodeRepo{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      repoNames[0],
+				Namespace: nautesNamespace,
+			},
+		}
+		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(codeRepo), codeRepo)
+		Expect(err).ShouldNot(BeNil())
+		Expect(apierrors.IsNotFound(err)).Should(BeTrue())
+	})
+
+	It("will update source in clean up", func() {
+		err = deployer.CreateProduct(ctx, productID)
+		Expect(err).Should(BeNil())
+
+		app := syncer.Application{
+			Resource: syncer.Resource{
+				Product: productID,
+				Name:    appNames[0],
+			},
+			Git: &syncer.ApplicationGit{
+				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
+				Revision: "main",
+				Path:     "./dest",
+				CodeRepo: repoNames[0],
+			},
+			Destinations: []syncer.Space{
+				{
+					Resource: syncer.Resource{
+						Product: productID,
+						Name:    spaceNames[0],
+					},
+					SpaceType: "",
+					Kubernetes: syncer.SpaceKubernetes{
+						Namespace: spaceNames[0],
+					},
+				},
+			},
+		}
+
+		err := deployer.CreateApp(ctx, app)
+		Expect(err).Should(BeNil())
+
+		err = deployer.CleanUp()
+		Expect(err).Should(BeNil())
 
 		appProject := &argov1alpha1.AppProject{
 			ObjectMeta: metav1.ObjectMeta{
@@ -467,8 +424,7 @@ var _ = Describe("ArgoCD", func() {
 		}
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(appProject), appProject)
 		Expect(err).Should(BeNil())
-		Expect(len(appProject.Spec.SourceRepos)).Should(Equal(0))
-
+		Expect(appProject.Spec.SourceRepos[0]).Should(Equal(app.Git.URL))
 	})
 
 })

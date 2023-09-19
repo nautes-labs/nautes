@@ -6,18 +6,16 @@ import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 )
 
-type NewSecretManagement func(opt v1alpha1.Component, info ComponentInitInfo) (SecretManagement, error)
+type NewSecretManagement func(opt v1alpha1.Component, info *ComponentInitInfo) (SecretManagement, error)
 
 type SecretManagement interface {
 	Component
 
-	// GetAccessInfo should return the infomation on how to access the cluster
+	// GetAccessInfo should return the information on how to access the cluster
 	GetAccessInfo(ctx context.Context) (string, error)
 
-	//// The cache will be stored and passed based on the product name + user name.
-
-	CreateUser(ctx context.Context, user User, cache interface{}) (interface{}, error)
-	DeleteUser(ctx context.Context, user User, cache interface{}) (interface{}, error)
+	CreateUser(ctx context.Context, user User) error
+	DeleteUser(ctx context.Context, user User) error
 	GrantPermission(ctx context.Context, repo SecretInfo, user User) error
 	RevokePermission(ctx context.Context, repo SecretInfo, user User) error
 }

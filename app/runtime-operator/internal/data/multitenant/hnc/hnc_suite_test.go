@@ -80,11 +80,38 @@ func (m *mockDB) GetProduct(name string) (*v1alpha1.Product, error) {
 	return m.product.DeepCopy(), nil
 }
 
+func (m *mockDB) GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error) {
+	if name == m.product.Name {
+		return nil, fmt.Errorf("product not found")
+	}
+
+	return &v1alpha1.CodeRepo{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: name,
+		},
+		Spec: v1alpha1.CodeRepoSpec{
+			Product:  name,
+			Project:  "",
+			RepoName: "test",
+			URL:      "ssh://127.0.0.1/test/test.gi",
+		},
+	}, nil
+}
+
+func (m *mockDB) GetCluster(name string) (*v1alpha1.Cluster, error) {
+	return m.cluster.DeepCopy(), nil
+}
+
+func (m *mockDB) GetCodeRepoProvider(name string) (*v1alpha1.CodeRepoProvider, error) {
+	panic("not implemented") // TODO: Implement
+}
+
 func (m *mockDB) GetCodeRepo(name string) (*v1alpha1.CodeRepo, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDB) GetRuntime(name string, runtimeType v1alpha1.RuntimeType) (v1alpha1.Runtime, error) {
+func (m *mockDB) GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error) {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -109,71 +136,44 @@ func (m *mockDB) ListUsedURLs(opts ...database.ListOption) ([]string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDB) GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error) {
-	if name == m.product.Name {
-		return nil, fmt.Errorf("product not found")
-	}
-
-	return &v1alpha1.CodeRepo{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: name,
-		},
-		Spec: v1alpha1.CodeRepoSpec{
-			Product:  name,
-			Project:  "",
-			RepoName: "test",
-			URL:      "ssh://127.0.0.1/test/test.gi",
-		},
-	}, nil
-}
-
-func (m *mockDB) GetCluster(name string) (*v1alpha1.Cluster, error) {
-	return m.cluster.DeepCopy(), nil
+func (m *mockDB) GetRuntime(name string, runtimeType v1alpha1.RuntimeType) (v1alpha1.Runtime, error) {
+	panic("not implemented") // TODO: Implement
 }
 
 type mockDeployer struct{}
 
 // When the component generates cache information, implement this method to clean datas.
 // This method will be automatically called by the syncer after each tuning is completed.
-func (m *mockDeployer) CleanUp() error {
+func (md *mockDeployer) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) CreateProduct(ctx context.Context, name string, cache interface{}) (interface{}, error) {
+func (md *mockDeployer) CreateProduct(ctx context.Context, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) DeleteProduct(ctx context.Context, name string, cache interface{}) (interface{}, error) {
+func (md *mockDeployer) DeleteProduct(ctx context.Context, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus, error) {
+func (md *mockDeployer) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) AddProductUser(ctx context.Context, request syncer.PermissionRequest) error {
+func (md *mockDeployer) AddProductUser(ctx context.Context, request syncer.PermissionRequest) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) DeleteUProductUser(ctx context.Context, request syncer.PermissionRequest) error {
+func (md *mockDeployer) DeleteProductUser(ctx context.Context, request syncer.PermissionRequest) error {
 	panic("not implemented") // TODO: Implement
 }
 
 // SyncApp should deploy the given apps, and clean up expired apps in cache.
 // All apps share one cache.
-func (m *mockDeployer) SyncApp(ctx context.Context, apps []syncer.Application, cache interface{}) (interface{}, error) {
-	return nil, nil
+func (md *mockDeployer) CreateApp(ctx context.Context, app syncer.Application) error {
+	return nil
 }
 
-func (m *mockDeployer) SyncAppUsers(ctx context.Context, requests []syncer.PermissionRequest, cache interface{}) (interface{}, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (db *mockDB) GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (db *mockDB) GetCodeRepoProvider(name string) (*v1alpha1.CodeRepoProvider, error) {
-	panic("not implemented") // TODO: Implement
+func (md *mockDeployer) DeleteApp(ctx context.Context, app syncer.Application) error {
+	return nil
 }

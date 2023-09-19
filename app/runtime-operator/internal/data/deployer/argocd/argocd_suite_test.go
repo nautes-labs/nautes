@@ -120,3 +120,7 @@ func (db *mockDB) GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error) {
 func (db *mockDB) GetCodeRepoProvider(name string) (*v1alpha1.CodeRepoProvider, error) {
 	panic("not implemented") // TODO: Implement
 }
+
+func (db *mockDB) GetRuntime(name string, runtimeType v1alpha1.RuntimeType) (v1alpha1.Runtime, error) {
+	panic("not implemented") // TODO: Implement
+}

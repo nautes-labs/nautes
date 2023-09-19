@@ -56,3 +56,7 @@ func (r *ProjectPipelineRuntime) GetPipeline(name string) (*Pipeline, error) {
 
 	return nil, fmt.Errorf("can not find pipeline %s in runtime", name)
 }
+
+func (r *ProjectPipelineRuntime) GetRuntimeType() RuntimeType {
+	return RuntimeTypePipelineRuntime
+}

@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type ManifestSource struct {
@@ -50,6 +51,9 @@ type DeploymentRuntimeStatus struct {
 	IllegalProjectRefs []IllegalProjectRef `json:"illegalProjectRefs,omitempty"`
 	// +nullable
 	DeployHistory *DeployHistory `json:"deployHistory,omitempty" yaml:"deployHistory"`
+	// +optional
+	// +nullable
+	DeployStatus *runtime.RawExtension `json:"deployStatus,omitempty" yaml:"deployStatus"`
 }
 
 type IllegalProjectRef struct {

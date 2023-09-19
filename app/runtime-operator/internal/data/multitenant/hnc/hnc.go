@@ -2,6 +2,7 @@ package hnc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -38,7 +39,7 @@ type hnc struct {
 	namespace         string
 }
 
-func NewHNC(opt v1alpha1.Component, info syncer.ComponentInitInfo) (syncer.MultiTenant, error) {
+func NewHNC(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.MultiTenant, error) {
 	if info.ClusterConnectInfo.Type != v1alpha1.CLUSTER_KIND_KUBERNETES {
 		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.Type)
 	}
@@ -61,11 +62,8 @@ func NewHNC(opt v1alpha1.Component, info syncer.ComponentInitInfo) (syncer.Multi
 		namespace:         opt.Namespace,
 		clusterWorkerType: cluster.Spec.WorkerType,
 	}, nil
-
 }
 
-// When the component generates cache information, implement this method to clean datas.
-// This method will be automatically called by the syncer after each tuning is completed.
 func (h hnc) CleanUp() error {
 	return nil
 }
@@ -95,39 +93,46 @@ const (
 	OptKeySyncResourceTypes = "SyncResourceTypes"
 )
 
-func (h hnc) CreateProduct(ctx context.Context, name string, cache interface{}) (interface{}, error) {
-	newCache, err := newProductCache(cache)
-	if err != nil {
-		return cache, err
-	}
-
+func (h hnc) CreateProduct(ctx context.Context, name string) error {
 	if err := h.createNamespace(ctx, name, name); err != nil {
-		return newCache, err
+		return err
 	}
 
-	apps, err := h.getProductApps(name)
+	app, err := h.getProductApp(name)
 	if err != nil {
-		return newCache, fmt.Errorf("get product app failed: %w", err)
+		return fmt.Errorf("get product app failed: %w", err)
 	}
 
-	appCache, err := h.deployer.SyncApp(ctx, apps, newCache.appCache)
-	newCache.appCache = appCache
-	if err != nil {
-		return newCache, fmt.Errorf("deploy product resource failed: %w", err)
+	if app != nil {
+		if err := h.deployer.CreateApp(ctx, *app); err != nil {
+			return fmt.Errorf("deploy product resources failed: %w", err)
+		}
+	} else {
+		if err := h.deployer.DeleteApp(ctx, h.getEmptyProductApp(name)); err != nil {
+			return fmt.Errorf("delete product resources failed: %w", err)
+		}
 	}
 
 	if err := h.setHNCConfig(ctx); err != nil {
-		return newCache, err
+		return err
 	}
-
-	return newCache, h.addRoleBinding(ctx, name)
+	return h.addRoleBinding(ctx, name)
 }
 
 const (
 	nameFormatProductResourceApp = "%s-share"
 )
 
-func (h hnc) getProductApps(productName string) ([]syncer.Application, error) {
+func (h hnc) getEmptyProductApp(productName string) syncer.Application {
+	return syncer.Application{
+		Resource: syncer.Resource{
+			Product: productName,
+			Name:    fmt.Sprintf(nameFormatProductResourceApp, productName),
+		},
+	}
+}
+
+func (h hnc) getProductApp(productName string) (*syncer.Application, error) {
 	productResourcePath := h.getProductResourcePath()
 	revision := h.opts[OptKeyProductResourceRevision]
 	if productResourcePath == "" || revision == "" {
@@ -139,7 +144,7 @@ func (h hnc) getProductApps(productName string) ([]syncer.Application, error) {
 		return nil, err
 	}
 
-	app := syncer.Application{
+	app := &syncer.Application{
 		Resource: syncer.Resource{
 			Product: productName,
 			Name:    fmt.Sprintf(nameFormatProductResourceApp, productName),
@@ -163,7 +168,7 @@ func (h hnc) getProductApps(productName string) ([]syncer.Application, error) {
 		},
 	}
 
-	return []syncer.Application{app}, nil
+	return app, nil
 }
 
 func (h hnc) getProductResourcePath() string {
@@ -209,27 +214,20 @@ func (h hnc) addRoleBinding(ctx context.Context, name string) error {
 	return nil
 }
 
-func (h hnc) DeleteProduct(ctx context.Context, name string, cache interface{}) (interface{}, error) {
+func (h hnc) DeleteProduct(ctx context.Context, name string) error {
 	ok, err := h.isRemovableProduct(ctx, name)
 	if err != nil {
-		return cache, err
+		return err
 	}
 	if !ok {
-		return cache, fmt.Errorf("space is found, delete failed")
+		return fmt.Errorf("space is found, delete failed")
 	}
 
-	newCache, err := newProductCache(cache)
-	if err != nil {
-		return cache, err
+	if err := h.deployer.DeleteApp(ctx, h.getEmptyProductApp(name)); err != nil {
+		return fmt.Errorf("clean product app failed: %w", err)
 	}
 
-	appCache, err := h.deployer.SyncApp(ctx, nil, newCache.appCache)
-	newCache.appCache = appCache
-	if err != nil {
-		return appCache, fmt.Errorf("clean product app failed: %w", err)
-	}
-
-	return newCache, h.deleteNamespace(ctx, name, name)
+	return h.deleteNamespace(ctx, name, name)
 }
 
 func (h hnc) isRemovableProduct(ctx context.Context, name string) (bool, error) {
@@ -269,20 +267,16 @@ func (h hnc) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus
 	return status, nil
 }
 
-func (h hnc) CreateSpace(ctx context.Context, productName string, name string, _ interface{}) (interface{}, error) {
+func (h hnc) CreateSpace(ctx context.Context, productName string, name string) error {
 	if err := h.createNamespace(ctx, productName, name); err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := h.addSpaceParent(ctx, productName, name); err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+	return h.addSpaceParent(ctx, productName, name)
 }
 
-func (h hnc) DeleteSpace(ctx context.Context, productName string, name string, _ interface{}) (interface{}, error) {
-	return nil, h.deleteNamespace(ctx, productName, name)
+func (h hnc) DeleteSpace(ctx context.Context, productName string, name string) error {
+	return h.deleteNamespace(ctx, productName, name)
 }
 
 func (h hnc) GetSpace(ctx context.Context, productName string, name string) (*syncer.SpaceStatus, error) {
@@ -392,10 +386,10 @@ func (h hnc) deleteSpaceUsers(ctx context.Context, productName string, spaceName
 	return h.k8sClient.Update(ctx, namespace)
 }
 
-func (h hnc) CreateUser(ctx context.Context, productName string, name string, _ interface{}) (interface{}, error) {
+func (h hnc) CreateUser(ctx context.Context, productName string, name string) error {
 	namespace, err := h.getNamespace(ctx, productName, productName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	userString, ok := namespace.Annotations[keyProductUserList]
@@ -407,27 +401,26 @@ func (h hnc) CreateUser(ctx context.Context, productName string, name string, _ 
 	namespace.Annotations[keyProductUserList] = userList.getUsersAsString()
 
 	if err := h.k8sClient.Update(ctx, namespace); err != nil {
-		return nil, fmt.Errorf("update user list in product namespace failed: %w", err)
+		return fmt.Errorf("update user list in product namespace failed: %w", err)
 	}
-	return nil, nil
+	return nil
 }
 
-func (h hnc) DeleteUser(ctx context.Context, productName string, name string, _ interface{}) (interface{}, error) {
+func (h hnc) DeleteUser(ctx context.Context, productName string, name string) error {
 	user, err := h.GetUser(ctx, productName, name)
 	if err != nil {
-		return nil, fmt.Errorf("get user %s info failed: %w", name, err)
+		return fmt.Errorf("get user %s info failed: %w", name, err)
 	}
 
 	for _, authInfo := range user.AuthInfo.Kubernetes {
 		if err := h.deleteSpaceUsers(ctx, productName, authInfo.Namespace, []string{name}); err != nil {
-			return nil, fmt.Errorf("remove user %s from space %s failed: %w", name, authInfo.Namespace, err)
+			return fmt.Errorf("remove user %s from space %s failed: %w", name, authInfo.Namespace, err)
 		}
-
 	}
 
 	namespace, err := h.getNamespace(ctx, productName, productName)
 	if err != nil {
-		return nil, client.IgnoreNotFound(err)
+		return client.IgnoreNotFound(err)
 	}
 
 	userString, ok := namespace.Annotations[keyProductUserList]
@@ -439,20 +432,20 @@ func (h hnc) DeleteUser(ctx context.Context, productName string, name string, _ 
 	namespace.Annotations[keyProductUserList] = userList.getUsersAsString()
 
 	if err := h.k8sClient.Update(ctx, namespace); err != nil {
-		return nil, fmt.Errorf("update user list in product namespace failed: %w", err)
+		return fmt.Errorf("update user list in product namespace failed: %w", err)
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (h hnc) GetUser(ctx context.Context, productName string, name string) (user *syncer.User, err error) {
 	productNamespace, err := h.getNamespace(ctx, productName, productName)
 	if err != nil {
-		return nil, err
+		return nil, syncer.UserNotFound(err, name)
 	}
 	userList := newUserList(productNamespace.Annotations[keyProductUserList])
 	if !userList.hasUser(name) {
-		return nil, fmt.Errorf("user %s not found", name)
+		return nil, syncer.UserNotFound(errors.New(""), name)
 	}
 
 	namespaces, err := h.listNamespaces(ctx, productName, syncer.ByUser(name), syncer.IgnoreResourceInDeletion())

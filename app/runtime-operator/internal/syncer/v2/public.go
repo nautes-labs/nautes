@@ -18,11 +18,9 @@ type Component interface {
 }
 
 // Product is a universal interface definition for project management.
-// If the component needs to cache data, it can return the cache through the interface.
-// The cache will be stored and passed based on the product name.
 type Product interface {
-	CreateProduct(ctx context.Context, name string, cache interface{}) (interface{}, error)
-	DeleteProduct(ctx context.Context, name string, cache interface{}) (interface{}, error)
+	CreateProduct(ctx context.Context, name string) error
+	DeleteProduct(ctx context.Context, name string) error
 	GetProduct(ctx context.Context, name string) (*ProductStatus, error)
 }
 
@@ -40,7 +38,7 @@ type ComponentInitInfo struct {
 	// Snapshot of nautes resources in runtime's product
 	NautesDB     database.Database
 	NautesConfig configs.Config
-	Components   ComponentList
+	Components   *ComponentList
 }
 
 type ComponentList struct {

@@ -100,6 +100,7 @@ type Runtime interface {
 	GetName() string
 	GetDestination() string
 	GetNamespaces() []string
+	GetRuntimeType() RuntimeType
 }
 
 func convertArrayToBoolMap(in []string) map[string]bool {
