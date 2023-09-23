@@ -35,9 +35,10 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	"github.com/go-kratos/kratos/v2/transport/http"
-	cluster "github.com/nautes-labs/nautes/app/api-server/pkg/cluster"
+	clustermanagement "github.com/nautes-labs/nautes/app/api-server/pkg/clusters"
 	"github.com/nautes-labs/nautes/pkg/log/zap"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"github.com/nautes-labs/nautes/pkg/queue/nautesqueue"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -122,26 +123,25 @@ func main() {
 		panic(err)
 	}
 
-	resources_layout, err := nodestree.NewConfig()
+	nodesTree, err := NewNodestree(client)
 	if err != nil {
 		panic(err)
 	}
 
-	fileOptions := &nodestree.FileOptions{
-		ExclusionsSuffix: []string{".txt", ".md"},
-		ContentType:      nodestree.CRDContentType,
-	}
-
-	nodesTree := nodestree.NewNodestree(fileOptions, resources_layout, client)
-
-	globalconfigs, err := GetNautesConfigs(client, globalConfigNamespace, globalConfigName)
+	nautesconfigs, err := GetNautesConfigs(client, globalConfigNamespace, globalConfigName)
 	if err != nil {
 		panic(err)
 	}
 
-	clusteroperator := cluster.NewClusterRegistration()
+	clusterOperator, err := NewClusterOperator()
+	if err != nil {
+		panic(err)
+	}
 
-	app, cleanup, err := wireApp(bc.Server, logger, nodesTree, globalconfigs, client, clusteroperator)
+	stop := make(chan struct{})
+	q := nautesqueue.NewQueue(stop, 1)
+
+	app, cleanup, err := wireApp(bc.Server, logger, nodesTree, nautesconfigs, client, clusterOperator, q)
 	if err != nil {
 		panic(err)
 	}
@@ -154,6 +154,21 @@ func main() {
 	}
 }
 
+func NewNodestree(client client.Client) (nodestree.NodesTree, error) {
+	resources_layout, err := nodestree.NewConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	fileOptions := &nodestree.FileOptions{
+		ExclusionsSuffix: []string{".txt", ".md"},
+		ContentType:      nodestree.CRDContentType,
+	}
+	nodesTree := nodestree.NewNodestree(fileOptions, resources_layout, client)
+
+	return nodesTree, nil
+}
+
 func GetNautesConfigs(c client.Client, namespace, name string) (nautesConfigs *nautesconfigs.Config, err error) {
 	config := nautesconfigs.NautesConfigs{
 		Namespace: namespace,
@@ -164,4 +179,24 @@ func GetNautesConfigs(c client.Client, namespace, name string) (nautesConfigs *n
 		return
 	}
 	return
+}
+
+func NewClusterOperator() (clustermanagement.ClusterRegistrationOperator, error) {
+	clusterFileOperation, err := clustermanagement.NewClusterConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	fileOptions := &nodestree.FileOptions{
+		ExclusionsSuffix: []string{".txt", ".md"},
+		ContentType:      nodestree.StringContentType,
+	}
+	nodesTree := nodestree.NewNodestree(fileOptions, nil, nil)
+
+	clusterOperator, err := clustermanagement.NewClusterManagement(clusterFileOperation, nodesTree)
+	if err != nil {
+		return nil, err
+	}
+
+	return clusterOperator, nil
 }

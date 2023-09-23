@@ -98,8 +98,9 @@ nautes:
 	Expect(k8sClient).NotTo(BeNil())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Port:   9443,
+		Scheme:             scheme.Scheme,
+		Port:               9443,
+		MetricsBindAddress: ":10241",
 	})
 	Expect(err).NotTo(HaveOccurred())
 

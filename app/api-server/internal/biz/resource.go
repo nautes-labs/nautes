@@ -210,7 +210,7 @@ func (r *ResourcesUsecase) Save(ctx context.Context, resourceOptions *resourceOp
 		return err
 	}
 
-	err = r.SaveConfig(ctx, localPath)
+	err = r.PushToGit(ctx, localPath)
 	if err != nil {
 		r.log.Log(-1, "msg", "failed to git submission", "err", err)
 		return err
@@ -280,7 +280,7 @@ func (r *ResourcesUsecase) Delete(ctx context.Context, resourceOptions *resource
 		return err
 	}
 
-	err = r.SaveConfig(ctx, localPath)
+	err = r.PushToGit(ctx, localPath)
 	if err != nil {
 		return err
 	}
@@ -481,9 +481,9 @@ func writeKustomize(path string, bytes []byte) error {
 	return nil
 }
 
-// SaveConfig Save project resource config to git platform
+// PushToGit Save project resource config to git platform
 // If automatic merge fails will retry three times
-func (r *ResourcesUsecase) SaveConfig(ctx context.Context, path string) error {
+func (r *ResourcesUsecase) PushToGit(ctx context.Context, path string) error {
 	count := getCount(ctx)
 	if count == nil {
 		ctx = withCount(ctx, 1)
@@ -604,7 +604,7 @@ func (r *ResourcesUsecase) retryAutoMerge(ctx context.Context, path string) erro
 			count += 1
 			ctx = withCount(ctx, count)
 			time.Sleep(3 * time.Second)
-			return r.SaveConfig(ctx, path)
+			return r.PushToGit(ctx, path)
 		}
 
 		err = fmt.Errorf("failed to save config, err: %v", err)
@@ -629,13 +629,12 @@ func isMergeExceededTimes(ctx context.Context, exceed int) (bool, int, error) {
 	return false, val, nil
 }
 
-func cleanCodeRepo(filename string) error {
+func cleanCodeRepo(filename string) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		return nil
+		return
 	}
 
-	err := os.RemoveAll(filename)
-	return err
+	_ = os.RemoveAll(filename)
 }
 
 func withCount(ctx context.Context, val interface{}) context.Context {

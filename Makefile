@@ -78,6 +78,12 @@ api:
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, DeepCopyObject method implementations. Generate kratos api and internal proto
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/kubernetes/..."
 
+.PHONY: wire
+# wire
+wire:
+	go mod tidy
+	go get github.com/google/wire/cmd/wire@latest
+	go generate ./...
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.

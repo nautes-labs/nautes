@@ -16,42 +16,8 @@ package cluster
 
 import (
 	"fmt"
-	"os"
 
-	"gopkg.in/yaml.v2"
-)
-
-const (
-	ThirdPartComponentsFile        = "thirdPartComponents.yaml"
-	ComponentCategoryFile          = "componentCategoryDefinition.yaml"
-	ClusterCommonConfigFile        = "clusterCommonConfig.yaml"
-	EnvthirdPartComponents         = "THIRD_PART_COMPONENTS"
-	EnvComponentCategoryDefinition = "COMPONENT_CATEGORY_DEFINITION"
-	EnvClusterCommonConfig         = "CLUSTER_COMMON_CONFIG"
-	DefaultConfigPath              = "/opt/nautes/config"
-)
-
-var (
-	// componentTypeMap is a map of component type names. To add a new component type configuration,
-	// you should follow the format below and provide a brief description for clarity.
-	//
-	// Example:
-	// "newComponentType": true,  // Description of what the new component type does.
-	//
-	// Please ensure that the component type name is in double quotes, followed by a colon and "true".
-	// Add a comment after the colon to describe the purpose or functionality of the component type.
-	componentTypeMap = map[string]bool{
-		"certManagement":      true,
-		"deployment":          true,
-		"eventListener":       true,
-		"gateway":             true,
-		"multiTenant":         true,
-		"pipeline":            true,
-		"progressiveDelivery": true,
-		"secretManagement":    true,
-		"secretSync":          true,
-		"oauthProxy":          true,
-	}
+	"github.com/mitchellh/copystructure"
 )
 
 var (
@@ -60,36 +26,10 @@ var (
 	ClusterCommonConfigPath         = fmt.Sprintf("%s/%s", DefaultConfigPath, ClusterCommonConfigFile)
 )
 
-const (
-	CLUSTER_TYPE_PHYSICAL = "physical"
-	CLUSTER_TYPE_VIRTUAL  = "virtual"
-)
-
-const (
-	CLUSTER_USAGE_HOST   = "host"
-	CLUSTER_USAGE_WORKER = "worker"
-)
-
-const (
-	ClusterWorkTypeDeployment = "deployment"
-	ClusterWorkTypePipeline   = "pipeline"
-)
-
 type ClusterComponentConfig struct {
 	thirdPartComponentlist []*ThridPartComponent
 	clusterCommonConfig    *ClusterCommonConfig
 	componentsDefinition   *UsageComponentDefinition
-}
-
-// Configuration information of third-party components required for cluster registration.
-type ThridPartComponent struct {
-	Name        string
-	Namespace   string
-	Type        string
-	Default     bool
-	General     bool
-	Properties  []Propertie
-	InstallPath map[string][]string
 }
 
 type Propertie struct {
@@ -120,19 +60,21 @@ type ComponentList []string
 
 // General configuration required for cluster registration.
 type ClusterCommonConfig struct {
-	Save   EnvironmentCommonConfig
-	Remove EnvironmentCommonConfig
+	Save   UsageCommonConfig
+	Remove UsageCommonConfig
 }
 
-type EnvironmentCommonConfig struct {
-	Host   []string
-	Worker CommonConfig
+type UsageCommonConfig struct {
+	Host   CommonConfig
+	Worker WorkerTypeCommonConfig
 }
 
-type CommonConfig struct {
-	Physical []string
-	Virtual  []string
+type WorkerTypeCommonConfig struct {
+	Physical CommonConfig
+	Virtual  CommonConfig
 }
+
+type CommonConfig []string
 
 type ClusterInfo struct {
 	Name        string
@@ -147,7 +89,7 @@ func NewClusterComponentConfig() (*ClusterComponentConfig, error) {
 		return nil, err
 	}
 
-	componentsDefinition, err := GetComponentCategoryDefinition(ComponentCategoryDefinitionPath)
+	componentsDefinition, err := GetComponentDefinition(ComponentCategoryDefinitionPath)
 	if err != nil {
 		return nil, err
 	}
@@ -175,13 +117,23 @@ func (c *ClusterComponentConfig) GetThirdPartComponentByType(componentType strin
 }
 
 func (c *ClusterComponentConfig) GetThirdPartComponentByName(name string) (*ThridPartComponent, error) {
-	for _, item := range c.thirdPartComponentlist {
+	for idx, item := range c.thirdPartComponentlist {
 		if item.Name == name {
-			return item, nil
+			return c.thirdPartComponentlist[idx], nil
 		}
 	}
 
 	return nil, fmt.Errorf("failed to get component %s from third-part components list", name)
+}
+
+func (c *ClusterComponentConfig) GetDefaultThirdPartComponentByType(componentType string) (*ThridPartComponent, error) {
+	for _, item := range c.thirdPartComponentlist {
+		if item.Type == componentType && item.Default {
+			return item, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to get %s default component from third-part components list", componentType)
 }
 
 func (c *ClusterComponentConfig) getComponentsDefinitionMap() map[string]ComponentList {
@@ -191,11 +143,10 @@ func (c *ClusterComponentConfig) getComponentsDefinitionMap() map[string]Compone
 	componentsDefinitionMap[CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL+"|"+ClusterWorkTypeDeployment] = c.componentsDefinition.Worker.Virtual.Deployment
 	componentsDefinitionMap[CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_PHYSICAL+"|"+ClusterWorkTypePipeline] = c.componentsDefinition.Worker.Physical.Pipeline
 	componentsDefinitionMap[CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL+"|"+ClusterWorkTypePipeline] = c.componentsDefinition.Worker.Virtual.Pipeline
-
 	return componentsDefinitionMap
 }
 
-func (c *ClusterComponentConfig) GetClusterComponentsDefinition(cluster *ClusterInfo) ([]string, error) {
+func (c *ClusterComponentConfig) GetClusterComponentsDefinition(cluster *ClusterInfo) (ComponentList, error) {
 	componentsDefinitionMap := c.getComponentsDefinitionMap()
 	key := fmt.Sprintf("%s|%s|%s", cluster.Usage, cluster.ClusterType, cluster.WorkType)
 	componentList, exists := componentsDefinitionMap[key]
@@ -206,86 +157,26 @@ func (c *ClusterComponentConfig) GetClusterComponentsDefinition(cluster *Cluster
 	return componentList, nil
 }
 
-func GetComponentCategoryDefinition(path string) (*UsageComponentDefinition, error) {
-	content, err := loadComponentCategoryDefinition(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load component category definition, err: %s", err)
-	}
-
-	usageComponentDefinition := &UsageComponentDefinition{}
-	err = yaml.Unmarshal([]byte(content), &usageComponentDefinition)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal component type configuration, err: %s", err)
-	}
-
-	return usageComponentDefinition, nil
-}
-
-func GetThirdPartComponentsList(path string) ([]*ThridPartComponent, error) {
-	content, err := loadThirdPartComponentsList(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load third-part components list, err: %s", err)
-	}
-
-	components := []*ThridPartComponent{}
-	err = yaml.Unmarshal([]byte(content), &components)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal third part component configuration, err: %s", err)
-	}
-
-	for _, component := range components {
-		if !componentTypeMap[component.Type] {
-			return nil, fmt.Errorf("there is no component type for %s", component.Type)
-		}
-	}
-
-	return components, nil
-}
-
-func GetClusterCommonConfig(path string) (*ClusterCommonConfig, error) {
-	content, err := loadClusterCommonConfig(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load cluster common config, err: %s", err)
-	}
-
-	config := &ClusterCommonConfig{}
-	err = yaml.Unmarshal([]byte(content), &config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal component type configuration, err: %s", err)
+func (c *ClusterComponentConfig) GetClusterCommonConfig(operation ClusterOperation, cluster *ClusterInfo) (CommonConfig, error) {
+	clusterCommonConfigMap := c.getClusterCommonConfigMap()
+	key := fmt.Sprintf("%s|%s|%s", operation, cluster.Usage, cluster.ClusterType)
+	config, exists := clusterCommonConfigMap[key]
+	if !exists {
+		return nil, fmt.Errorf("failed to match component type [%s], please check if the cluster %s is correct", key, cluster.Name)
 	}
 
 	return config, nil
 }
 
-func loadThirdPartComponentsList(path string) (string, error) {
-	if val := os.Getenv(EnvthirdPartComponents); val != "" {
-		path = val
-	}
-
-	return loadConfigFile(path)
-}
-
-func loadComponentCategoryDefinition(path string) (string, error) {
-	if val := os.Getenv(EnvComponentCategoryDefinition); val != "" {
-		path = val
-	}
-
-	return loadConfigFile(path)
-}
-
-func loadClusterCommonConfig(path string) (string, error) {
-	if val := os.Getenv(EnvClusterCommonConfig); val != "" {
-		path = val
-	}
-
-	return loadConfigFile(path)
-}
-
-func loadConfigFile(path string) (string, error) {
-	bytes, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to read configuration file: %v", err)
-	}
-
-	return string(bytes), nil
+func (c *ClusterComponentConfig) getClusterCommonConfigMap() map[string]CommonConfig {
+	copy, _ := copystructure.Copy(c.clusterCommonConfig)
+	clusterCommonConfig := copy.(*ClusterCommonConfig)
+	clusterCommonConfigMap := make(map[string]CommonConfig, 0)
+	clusterCommonConfigMap[string(ToSave)+"|"+CLUSTER_USAGE_HOST+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Save.Host
+	clusterCommonConfigMap[string(ToSave)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Save.Worker.Physical
+	clusterCommonConfigMap[string(ToSave)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL] = clusterCommonConfig.Save.Worker.Virtual
+	clusterCommonConfigMap[string(ToRemove)+"|"+CLUSTER_USAGE_HOST+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Remove.Host
+	clusterCommonConfigMap[string(ToRemove)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Remove.Worker.Physical
+	clusterCommonConfigMap[string(ToRemove)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL] = clusterCommonConfig.Remove.Worker.Virtual
+	return clusterCommonConfigMap
 }

@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cluster
+package kubernetes
 
-import resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
-type ClusterRegistrationOperator interface {
-	InitializeClusterConfig(param *ClusterRegistrationParam) error
-	Save() error
-	Remove() error
-	GetArgocdURL() (string, error)
-	GetTektonOAuthURL() (string, error)
-	GetClsuter(tenantLocalPath, clusterName string) (*resourcev1alpha1.Cluster, error)
-	GetClsuters(tenantLocalPath string) ([]*resourcev1alpha1.Cluster, error)
+type KubernetesOperation interface {
+	GetConfigMap(object client.ObjectKey) (*corev1.ConfigMap, error)
+	UpdateConfigMap(cm *corev1.ConfigMap) error
 }

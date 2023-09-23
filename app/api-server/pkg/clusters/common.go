@@ -15,8 +15,24 @@
 package cluster
 
 const (
-	_HostClustersDir    = "host-clusters"
-	_RuntimesDir        = "runtimes"
-	_VclustersDir       = "vclusters"
-	_VclusterAppSetFile = "production/vcluster-appset.yaml"
+	_HostClusterPlaceholder = "_HOST_CLUSTER_"
+	_RuntimePlaceholder     = "_RUNTIME_"
+	_VclusterPlaceholder    = "_VCLUSTER_"
+	_ArgocdOAuthSuffix      = "api/dex/callback"
+	_TektonOAuthSuffix      = "oauth2/callback"
+)
+
+const (
+	_HostClustersDir     = "host-clusters"
+	_RuntimesDir         = "runtimes"
+	_VclustersDir        = "vclusters"
+	_VclusterAppSetFile  = "production/vcluster-appset.yaml"
+	_ClustersDir         = "nautes/overlays/production/clusters"
+	_TenantProductionDir = "tenant/production"
+)
+
+const (
+	HttpsNodePort = "httpsNodePort"
+	HttpNodePort  = "httpNodePort"
+	Host          = "host"
 )

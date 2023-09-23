@@ -82,3 +82,29 @@ func ParseMetadataString(metadataStr string) map[string]string {
 func EncodeToString(str string) string {
 	return base64.StdEncoding.EncodeToString([]byte(str))
 }
+
+func FirstCharToLower(str string) string {
+	firstChar := string(str[0])
+	lowerFirstChar := strings.ToLower(firstChar)
+	result := lowerFirstChar + str[1:]
+
+	return result
+}
+
+func ReplacePath(filePath, old, new string) (newPath string) {
+	return strings.Replace(filePath, old, new, 1)
+}
+
+func IsBase64Decoding(str string) bool {
+	if len(str)%4 != 0 {
+		return false
+	}
+
+	for _, ch := range str {
+		if !((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '+' || ch == '/' || ch == '=') {
+			return false
+		}
+	}
+
+	return true
+}

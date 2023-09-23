@@ -181,7 +181,7 @@ func generateCommitMessage(ctx context.Context) (string, error) {
 	value := ctx.Value(biz.ResourceInfoKey)
 	info, ok := value.(*biz.ResourceInfo)
 	if !ok {
-		return "", fmt.Errorf("failed to get resource info")
+		return "[API] Save operator", nil
 	}
 	// If request resource kind is product,
 	// It means that when creating a product, the default commit message is initial.
