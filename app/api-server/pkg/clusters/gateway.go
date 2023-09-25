@@ -16,7 +16,6 @@ package cluster
 
 import (
 	"fmt"
-	"html/template"
 )
 
 type Traefik struct {
@@ -45,12 +44,6 @@ func NewTraefik() Gateway {
 
 func (t *Traefik) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
 	return "", nil
-}
-
-func (t *Traefik) RegisterTemplateFuncs() template.FuncMap {
-	var funcMap = template.FuncMap{}
-	funcMap["getTraefikServer"] = t.GetGatewayServer
-	return funcMap
 }
 
 func (t *Traefik) GetGatewayServer(param *ClusterRegistrationParams) *GatewayServer {

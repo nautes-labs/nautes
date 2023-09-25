@@ -16,7 +16,6 @@ package cluster
 
 import (
 	"fmt"
-	"html/template"
 
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	utilstring "github.com/nautes-labs/nautes/app/api-server/util/string"
@@ -58,14 +57,6 @@ func (t *Argocd) GetDefaultValue(field string, opt *DefaultValueOptions) (string
 	}
 
 	return generateNipHost("argocd", opt.Cluster.Name, ip), nil
-}
-
-func (a *Argocd) RegisterTemplateFuncs() template.FuncMap {
-	var funcMap = template.FuncMap{}
-
-	funcMap["getDeploymentServer"] = a.GetDeploymentServer
-
-	return funcMap
 }
 
 func (a *Argocd) GetDeploymentServer(param *ClusterRegistrationParams) *DeploymentServer {

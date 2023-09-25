@@ -498,9 +498,6 @@ func (s *ClusterService) setDefaultValuesIfEmpty(componetsDefinition []string, r
 			}
 			field.Set(reflect.ValueOf(defaultComponent))
 		} else {
-			// todo
-			// add check component name function.
-
 			err := s.fillDefaultFields(field, componentType, req)
 			if err != nil {
 				return nil, err
@@ -521,10 +518,9 @@ func (s *ClusterService) getDefaultComponent(componentType string, req *clusterv
 }
 
 func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType string, req *clusterv1.SaveRequest) error {
-	component := field.Elem()
-	name := component.FieldByName("Name")
-	namespace := component.FieldByName("Namespace")
-	additions := component.FieldByName("Additions")
+	var name = field.Elem().FieldByName("Name")
+	var namespace = field.Elem().FieldByName("Namespace")
+	var additions = field.Elem().FieldByName("Additions")
 
 	if name.String() == "" {
 		defaultComponent, err := s.getDefaultComponent(componentType, req)
@@ -538,22 +534,29 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 		return nil
 	}
 
-	if namespace.String() == "" ||
-		additions.Len() == 0 {
-		component, err := s.setComponentDefaults(componentType, name.String(), req)
-		if err != nil {
-			return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
-		}
+	component, err := s.setComponentDefaults(componentType, name.String(), req)
+	if err != nil {
+		return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
+	}
+
+	if namespace.String() == "" {
 		namespace.SetString(component.Namespace)
 	}
 
 	if additions.Len() == 0 {
-		component, err := s.setComponentDefaults(componentType, name.String(), req)
-		if err != nil {
-			return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
-		}
 		newAdditions := reflect.ValueOf(component.Additions)
 		additions.Set(newAdditions)
+	} else {
+		for key, val := range component.Additions {
+			keyReflect := reflect.ValueOf(key)
+			valReflect := reflect.ValueOf(val)
+
+			result := additions.MapIndex(keyReflect)
+			fmt.Println("result: " + result.String())
+			if !result.IsValid() {
+				additions.SetMapIndex(keyReflect, valReflect)
+			}
+		}
 	}
 
 	return nil
@@ -565,7 +568,7 @@ func (s *ClusterService) setComponentDefaults(componentType, componentName strin
 		return nil, err
 	}
 
-	additions := s.setDefaultValue(thirdPartComponent, componentType, req)
+	additions := s.setDefaultValueForAdditions(thirdPartComponent, componentType, req)
 
 	return &clusterv1.Component{
 		Name:      thirdPartComponent.Name,
@@ -574,7 +577,7 @@ func (s *ClusterService) setComponentDefaults(componentType, componentName strin
 	}, nil
 }
 
-func (s *ClusterService) setDefaultValue(thirdPartComponent *clusterconfig.ThridPartComponent, componentType string, req *clusterv1.SaveRequest) map[string]string {
+func (s *ClusterService) setDefaultValueForAdditions(thirdPartComponent *clusterconfig.ThridPartComponent, componentType string, req *clusterv1.SaveRequest) map[string]string {
 	var additions = make(map[string]string)
 	for _, prop := range thirdPartComponent.Properties {
 		if prop.Default != "" {

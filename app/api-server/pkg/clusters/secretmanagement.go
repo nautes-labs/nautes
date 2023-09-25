@@ -14,10 +14,6 @@
 
 package cluster
 
-import (
-	"html/template"
-)
-
 type Vault struct {
 }
 
@@ -27,14 +23,6 @@ func NewVault() SecretManagement {
 
 func (v *Vault) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
 	return "", nil
-}
-
-func (a *Vault) RegisterTemplateFuncs() template.FuncMap {
-	var funcMap = template.FuncMap{}
-
-	funcMap["getSecretManagementServer"] = a.GetSecretManagementServer
-
-	return funcMap
 }
 
 func (v *Vault) GetSecretManagementServer(param *ClusterRegistrationParams) *SecretManagementServer {

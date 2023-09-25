@@ -197,7 +197,7 @@ func (c *ClusterUsecase) getCerts(ctx context.Context, cluster *resourcev1alpha1
 	defaultCert, err := c.GetDefaultCertificate(ctx)
 	if err != nil {
 		c.log.Errorf("failed to call 'GetDefaultCertificate', could not get default certificate from secret store, cluster name: %s, err: %s", cluster.Name, err)
-		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
+		return nil, fmt.Errorf("failed to get certificate, err: %s", err)
 	}
 
 	gitlabCert, err := gitlab.GetCertificate(c.configs.Git.Addr)
@@ -205,6 +205,7 @@ func (c *ClusterUsecase) getCerts(ctx context.Context, cluster *resourcev1alpha1
 		c.log.Errorf("failed to call 'GetCertificate', could not get gitlab certificate from secret store, cluster name: %s, err: %s", cluster.Name, err)
 		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
 	}
+
 	return &clustermanagement.Cert{
 		Default: defaultCert,
 		Gitlab:  gitlabCert,
@@ -216,7 +217,7 @@ func (c *ClusterUsecase) getRepositoriesInfo(ctx context.Context) (*clustermanag
 	clusterTemplateDir, err := c.CloneRepository(ctx, httpURLToRepo)
 	if err != nil {
 		c.log.Errorf("failed to call 'CloneRepository', could not clone cluster template repository, the url %s may be invalid or does not exist, err: %s", httpURLToRepo, err)
-		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
+		return nil, fmt.Errorf("failed to clone repository, err: %s", err)
 	}
 
 	repository, err := c.GetTenantRepository(ctx)

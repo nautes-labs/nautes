@@ -16,7 +16,6 @@ package cluster
 
 import (
 	"fmt"
-	"html/template"
 
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 )
@@ -54,12 +53,6 @@ func NewOAuth2Proxy() OAuthProxy {
 
 func (t *OAuth2Proxy) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
 	return "OAuth2Proxy", nil
-}
-
-func (o *OAuth2Proxy) RegisterTemplateFuncs() template.FuncMap {
-	var funcMap = template.FuncMap{}
-	funcMap["getOauthProxyServer"] = o.GetOauthProxyServer
-	return funcMap
 }
 
 func (o *OAuth2Proxy) GetOauthProxyServer(param *ClusterRegistrationParams) *OAuthProxyServer {
