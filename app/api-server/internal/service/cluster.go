@@ -527,7 +527,6 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 	component := field.Elem()
 	name := component.FieldByName("Name")
 	namespace := component.FieldByName("Namespace")
-	additions := component.FieldByName("Additions")
 
 	if name.String() == "" {
 		defaultComponent, err := s.getDefaultComponent(componentType, req)
@@ -541,8 +540,7 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 		return nil
 	}
 
-	if namespace.String() == "" ||
-		additions.Len() == 0 {
+	if namespace.String() == "" {
 		component, err := s.setComponentDefaults(componentType, name.String(), req)
 		if err != nil {
 			return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
