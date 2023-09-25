@@ -107,7 +107,7 @@ func (c *File) CreateDir(dir string) (string, error) {
 		return dir, nil
 	}
 
-	if err = os.MkdirAll(dir, os.ModeAppend); err != nil {
+	if err = os.MkdirAll(dir, os.ModeDir); err != nil {
 		return "", err
 	}
 
