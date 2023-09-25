@@ -409,9 +409,7 @@ func (s *ClusterService) setDefaultComponent(list *resourcev1alpha1.ComponentsLi
 		Additions: secretManagementComponent.Additions,
 	}
 
-	if (req.Body.ClusterType == string(resourcev1alpha1.CLUSTER_TYPE_PHYSICAL) &&
-		req.Body.WorkerType == string(resourcev1alpha1.ClusterWorkTypePipeline)) ||
-		req.Body.Usage == string(resourcev1alpha1.CLUSTER_USAGE_HOST) {
+	if req.Body.ClusterType == string(resourcev1alpha1.CLUSTER_TYPE_PHYSICAL) {
 		oauthproxyComponent, err := s.setComponentDefaults(string(clusterconfig.OauthProxy), "oauth2-proxy", req)
 		if err != nil {
 			return err
