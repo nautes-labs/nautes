@@ -45,7 +45,7 @@ func NewClusterConfigFile() (FileOperation, error) {
 
 func (c *File) CreateFile(filePath string) (string, error) {
 	dir := filepath.Dir(filePath)
-	err := os.MkdirAll(dir, os.ModeAppend)
+	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		return "", err
 	}
@@ -107,7 +107,7 @@ func (c *File) CreateDir(dir string) (string, error) {
 		return dir, nil
 	}
 
-	if err = os.MkdirAll(dir, os.ModeDir); err != nil {
+	if err = os.MkdirAll(dir, os.ModePerm); err != nil {
 		return "", err
 	}
 
