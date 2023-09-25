@@ -550,6 +550,15 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 		namespace.SetString(component.Namespace)
 	}
 
+	if additions.Len() == 0 {
+		component, err := s.setComponentDefaults(componentType, name.String(), req)
+		if err != nil {
+			return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
+		}
+		newAdditions := reflect.ValueOf(component.Additions)
+		additions.Set(newAdditions)
+	}
+
 	return nil
 }
 
