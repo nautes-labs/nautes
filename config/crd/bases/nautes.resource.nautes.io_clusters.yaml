@@ -269,6 +269,7 @@ spec:
                   type: array
                 description: ReservedNamespacesAllowedProducts key is product name,
                   value is the list of cluster resources.
+                nullable: true
                 type: object
               reservedNamespacesAllowedProducts:
                 additionalProperties:
@@ -277,6 +278,7 @@ spec:
                   type: array
                 description: ReservedNamespacesAllowedProducts key is namespace name,
                   value is the product name list witch can use namespace.
+                nullable: true
                 type: object
               usage:
                 description: the usage of cluster, for user use it directry or deploy

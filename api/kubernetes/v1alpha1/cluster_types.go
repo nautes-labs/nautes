@@ -69,9 +69,11 @@ type ClusterSpec struct {
 	WorkerType     ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
 	ComponentsList ComponentsList  `json:"componentsList"`
 	// +optional
+	// +nullable
 	// ReservedNamespacesAllowedProducts key is namespace name, value is the product name list witch can use namespace.
 	ReservedNamespacesAllowedProducts map[string][]string `json:"reservedNamespacesAllowedProducts"`
 	// +optional
+	// +nullable
 	// ReservedNamespacesAllowedProducts key is product name, value is the list of cluster resources.
 	ProductAllowedClusterResources map[string][]ClusterResourceInfo `json:"productAllowedClusterResources"`
 }
