@@ -239,6 +239,9 @@ func (s *ClusterService) convertClustertoReply(cluster *resourcev1alpha1.Cluster
 		ClusterKind:                       string(cluster.Spec.ClusterKind),
 		ClusterType:                       string(cluster.Spec.ClusterType),
 		HostCluster:                       cluster.Spec.HostCluster,
+		PrimaryDomain:                     cluster.Spec.PrimaryDomain,
+		WorkerType:                        string(cluster.Spec.WorkerType),
+		Usage:                             string(cluster.Spec.Usage),
 		ReservedNamespacesAllowedProducts: reservedNamespacesAllowedProducts,
 		ProductAllowedClusterResources:    productAllowedClusterResources,
 		ComponentsList: &clusterv1.ComponentsList{
