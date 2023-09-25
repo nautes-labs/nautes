@@ -246,7 +246,6 @@ func (s *ClusterService) convertClustertoReply(cluster *resourcev1alpha1.Cluster
 		ProductAllowedClusterResources:    productAllowedClusterResources,
 		ComponentsList: &clusterv1.ComponentsList{
 			MultiTenant:         getClusterComponent(cluster.Spec.ComponentsList.MultiTenant),
-			CertManagement:      getClusterComponent(cluster.Spec.ComponentsList.CertManagement),
 			SecretSync:          getClusterComponent(cluster.Spec.ComponentsList.SecretSync),
 			Gateway:             getClusterComponent(cluster.Spec.ComponentsList.Gateway),
 			Deployment:          getClusterComponent(cluster.Spec.ComponentsList.Deployment),
@@ -701,7 +700,6 @@ func (s *ClusterService) constructAllowedClusterResources(listValue map[string]*
 func (s *ClusterService) convertComponentsList(components *clusterv1.ComponentsList) *resourcev1alpha1.ComponentsList {
 	list := &resourcev1alpha1.ComponentsList{
 		MultiTenant:         getResourceComponent(components.MultiTenant),
-		CertManagement:      getResourceComponent(components.CertManagement),
 		SecretSync:          getResourceComponent(components.SecretSync),
 		Gateway:             getResourceComponent(components.Gateway),
 		Deployment:          getResourceComponent(components.Deployment),

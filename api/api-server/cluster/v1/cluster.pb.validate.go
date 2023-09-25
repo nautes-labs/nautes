@@ -1296,35 +1296,6 @@ func (m *ComponentsList) validate(all bool) error {
 	}
 
 	if all {
-		switch v := interface{}(m.GetCertManagement()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ComponentsListValidationError{
-					field:  "CertManagement",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ComponentsListValidationError{
-					field:  "CertManagement",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetCertManagement()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ComponentsListValidationError{
-				field:  "CertManagement",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	if all {
 		switch v := interface{}(m.GetSecretSync()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {

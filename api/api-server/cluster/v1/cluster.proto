@@ -164,13 +164,13 @@ message StringList {
 
 message ComponentsList  {
   Component multi_tenant = 1 [json_name = "multi_tenant"];
-	Component cert_management = 2 [json_name = "cert_management"];
-	Component secret_sync = 4 [json_name = "secret_sync"];
-	Component gateway = 5 [json_name = "gateway"];
-  Component deployment = 6 [json_name = "deployment"];
-	Component progressive_delivery = 7 [json_name = "progressive_delivery"];
-  Component pipeline = 8 [json_name = "pipeline"];
-  Component event_listener = 9 [json_name = "event_listener"];
+	// Component cert_management = 2 [json_name = "cert_management"];
+	Component secret_sync = 2 [json_name = "secret_sync"];
+	Component gateway = 3 [json_name = "gateway"];
+  Component deployment = 4 [json_name = "deployment"];
+	Component progressive_delivery = 5 [json_name = "progressive_delivery"];
+  Component pipeline = 6 [json_name = "pipeline"];
+  Component event_listener = 7 [json_name = "event_listener"];
 }
 
 message Component {

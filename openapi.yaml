@@ -852,8 +852,6 @@ components:
             properties:
                 multi_tenant:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
-                cert_management:
-                    $ref: '#/components/schemas/api.cluster.v1.Component'
                 secret_sync:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
                 gateway:
