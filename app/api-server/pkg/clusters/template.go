@@ -48,18 +48,19 @@ func NewTemplate(name string) TemplateOperation {
 	var ins = &Template{}
 
 	t := template.New(name).Funcs(template.FuncMap{
-		"split":                    strings.Split,
-		"getClusterVariable":       getClusterVariable,
-		"randomString":             utilstring.RandStr,
-		"getDomain":                utilstring.GetDomain,
-		"encodeToString":           utilstring.EncodeToString,
-		"getVclusterHttpsNodePort": getVclusterHttpsNodePort,
-		"getHostClusterApiServer":  getHostClusterApiServer,
-		"getVclusterTLSSan":        getVclusterTLSSan,
-		"getPipelineServer":        ins.getPipelineServer,
-		"getOauthProxyServer":      getOauthProxyServer,
-		"getGatewayServer":         getGatewayServer,
-		"getDeploymentServer":      getDeploymentServer,
+		"split":                       strings.Split,
+		"getClusterVariable":          getClusterVariable,
+		"randomString":                utilstring.RandStr,
+		"getDomain":                   utilstring.GetDomain,
+		"encodeToString":              utilstring.EncodeToString,
+		"getVclusterHttpsNodePort":    getVclusterHttpsNodePort,
+		"getHostClusterApiServer":     getHostClusterApiServer,
+		"getVclusterTLSSan":           getVclusterTLSSan,
+		"getPipelineServer":           ins.getPipelineServer,
+		"getOauthProxyServer":         getOauthProxyServer,
+		"getGatewayServer":            getGatewayServer,
+		"getDeploymentServer":         getDeploymentServer,
+		"getVclusterByHostCluserName": getVclusterByHostCluserName,
 	})
 	ins.t = t
 
@@ -93,6 +94,19 @@ func (t *Template) Clone() (TemplateOperation, error) {
 
 func getClusterVariable() string {
 	return "{{cluster}}"
+}
+
+func getVclusterByHostCluserName(param *ClusterRegistrationParams, hostClusterName string) []resourcev1alpha1.Cluster {
+	var clusters []resourcev1alpha1.Cluster
+
+	for _, cluster := range param.Clusters {
+		if cluster.Spec.HostCluster != "" &&
+			cluster.Spec.HostCluster == hostClusterName {
+			clusters = append(clusters, cluster)
+		}
+	}
+
+	return clusters
 }
 
 func getVclusterHttpsNodePort(vcluster *VclusterInfo) string {
