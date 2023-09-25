@@ -274,7 +274,7 @@ func (r *Cluster) staticCheck() error {
 
 	for namespace := range r.Spec.ReservedNamespacesAllowedProducts {
 		if !reservedNamespace[namespace] {
-			return fmt.Errorf("namespace %s is not in component list", namespace)
+			return fmt.Errorf("reserved namespace %s is not in component list", namespace)
 		}
 	}
 
