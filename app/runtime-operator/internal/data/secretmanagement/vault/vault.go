@@ -41,18 +41,20 @@ func NewSecretManagement(opt v1alpha1.Component, info *syncer.ComponentInitInfo)
 }
 
 type NewVaultProxy func(url string) (vaultproxy.SecretHTTPClient, vaultproxy.AuthHTTPClient, vaultproxy.AuthGrantHTTPClient, error)
+
 type newOptions struct {
-	NewVaultProxyClient NewVaultProxy
+	newVaultProxyClient NewVaultProxy
 }
+
 type newOption func(*newOptions)
 
 func SetNewVaultProxyClientFunction(fn NewVaultProxy) newOption {
-	return func(no *newOptions) { no.NewVaultProxyClient = fn }
+	return func(no *newOptions) { no.newVaultProxyClient = fn }
 }
 
-func NewVaultClient(opt v1alpha1.Component, info *syncer.ComponentInitInfo, opts ...newOption) (*vault, error) {
+func NewVaultClient(_ v1alpha1.Component, info *syncer.ComponentInitInfo, opts ...newOption) (syncer.SecretManagement, error) {
 	options := &newOptions{
-		NewVaultProxyClient: newVaultProxyClient,
+		newVaultProxyClient: newVaultProxyClient,
 	}
 
 	for _, fn := range opts {
@@ -64,7 +66,7 @@ func NewVaultClient(opt v1alpha1.Component, info *syncer.ComponentInitInfo, opts
 		return nil, err
 	}
 
-	secClient, authClient, grantClient, err := options.NewVaultProxyClient(info.NautesConfig.Secret.Vault.ProxyAddr)
+	secClient, authClient, grantClient, err := options.newVaultProxyClient(info.NautesConfig.Secret.Vault.ProxyAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +189,8 @@ func newVaultRawClient(cfg configs.SecretRepo) (*vaultapi.Client, error) {
 		config.HttpClient = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
-					RootCAs: certPool,
+					RootCAs:    certPool,
+					MinVersion: tls.VersionTLS12,
 				},
 			},
 		}
@@ -248,6 +251,7 @@ func newVaultProxyClient(url string) (vaultproxy.SecretHTTPClient, vaultproxy.Au
 	tlsConfig := &tls.Config{
 		RootCAs:      certPool,
 		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	newTransport := &http.Transport{

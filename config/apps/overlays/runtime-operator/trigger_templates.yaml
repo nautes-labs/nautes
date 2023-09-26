@@ -9,7 +9,7 @@ data:
     kind: PipelineRun
     metadata:
       generateName: init-pipiline-
-      namespace: {{ .runtimeName }}
+      namespace: {{ .runtimeNamespace }}
     spec:
       params:
         - name: PIPELINE-REVISION

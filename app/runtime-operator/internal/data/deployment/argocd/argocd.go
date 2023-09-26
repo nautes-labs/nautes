@@ -107,7 +107,8 @@ func (a *argocd) CleanUp() error {
 		return fmt.Errorf("list code repos failed: %w", err)
 	}
 
-	for _, codeRepo := range codeRepoList.Items {
+	for i := range codeRepoList.Items {
+		codeRepo := codeRepoList.Items[i]
 		if _, ok := codeRepo.Labels[v1alpha1.LABEL_TENANT_MANAGEMENT]; ok {
 			continue
 		}

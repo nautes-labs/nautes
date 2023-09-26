@@ -187,12 +187,12 @@ func (db *RuntimeDataBase) cachePermissionMatrix(ctx context.Context) error {
 
 func (db *RuntimeDataBase) convertCodeReposToRuntimeFormat() error {
 	for name, codeRepo := range db.CodeRepos {
-		URL, err := db.GetCodeRepoURL(name)
+		url, err := db.GetCodeRepoURL(name)
 		if err != nil {
 			return err
 		}
 
-		codeRepo.Spec.URL = URL
+		codeRepo.Spec.URL = url
 
 		codeRepo.ObjectMeta = metav1.ObjectMeta{
 			Name: codeRepo.Name,
@@ -203,7 +203,8 @@ func (db *RuntimeDataBase) convertCodeReposToRuntimeFormat() error {
 
 	if db.ProductCodeRepo != nil {
 		db.ProductCodeRepo.ObjectMeta = metav1.ObjectMeta{
-			Name: db.ProductCodeRepo.Name,
+			Name:   db.ProductCodeRepo.Name,
+			Labels: db.ProductCodeRepo.Labels,
 		}
 	}
 

@@ -25,7 +25,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	nautesv1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -35,13 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/deployment/argocd"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/eventlistener/argoevent"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/multitenant/hnc"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagement/vault"
-	deployment "github.com/nautes-labs/nautes/app/runtime-operator/internal/deployment/argocd"
-	envmgr "github.com/nautes-labs/nautes/app/runtime-operator/internal/envmanager/kubernetes"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/eventbus/argoevents"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/pipeline/tekton"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/runtime"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretsync/externalsecret"
 	syncerv2 "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/controllers"
@@ -58,8 +54,11 @@ func init() {
 	utilruntime.Must(nautesv1alpha1.AddToScheme(scheme))
 
 	syncerv2.NewFunctionMapDeployment["argocd"] = argocd.NewArgoCD
-	syncerv2.NewFunctionMapMultiTenants["hnc"] = hnc.NewHNC
-	syncerv2.NewFunctionMapSecretManagements["vault"] = vault.NewSecretManagement
+	syncerv2.NewFunctionMapMultiTenant["hnc"] = hnc.NewHNC
+	syncerv2.NewFunctionMapSecretManagement["vault"] = vault.NewSecretManagement
+	syncerv2.NewFunctionMapEventListener["argo-events"] = argoevent.NewArgoEvent
+	syncerv2.NewFunctionMapSecretSync["external-secrets"] = externalsecret.NewExternalSecret
+
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -110,24 +109,6 @@ func main() {
 		return []string{fmt.Sprintf("%s/%s", binding.Spec.Product, binding.Spec.CodeRepo)}
 	})
 
-	syncer.EnvManagers["kubernetes"] = envmgr.Syncer{
-		Client: mgr.GetClient(),
-	}
-	syncer.DeployApps["argocd"] = deployment.Syncer{
-		K8sClient: mgr.GetClient(),
-	}
-	syncer.EventBus[configs.EventBusTypeArgoEvent] = argoevents.NewSyncer(mgr.GetClient())
-	syncer.Pipelines[configs.PipelineTypeTekton] = tekton.NewSyncer(mgr.GetClient())
-
-	syncer := &syncer.Syncer{
-		Client: mgr.GetClient(),
-	}
-
-	nautesConfig := configs.NautesConfigs{
-		Namespace: globalConfigNamespace,
-		Name:      globalConfigName,
-	}
-
 	if err = (&controllers.DeploymentRuntimeReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -140,10 +121,11 @@ func main() {
 	}
 
 	if err = (&controllers.ProjectPipelineRuntimeReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		Syncer:       syncer,
-		NautesConfig: nautesConfig,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Syncer: syncerv2.Syncer{
+			KubernetesClient: mgr.GetClient(),
+		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ProjectPipelineRuntime")
 		os.Exit(1)

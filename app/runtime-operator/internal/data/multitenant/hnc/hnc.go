@@ -36,6 +36,7 @@ type hnc struct {
 	k8sClient         client.Client
 	clusterWorkerType v1alpha1.ClusterWorkType
 	opts              map[string]string
+	secretStoreURL    string
 	namespace         string
 }
 
@@ -58,9 +59,10 @@ func NewHNC(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.Mult
 		db:                info.NautesDB,
 		deployer:          info.Components.Deployment,
 		k8sClient:         k8sClient,
-		opts:              opt.Additions,
-		namespace:         opt.Namespace,
 		clusterWorkerType: cluster.Spec.WorkerType,
+		opts:              opt.Additions,
+		secretStoreURL:    info.NautesConfig.Secret.Vault.Addr,
+		namespace:         opt.Namespace,
 	}, nil
 }
 
@@ -506,7 +508,7 @@ func (h hnc) setHNCConfig(ctx context.Context) error {
 		return nil
 	}
 
-	SyncResources := []hncv1alpha2.ResourceSpec{}
+	var syncResources []hncv1alpha2.ResourceSpec
 	for _, res := range strings.Split(resources, ",") {
 		elements := strings.Split(strings.Replace(res, " ", "", -1), "/")
 		if len(elements) != 2 {
@@ -519,7 +521,7 @@ func (h hnc) setHNCConfig(ctx context.Context) error {
 			Mode:     "",
 		}
 
-		SyncResources = append(SyncResources, resourceDefination)
+		syncResources = append(syncResources, resourceDefination)
 	}
 
 	hncConfig := &hncv1alpha2.HNCConfiguration{
@@ -529,7 +531,7 @@ func (h hnc) setHNCConfig(ctx context.Context) error {
 	}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, h.k8sClient, hncConfig, func() error {
-		hncConfig.Spec.Resources = SyncResources
+		hncConfig.Spec.Resources = syncResources
 		return nil
 	})
 	return err
@@ -548,6 +550,9 @@ func (h hnc) createNamespace(ctx context.Context, productName, name string) erro
 	})
 	if err != nil {
 		return fmt.Errorf("create or update namespace failed: %w", err)
+	}
+	if err := h.createSecretStoreCA(ctx, namespace.Name); err != nil {
+		return fmt.Errorf("create secret store ca in namespace failed: %w", err)
 	}
 	return nil
 }
@@ -636,4 +641,31 @@ func getSpace(namespace corev1.Namespace) syncer.SpaceStatus {
 		Users: userList.getUsers(),
 	}
 	return spaceStatus
+}
+
+const (
+	secretNameSecretStoreCA = "ca"
+	fileNameCA              = "ca.crt"
+)
+
+func (h hnc) createSecretStoreCA(ctx context.Context, namespace string) error {
+	if h.secretStoreURL == "" {
+		return nil
+	}
+	caSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretNameSecretStoreCA,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{},
+	}
+	caBundle, err := utils.GetCABundle(h.secretStoreURL)
+	if err != nil {
+		return err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, caSecret, func() error {
+		caSecret.Data[fileNameCA] = caBundle
+		return nil
+	})
+	return err
 }

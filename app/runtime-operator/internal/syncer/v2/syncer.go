@@ -14,14 +14,18 @@ import (
 )
 
 var (
-	NewFunctionMapDeployment        = map[string]NewDeployment{}
-	NewFunctionMapMultiTenants      = map[string]NewMultiTenant{}
-	NewFunctionMapSecretManagements = map[string]NewSecretManagement{}
+	NewFunctionMapDeployment       = map[string]NewDeployment{}
+	NewFunctionMapMultiTenant      = map[string]NewMultiTenant{}
+	NewFunctionMapSecretManagement = map[string]NewSecretManagement{}
+	NewFunctionMapSecretSync       = map[string]NewSecretSync{}
+	NewFunctionMapGateway          = map[string]NewGateway{}
+	NewFunctionMapEventListener    = map[string]NewEventListener{}
 )
 
 var (
 	newFunctionMapTaskRunner = map[v1alpha1.RuntimeType]NewTaskRuner{
 		v1alpha1.RuntimeTypeDeploymentRuntime: newDeploymentRuntimeDeployer,
+		v1alpha1.RuntimeTypePipelineRuntime:   newPipelineRuntimeDeployer,
 	}
 )
 
@@ -56,7 +60,7 @@ type Task struct {
 func (s *Syncer) NewTasks(ctx context.Context, runtime v1alpha1.Runtime, cache *pkgruntime.RawExtension) (*Task, error) {
 	cfg, err := configs.NewNautesConfigFromFile()
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("load nautes config failed: %w", err)
 	}
 
 	productName := runtime.GetProduct()
@@ -70,6 +74,15 @@ func (s *Syncer) NewTasks(ctx context.Context, runtime v1alpha1.Runtime, cache *
 		return nil, fmt.Errorf("get cluster by runtime failed: %w", err)
 	}
 
+	var hostCluster *v1alpha1.Cluster
+	if cluster.Spec.ClusterType == v1alpha1.CLUSTER_TYPE_VIRTUAL {
+		cluster, err := db.GetCluster(cluster.Spec.HostCluster)
+		if err != nil {
+			return nil, fmt.Errorf("get host cluster failed: %w", err)
+		}
+		hostCluster = cluster
+	}
+
 	initInfo := &ComponentInitInfo{
 		ClusterConnectInfo: ClusterConnectInfo{},
 		ClusterName:        cluster.GetName(),
@@ -80,10 +93,12 @@ func (s *Syncer) NewTasks(ctx context.Context, runtime v1alpha1.Runtime, cache *
 			Deployment:       nil,
 			MultiTenant:      nil,
 			SecretManagement: nil,
+			SecretSync:       nil,
+			EventListener:    nil,
 		},
 	}
 
-	newSecManagement, ok := NewFunctionMapSecretManagements[string(cfg.Secret.RepoType)]
+	newSecManagement, ok := NewFunctionMapSecretManagement[string(cfg.Secret.RepoType)]
 	if !ok {
 		return nil, fmt.Errorf("unknown secret management type %s", cfg.Secret.RepoType)
 	}
@@ -100,7 +115,7 @@ func (s *Syncer) NewTasks(ctx context.Context, runtime v1alpha1.Runtime, cache *
 
 	initInfo.ClusterConnectInfo = *clusterConnectInfo
 
-	if err := initInfo.initComponents(*cluster, secMgr); err != nil {
+	if err := initInfo.initComponents(cluster, hostCluster, secMgr); err != nil {
 		return nil, fmt.Errorf("init componentList failed: %w", err)
 	}
 
@@ -155,6 +170,18 @@ func (t *Task) CleanUp() {
 			logger.Error(err, "")
 		}
 	}
+	if t.components.EventListener != nil {
+		err := t.components.EventListener.CleanUp()
+		if err != nil {
+			logger.Error(err, "")
+		}
+	}
+	if t.components.SecretSync != nil {
+		err := t.components.SecretSync.CleanUp()
+		if err != nil {
+			logger.Error(err, "")
+		}
+	}
 }
 
 // getClusterConnectInfo retrieves connect info from cluster resource.
@@ -178,7 +205,7 @@ func getClusterConnectInfo(ctx context.Context, secMgr SecretManagement) (*Clust
 }
 
 // initComponents creates components based on the cluster.
-func (cii *ComponentInitInfo) initComponents(cluster v1alpha1.Cluster, secMgr SecretManagement) error {
+func (cii *ComponentInitInfo) initComponents(cluster, _ *v1alpha1.Cluster, secMgr SecretManagement) error {
 	components := cluster.Spec.ComponentsList
 
 	if components.Deployment != nil {
@@ -196,7 +223,7 @@ func (cii *ComponentInitInfo) initComponents(cluster v1alpha1.Cluster, secMgr Se
 	}
 
 	if components.MultiTenant != nil {
-		newFn, ok := NewFunctionMapMultiTenants[components.MultiTenant.Name]
+		newFn, ok := NewFunctionMapMultiTenant[components.MultiTenant.Name]
 		if !ok {
 			return fmt.Errorf("unknown multi tenant type %s", components.MultiTenant.Name)
 		}
@@ -207,6 +234,34 @@ func (cii *ComponentInitInfo) initComponents(cluster v1alpha1.Cluster, secMgr Se
 		}
 
 		cii.Components.MultiTenant = multiTenant
+	}
+
+	if components.EventListener != nil {
+		newFn, ok := NewFunctionMapEventListener[components.EventListener.Name]
+		if !ok {
+			return fmt.Errorf("unknown event listener type %s", components.EventListener.Name)
+		}
+
+		eventListener, err := newFn(*components.EventListener, cii)
+		if err != nil {
+			return err
+		}
+
+		cii.Components.EventListener = eventListener
+	}
+
+	if components.SecretSync != nil {
+		newFn, ok := NewFunctionMapSecretSync[components.SecretSync.Name]
+		if !ok {
+			return fmt.Errorf("unknown secret sync type %s", components.SecretSync.Name)
+		}
+
+		secretSync, err := newFn(*components.SecretManagement, cii)
+		if err != nil {
+			return err
+		}
+
+		cii.Components.SecretSync = secretSync
 	}
 
 	cii.Components.SecretManagement = secMgr

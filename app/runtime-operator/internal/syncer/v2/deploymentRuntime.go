@@ -132,21 +132,14 @@ func (drd *DeploymentRuntimeDeployer) deploy(ctx context.Context) error {
 		return fmt.Errorf("add product usage failed")
 	}
 
-	user := &User{
-		Resource: Resource{
-			Product: drd.productID,
-			Name:    drd.runtime.GetName(),
-		},
-		UserType: UserTypeMachine,
-	}
-
-	if err := drd.initEnvironment(ctx, *user, *usage); err != nil {
+	if err := drd.initEnvironment(ctx, *usage); err != nil {
 		return err
 	}
 
-	user, err = drd.productMgr.GetUser(ctx, drd.productID, user.Name)
+	userName := drd.runtime.GetName()
+	user, err := drd.productMgr.GetUser(ctx, drd.productID, userName)
 	if err != nil {
-		return fmt.Errorf("get user %s's info failed: %w", user.Name, err)
+		return fmt.Errorf("get user %s's info failed: %w", userName, err)
 	}
 
 	if err := drd.syncUserInSecretDatabase(ctx, *user); err != nil {
@@ -201,7 +194,7 @@ func (drd *DeploymentRuntimeDeployer) delete(ctx context.Context) error {
 
 func (drd *DeploymentRuntimeDeployer) deleteUserInSecretDatabase(ctx context.Context, user User) error {
 	if drd.cache.CodeRepo != "" {
-		if err := drd.secMgr.RevokePermission(ctx, drd.buildSecretInfoCodeRepo(drd.cache.CodeRepo), user); err != nil {
+		if err := drd.secMgr.RevokePermission(ctx, buildSecretInfoCodeRepo(drd.repoProvider.Spec.ProviderType, drd.cache.CodeRepo), user); err != nil {
 			return fmt.Errorf("revoke code repo %s readonly permission from user %s failed: %w", drd.cache.CodeRepo, user.Name, err)
 		}
 		drd.newCache.CodeRepo = ""
@@ -307,13 +300,13 @@ func (drd *DeploymentRuntimeDeployer) syncUserInSecretDatabase(ctx context.Conte
 		return fmt.Errorf("create user %s failed: %w", user.Name, err)
 	}
 
-	err := drd.secMgr.GrantPermission(ctx, drd.buildSecretInfoCodeRepo(drd.codeRepo.Name), user)
+	err := drd.secMgr.GrantPermission(ctx, buildSecretInfoCodeRepo(drd.repoProvider.Spec.ProviderType, drd.codeRepo.Name), user)
 	if err != nil {
 		return fmt.Errorf("grant coderepo readonly permission to user %s failed: %w", user.Name, err)
 	}
 
 	if drd.codeRepo.Name != drd.cache.CodeRepo && drd.cache.CodeRepo != "" {
-		err := drd.secMgr.RevokePermission(ctx, drd.buildSecretInfoCodeRepo(drd.cache.CodeRepo), user)
+		err := drd.secMgr.RevokePermission(ctx, buildSecretInfoCodeRepo(drd.repoProvider.Spec.ProviderType, drd.cache.CodeRepo), user)
 		if err != nil {
 			return fmt.Errorf("revoke coderepo readonly permission from user %s failed: %w", user.Name, err)
 		}
@@ -323,12 +316,13 @@ func (drd *DeploymentRuntimeDeployer) syncUserInSecretDatabase(ctx context.Conte
 	return nil
 }
 
-func (drd *DeploymentRuntimeDeployer) initEnvironment(ctx context.Context, user User, usage ProductUsage) error {
+func (drd *DeploymentRuntimeDeployer) initEnvironment(ctx context.Context, usage ProductUsage) error {
 	if err := drd.productMgr.CreateProduct(ctx, drd.productID); err != nil {
 		return fmt.Errorf("create product failed: %w", err)
 	}
 
-	if err := drd.productMgr.CreateUser(ctx, drd.productID, user.Name); err != nil {
+	userName := drd.runtime.GetName()
+	if err := drd.productMgr.CreateUser(ctx, drd.productID, userName); err != nil {
 		return fmt.Errorf("create user failed: %w", err)
 	}
 
@@ -345,10 +339,10 @@ func (drd *DeploymentRuntimeDeployer) initEnvironment(ctx context.Context, user 
 				Product: drd.productID,
 				Name:    ns,
 			},
-			User:       user.Name,
+			User:       userName,
 			Permission: Permission{},
 		}); err != nil {
-			return fmt.Errorf("add user %s to space %s failed: %w", user.Name, ns, err)
+			return fmt.Errorf("add user %s to space %s failed: %w", userName, ns, err)
 		}
 	}
 
@@ -405,11 +399,11 @@ func (drd *DeploymentRuntimeDeployer) buildApp() Application {
 	return app
 }
 
-func (drd *DeploymentRuntimeDeployer) buildSecretInfoCodeRepo(name string) SecretInfo {
+func buildSecretInfoCodeRepo(providerType, name string) SecretInfo {
 	return SecretInfo{
 		Type: SecretTypeCodeRepo,
 		CodeRepo: &CodeRepo{
-			ProviderType: drd.repoProvider.Spec.ProviderType,
+			ProviderType: providerType,
 			ID:           name,
 			User:         "default",
 			Permission:   CodeRepoPermissionReadOnly,
