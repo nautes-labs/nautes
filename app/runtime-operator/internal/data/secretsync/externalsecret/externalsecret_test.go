@@ -29,7 +29,7 @@ var _ = Describe("External secret", func() {
 	var clusterName string
 	var seed string
 	var vaultURL string = "https://127.0.0.1:8000"
-	var vaultCAPath string = "/opt/nautes/cert/127.0.0.1_8000"
+	var vaultCAPath string = "/opt/nautes/cert/127.0.0.1_8000.crt"
 	var ca string = `-----BEGIN CERTIFICATE-----
 MIIC/TCCAeWgAwIBAgIJAM0CEkAL+mwtMA0GCSqGSIb3DQEBCwUAMBQxEjAQBgNV
 BAMMCTEyNy4wLjAuMTAgFw0yMzAyMDEwOTU4MDlaGA8yMDUwMDYxOTA5NTgwOVow

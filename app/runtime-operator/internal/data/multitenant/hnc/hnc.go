@@ -155,6 +155,7 @@ func (h hnc) getProductApp(productName string) (*syncer.Application, error) {
 			URL:      coderepo.Spec.URL,
 			Revision: revision,
 			Path:     productResourcePath,
+			CodeRepo: coderepo.Name,
 		},
 		Destinations: []syncer.Space{
 			{
@@ -310,6 +311,9 @@ func (h hnc) ListSpaces(ctx context.Context, productName string, opts ...syncer.
 func (h hnc) AddSpaceUser(ctx context.Context, request syncer.PermissionRequest) error {
 	switch request.RequestScope {
 	case syncer.RequestScopeUser:
+		if err := h.addRoleBindingServiceAccount(ctx, request.User, request.Resource.Name); err != nil {
+			return fmt.Errorf("grant user %s admin permission in space %s failed: %w", request.User, request.Resource.Name, err)
+		}
 		return h.addSpaceUsers(ctx, request.Resource.Product, request.Resource.Name, []string{request.User})
 	default:
 		return fmt.Errorf("unsupported request scope %s", request.RequestScope)
@@ -319,10 +323,49 @@ func (h hnc) AddSpaceUser(ctx context.Context, request syncer.PermissionRequest)
 func (h hnc) DeleteSpaceUser(ctx context.Context, request syncer.PermissionRequest) error {
 	switch request.RequestScope {
 	case syncer.RequestScopeUser:
+		if err := h.deleteRoleBindingServiceAccount(ctx, request.User, request.Resource.Name); err != nil {
+			return fmt.Errorf("revoke user %s admin permission in space %s failed: %w", request.User, request.Resource.Name, err)
+		}
 		return h.deleteSpaceUsers(ctx, request.Resource.Product, request.Resource.Name, []string{request.User})
 	default:
 		return fmt.Errorf("unsupported request scope %s", request.RequestScope)
 	}
+}
+
+func (h hnc) addRoleBindingServiceAccount(ctx context.Context, name, namespace string) error {
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+
+	_, err := controllerutil.CreateOrUpdate(ctx, h.k8sClient, roleBinding, func() error {
+		roleBinding.RoleRef = roleBindingTemplate.RoleRef
+		roleBinding.Subjects = []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("create or update rolebinding failed: %w", err)
+	}
+
+	return nil
+}
+
+func (h hnc) deleteRoleBindingServiceAccount(ctx context.Context, name, namespace string) error {
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	return client.IgnoreNotFound(h.k8sClient.Delete(ctx, roleBinding))
 }
 
 const (

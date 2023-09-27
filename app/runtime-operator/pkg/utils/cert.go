@@ -14,7 +14,7 @@ func GetCABundle(serviceURL string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse url failed: %w", err)
 	}
-	fileName := fmt.Sprintf("%s_%s", u.Hostname(), u.Port())
+	fileName := fmt.Sprintf("%s_%s.crt", u.Hostname(), u.Port())
 	fileFullPath := filepath.Join(certPath, fileName)
 	return os.ReadFile(fileFullPath)
 }
