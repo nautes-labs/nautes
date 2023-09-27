@@ -47,3 +47,19 @@ func GenerateNames(format string, len int) []string {
 	}
 	return names
 }
+
+func NamespaceIsNotExist(k8sClient client.Client, obj client.Object) (bool, error) {
+	err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), obj)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	if obj.GetDeletionTimestamp() == nil {
+		return false, nil
+	}
+
+	return true, nil
+}

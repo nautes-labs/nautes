@@ -247,7 +247,7 @@ func (p *ProductUsecase) saveDefaultProject(ctx context.Context, group *Group) (
 			return nil, err
 		}
 
-		err = p.resourcesUsecase.SaveConfig(ctx, localPath)
+		err = p.resourcesUsecase.PushToGit(ctx, localPath)
 		if err != nil {
 			return nil, err
 		}

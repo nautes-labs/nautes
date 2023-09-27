@@ -64,6 +64,18 @@ var _ = Describe("cluster webhook", func() {
 				HostCluster:   "",
 				PrimaryDomain: "",
 				WorkerType:    ClusterWorkTypeDeployment,
+				ComponentsList: ComponentsList{
+					CertManagement:      &Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &Component{Name: "argo-events", Namespace: "argo-events"},
+					Gateway:             &Component{Name: "traefik", Namespace: "traefik"},
+					MultiTenant:         &Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &Component{Name: "external-secrets", Namespace: "external-secrets"},
+					OauthProxy:          &Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+				},
 			},
 		}
 
@@ -270,7 +282,7 @@ var _ = Describe("cluster webhook", func() {
 		Expect(err).ShouldNot(BeNil())
 	})
 
-	It("when namespace is a conponent's namespace, create will failed", func() {
+	It("when namespace is a component's namespace, create will failed", func() {
 		cluster.Spec.ComponentsList.Deployment = &Component{
 			Name:      "x",
 			Namespace: useNamespace,

@@ -23,10 +23,12 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	cluster "github.com/nautes-labs/nautes/app/api-server/pkg/cluster"
+
+	clustermanagement "github.com/nautes-labs/nautes/app/api-server/pkg/clusters"
 	gitlab "github.com/nautes-labs/nautes/app/api-server/pkg/gitlab"
 	utilstrings "github.com/nautes-labs/nautes/app/api-server/util/string"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"github.com/nautes-labs/nautes/pkg/queue"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kops/pkg/kubeconfig"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,8 +50,8 @@ type ClusterUsecase struct {
 	resourcesUsecase *ResourcesUsecase
 	configs          *nautesconfigs.Config
 	client           client.Client
-	cluster          cluster.ClusterRegistrationOperator
-	dex              DexRepo
+	clusters         clustermanagement.ClusterRegistrationOperator
+	queue            queue.Queuer
 }
 
 type ClusterData struct {
@@ -60,8 +62,20 @@ type ClusterData struct {
 	HostCluster string
 }
 
-func NewClusterUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, resourcesUsecase *ResourcesUsecase, configs *nautesconfigs.Config, client client.Client, cluster cluster.ClusterRegistrationOperator, dex DexRepo) *ClusterUsecase {
-	return &ClusterUsecase{log: log.NewHelper(log.With(logger)), codeRepo: codeRepo, secretRepo: secretRepo, resourcesUsecase: resourcesUsecase, configs: configs, client: client, cluster: cluster, dex: dex}
+func NewClusterUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, resourcesUsecase *ResourcesUsecase, configs *nautesconfigs.Config, client client.Client, clusters clustermanagement.ClusterRegistrationOperator, q queue.Queuer) *ClusterUsecase {
+	var clusterUsage = &ClusterUsecase{log: log.NewHelper(log.With(logger)),
+		codeRepo:         codeRepo,
+		secretRepo:       secretRepo,
+		resourcesUsecase: resourcesUsecase,
+		configs:          configs,
+		client:           client,
+		clusters:         clusters,
+		queue:            q,
+	}
+
+	clusterUsage.queue.AddHandler(clusterUsage.RefreshHostCluster)
+
+	return clusterUsage
 }
 
 func (c *ClusterUsecase) GetCluster(ctx context.Context, clusterName string) (*resourcev1alpha1.Cluster, error) {
@@ -78,7 +92,7 @@ func (c *ClusterUsecase) GetCluster(ctx context.Context, clusterName string) (*r
 
 	defer cleanCodeRepo(tenantRepositoryLocalPath)
 
-	cluster, err := c.cluster.GetClsuter(tenantRepositoryLocalPath, clusterName)
+	cluster, err := c.clusters.GetClsuter(tenantRepositoryLocalPath, clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +114,7 @@ func (c *ClusterUsecase) ListClusters(ctx context.Context) ([]*resourcev1alpha1.
 
 	defer cleanCodeRepo(tenantRepositoryLocalPath)
 
-	clusters, err := c.cluster.GetClsuters(tenantRepositoryLocalPath)
+	clusters, err := c.clusters.ListClusters(tenantRepositoryLocalPath)
 	if err != nil {
 		return nil, err
 	}
@@ -108,84 +122,39 @@ func (c *ClusterUsecase) ListClusters(ctx context.Context) ([]*resourcev1alpha1.
 	return clusters, nil
 }
 
-func (c *ClusterUsecase) SaveCluster(ctx context.Context, param *cluster.ClusterRegistrationParam, kubeconfig string) error {
+func (c *ClusterUsecase) SaveCluster(ctx context.Context, param *clustermanagement.ClusterRegistrationParams, kubeconfig string) error {
+	var cluster = param.Cluster
+
 	err := param.Cluster.ValidateCluster(context.TODO(), param.Cluster, c.client, false)
 	if err != nil {
 		c.log.Errorf("failed to call 'resourceCluster.ValidateCluster', err: %s", param.Cluster.Name, err)
 		return fmt.Errorf("failed to validate cluster, err: %s", err)
 	}
 
-	if cluster.IsPhysical(param.Cluster) {
+	if clustermanagement.IsPhysical(param.Cluster) {
 		err := c.SaveKubeconfig(ctx, param.Cluster.Name, param.Cluster.Spec.ApiServer, kubeconfig)
 		if err != nil {
-			c.log.Errorf("failed to call 'SaveCluster', could not save kubeconfig to secret store, cluster name: %s, err: %s", param.Cluster.Name, err)
+			c.log.Errorf("failed to call 'SaveCluster', could not save kubeconfig to secret store, cluster name: %s, err: %s", cluster.Name, err)
 			return fmt.Errorf("failed to save kubeconfig to secret store, err: %s", err)
 		}
 	}
 
-	httpURLToRepo := GetClusterTemplateHttpsURL(c.configs)
-	clusterTemplateLocalPath, err := c.CloneRepository(ctx, httpURLToRepo)
+	repositoriesInfo, err := c.getRepositoriesInfo(ctx)
 	if err != nil {
-		c.log.Errorf("failed to call 'CloneRepository', could not clone cluster template repository, the url %s may be invalid or does not exist, err: %s", httpURLToRepo, err)
-		return fmt.Errorf("failed to clone cluster template repository, the url %s may be invalid or does not exist, err: %s", httpURLToRepo, err)
-	}
-	defer cleanCodeRepo(clusterTemplateLocalPath)
-
-	repository, err := c.GetTenantRepository(ctx)
-	if err != nil {
-		c.log.Errorf("failed to call 'GetTenantRepository', could not get tenant repository, cluster name: %s, err: %s", param.Cluster.Name, err)
-		return fmt.Errorf("failed to get tenant repository, err: %s", err)
-	}
-	tenantRepositoryLocalPath, err := c.CloneRepository(ctx, repository.HttpUrlToRepo)
-	if err != nil {
-		c.log.Errorf("failed to call 'CloneRepository', could not clone tenant repository, the url %s may be invalid or does not exist, err: %s", repository.HttpUrlToRepo, err)
-		return fmt.Errorf("failed to clone tenant repository, the url %s may be invalid or does not exist, err: %s", repository.HttpUrlToRepo, err)
-	}
-	defer cleanCodeRepo(tenantRepositoryLocalPath)
-
-	defaultCert, err := c.GetDefaultCertificate(ctx)
-	if err != nil {
-		c.log.Errorf("failed to call 'GetDefaultCertificate', could not get default certificate from secret store, cluster name: %s, err: %s", param.Cluster.Name, err)
-		return fmt.Errorf("failed to get default certificate, err: %s", err)
+		return err
 	}
 
-	gitlabCert, err := gitlab.GetCertificate(c.configs.Git.Addr)
+	defer cleanCodeRepo(repositoriesInfo.ClusterTemplateDir)
+	defer cleanCodeRepo(repositoriesInfo.TenantRepoDir)
+
+	err = c.renderClusterAndPushToGit(ctx, cluster, param.Vcluster, repositoriesInfo)
 	if err != nil {
-		c.log.Errorf("failed to call 'GetCertificate', could not get gitlab certificate from secret store, cluster name: %s, err: %s", param.Cluster.Name, err)
-		return fmt.Errorf("failed to get gitlab certificate, err: %s", err)
+		return err
 	}
 
-	param.ClusterTemplateRepoLocalPath = clusterTemplateLocalPath
-	param.CaBundleList = cluster.CaBundleList{
-		Default: defaultCert,
-		Gitlab:  gitlabCert,
-	}
-
-	param.TenantConfigRepoLocalPath = tenantRepositoryLocalPath
-	param.RepoURL = repository.SshUrlToRepo
-	param.Configs = c.configs
-	err = c.cluster.InitializeClusterConfig(param)
+	err = c.isRefreshHostCluster(cluster, ctx)
 	if err != nil {
-		c.log.Errorf("failed to call 'cluster.InitializeClusterConfig', could not initial cluster %s, err: %s", param.Cluster.Name, err)
-		return fmt.Errorf("failed to initial cluster, err: %s", err)
-	}
-
-	err = c.cluster.Save()
-	if err != nil {
-		c.log.Errorf("failed to call 'cluster.Save', could not save cluster %s, err: %s", param.Cluster.Name, err)
-		return fmt.Errorf("failed to save cluster, err: %s", err)
-	}
-
-	err = c.resourcesUsecase.SaveConfig(ctx, tenantRepositoryLocalPath)
-	if err != nil {
-		c.log.Errorf("failed to call 'resourcesUsecase.SaveConfig', could not save git config to git repo, cluster name: %s, err: %s", param.Cluster.Name, err)
-		return fmt.Errorf("failed to save git config to git repo, err: %s", err)
-	}
-
-	err = c.SaveDexConfig(param, tenantRepositoryLocalPath)
-	if err != nil {
-		c.log.Errorf("failed to call 'SaveDexConfig', could not save dex config, cluster name: %s, err: %s", param.Cluster.Name, err)
-		return fmt.Errorf("failed to save dex config, err: %s", err)
+		return err
 	}
 
 	c.log.Infof("successfully register cluster, cluster name: %s", param.Cluster.Name)
@@ -193,7 +162,119 @@ func (c *ClusterUsecase) SaveCluster(ctx context.Context, param *cluster.Cluster
 	return nil
 }
 
+func (c *ClusterUsecase) renderClusterAndPushToGit(ctx context.Context, cluster *resourcev1alpha1.Cluster, vclusterInfo *clustermanagement.VclusterInfo, repositoriesInfo *clustermanagement.RepositoriesInfo) error {
+	certs, err := c.getCerts(ctx, cluster)
+	if err != nil {
+		return err
+	}
+
+	params := &clustermanagement.ClusterRegistrationParams{
+		Cluster:       cluster,
+		Repo:          repositoriesInfo,
+		Cert:          certs,
+		NautesConfigs: c.configs.Nautes,
+		OauthConfigs:  c.configs.OAuth,
+		SecretConfigs: c.configs.Secret,
+		GitConfigs:    c.configs.Git,
+		Vcluster:      vclusterInfo,
+	}
+
+	err = c.clusters.SaveCluster(params)
+	if err != nil {
+		return err
+	}
+
+	err = c.resourcesUsecase.PushToGit(ctx, repositoriesInfo.TenantRepoDir)
+	if err != nil {
+		c.log.Errorf("failed to call 'resourcesUsecase.SaveConfig', could not save git config to git repo, cluster name: %s, err: %s", cluster.Name, err)
+		return fmt.Errorf("failed to save git config to git repo, err: %s", err)
+	}
+
+	return nil
+}
+
+func (c *ClusterUsecase) getCerts(ctx context.Context, cluster *resourcev1alpha1.Cluster) (*clustermanagement.Cert, error) {
+	defaultCert, err := c.GetDefaultCertificate(ctx)
+	if err != nil {
+		c.log.Errorf("failed to call 'GetDefaultCertificate', could not get default certificate from secret store, cluster name: %s, err: %s", cluster.Name, err)
+		return nil, fmt.Errorf("failed to get certificate, err: %s", err)
+	}
+
+	gitlabCert, err := gitlab.GetCertificate(c.configs.Git.Addr)
+	if err != nil {
+		c.log.Errorf("failed to call 'GetCertificate', could not get gitlab certificate from secret store, cluster name: %s, err: %s", cluster.Name, err)
+		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
+	}
+
+	return &clustermanagement.Cert{
+		Default: defaultCert,
+		Gitlab:  gitlabCert,
+	}, nil
+}
+
+func (c *ClusterUsecase) getRepositoriesInfo(ctx context.Context) (*clustermanagement.RepositoriesInfo, error) {
+	httpURLToRepo := GetClusterTemplateHttpsURL(c.configs)
+	clusterTemplateDir, err := c.CloneRepository(ctx, httpURLToRepo)
+	if err != nil {
+		c.log.Errorf("failed to call 'CloneRepository', could not clone cluster template repository, the url %s may be invalid or does not exist, err: %s", httpURLToRepo, err)
+		return nil, fmt.Errorf("failed to clone repository, err: %s", err)
+	}
+
+	repository, err := c.GetTenantRepository(ctx)
+	if err != nil {
+		c.log.Errorf("failed to call 'GetTenantRepository', could not get tenant repository, err: %s", err)
+		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
+	}
+	tenantRepoDir, err := c.CloneRepository(ctx, repository.HttpUrlToRepo)
+	if err != nil {
+		c.log.Errorf("failed to call 'CloneRepository', could not clone tenant repository, the url %s may be invalid or does not exist, err: %s", repository.HttpUrlToRepo, err)
+		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
+	}
+
+	return &clustermanagement.RepositoriesInfo{
+		ClusterTemplateDir: clusterTemplateDir,
+		TenantRepoDir:      tenantRepoDir,
+		TenantRepoURL:      repository.SshUrlToRepo,
+	}, nil
+}
+
+type Body struct {
+	Token string
+}
+
+func (c *ClusterUsecase) RefreshHostCluster(clusterName string, bytes []byte) error {
+	body := Body{}
+	err := json.Unmarshal(bytes, &body)
+	if err != nil {
+		return err
+	}
+
+	key := "token"
+	ctx := context.WithValue(context.Background(), key, body.Token)
+
+	repositoriesInfo, err := c.getRepositoriesInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	cluster, err := c.clusters.GetClsuter(repositoriesInfo.TenantRepoDir, clusterName)
+	if err != nil {
+		return err
+	}
+
+	if clustermanagement.IsHostCluser(cluster) {
+		err = c.renderClusterAndPushToGit(ctx, cluster, nil, repositoriesInfo)
+		if err != nil {
+			c.log.Error(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *ClusterUsecase) DeleteCluster(ctx context.Context, clusterName string) error {
+
 	url := GetClusterTemplateHttpsURL(c.configs)
 	clusterTemplateLocalPath, err := c.CloneRepository(ctx, url)
 	if err != nil {
@@ -202,63 +283,68 @@ func (c *ClusterUsecase) DeleteCluster(ctx context.Context, clusterName string) 
 	}
 	defer cleanCodeRepo(clusterTemplateLocalPath)
 
-	project, err := c.GetTenantRepository(ctx)
+	repository, err := c.GetTenantRepository(ctx)
 	if err != nil {
 		c.log.Errorf("failed to get tenant repository, cluster name: %s", clusterName)
 		return err
 	}
-	tenantRepositoryLocalPath, err := c.CloneRepository(ctx, project.HttpUrlToRepo)
+	tenantRepositoryLocalPath, err := c.CloneRepository(ctx, repository.HttpUrlToRepo)
 	if err != nil {
 		c.log.Errorf("failed to get tenant repository local path, cluster name: %s", clusterName)
 		return err
 	}
 	defer cleanCodeRepo(tenantRepositoryLocalPath)
 
-	resourceCluster, err := GetClusterFromTenantRepository(tenantRepositoryLocalPath, clusterName)
+	cluster, err := c.clusters.GetClsuter(tenantRepositoryLocalPath, clusterName)
 	if err != nil {
-		c.log.Errorf("cluster %s does not exist or is invalid", clusterName)
-		return fmt.Errorf("cluster %s does not exist or is invalid", clusterName)
+		return err
 	}
 
-	err = resourceCluster.ValidateCluster(context.TODO(), resourceCluster, c.client, true)
-	if err != nil {
-		c.log.Errorf("failed to call 'resourceCluster.ValidateCluster', err: %s", clusterName, err)
-		return fmt.Errorf("failed to validate cluster, err: %s", err)
+	params := &clustermanagement.ClusterRegistrationParams{
+		Cluster: cluster,
+		Repo: &clustermanagement.RepositoriesInfo{
+			ClusterTemplateDir: clusterTemplateLocalPath,
+			TenantRepoDir:      tenantRepositoryLocalPath,
+			TenantRepoURL:      repository.SshUrlToRepo,
+		},
+		NautesConfigs: c.configs.Nautes,
+		OauthConfigs:  c.configs.OAuth,
+		SecretConfigs: c.configs.Secret,
+		GitConfigs:    c.configs.Git,
 	}
 
-	param := &cluster.ClusterRegistrationParam{
-		Cluster:                      resourceCluster,
-		RepoURL:                      project.SshUrlToRepo,
-		Configs:                      c.configs,
-		ClusterTemplateRepoLocalPath: clusterTemplateLocalPath,
-		TenantConfigRepoLocalPath:    tenantRepositoryLocalPath,
-	}
-	err = c.cluster.InitializeClusterConfig(param)
-	if err != nil {
-		c.log.Errorf("failed to call 'cluster.InitializeClusterConfig', could not initial cluster %s, err: %s", clusterName, err)
-		return fmt.Errorf("failed to initial cluster, err: %s", err)
+	if err = c.clusters.RemoveCluster(params); err != nil {
+		return err
 	}
 
-	err = c.DeleteDexConfig(param)
-	if err != nil {
-		c.log.Errorf("failed to call 'DeleteDexConfig', could not delete dex config, cluster name: %s, err: %s", clusterName, err)
-		return fmt.Errorf("failed to delete dex config, err: %s", err)
-	}
-
-	err = c.cluster.Remove()
-	if err != nil {
-		c.log.Errorf("failed to call 'cluster.Remove', could not remove cluster %s, err: %s", clusterName, err)
-		return fmt.Errorf("failed to remove cluster, err: %s", err)
-	}
-
-	err = c.resourcesUsecase.SaveConfig(ctx, tenantRepositoryLocalPath)
+	err = c.resourcesUsecase.PushToGit(ctx, tenantRepositoryLocalPath)
 	if err != nil {
 		c.log.Errorf("failed to call 'resourcesUsecase.SaveConfig', could not save git config to git repo, cluster name: %s, err: %s", clusterName, err)
 		return fmt.Errorf("failed to save git config to git repo, err: %s", err)
 	}
 
+	err = c.isRefreshHostCluster(cluster, ctx)
+	if err != nil {
+		return err
+	}
+
 	c.log.Infof("successfully remove cluster, cluster name: %s", clusterName)
 
+	return nil
+}
+
+func (c *ClusterUsecase) isRefreshHostCluster(cluster *resourcev1alpha1.Cluster, ctx context.Context) error {
+	if clustermanagement.IsVirtual(cluster) {
+		token := ctx.Value("token").(string)
+		body := &Body{
+			Token: token,
+		}
+		bytes, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		c.queue.Send(cluster.Spec.HostCluster, bytes)
+	}
 	return nil
 }
 
@@ -280,6 +366,7 @@ func (c *ClusterUsecase) SaveKubeconfig(ctx context.Context, id, server, config 
 	if err != nil {
 		return err
 	}
+
 	err = c.secretRepo.SaveClusterConfig(ctx, id, config)
 	if err != nil {
 		return err
@@ -350,69 +437,6 @@ func (c *ClusterUsecase) GetTenantRepository(ctx context.Context) (*Project, err
 	}
 
 	return repository, nil
-}
-
-func (c *ClusterUsecase) SaveDexConfig(param *cluster.ClusterRegistrationParam, teantLocalPath string) error {
-	if !cluster.IsHostCluser(param.Cluster) {
-		argocdOauthURL, err := c.cluster.GetArgocdURL()
-		if err != nil {
-			return err
-		}
-		if argocdOauthURL != "" {
-			err = c.dex.UpdateRedirectURIs(argocdOauthURL)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if cluster.IsPhysical(param.Cluster) {
-		tektonOauthURL, err := c.cluster.GetTektonOAuthURL()
-		if err != nil {
-			return err
-		}
-
-		if tektonOauthURL != "" {
-			err = c.dex.UpdateRedirectURIs(tektonOauthURL)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (c *ClusterUsecase) DeleteDexConfig(param *cluster.ClusterRegistrationParam) error {
-	if !cluster.IsHostCluser(param.Cluster) {
-		argocdOauthURL, err := c.cluster.GetArgocdURL()
-		if err != nil {
-			return err
-		}
-
-		if argocdOauthURL != "" {
-			err = c.dex.RemoveRedirectURIs(argocdOauthURL)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if cluster.IsPhysical(param.Cluster) {
-		tektonOauthURL, err := c.cluster.GetTektonOAuthURL()
-		if err != nil {
-			return err
-		}
-
-		if tektonOauthURL != "" {
-			err = c.dex.RemoveRedirectURIs(tektonOauthURL)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func GetClusterTemplateHttpsURL(configs *nautesconfigs.Config) string {

@@ -54,8 +54,12 @@ func (s SecretType) String() string {
 }
 
 var (
-	SecretPolicy string = "path \"%s\" {\n    capabilities = [\"read\"]\n}"
-	GitPolicy    string = `
+	SecretPolicy string = `
+path "%s" {
+	capabilities = ["read"]
+}`
+
+	GitPolicy string = `
 path "git/data/%[1]s" {
     capabilities = ["read"]
 }
@@ -63,6 +67,7 @@ path "git/data/%[1]s" {
 path "git/metadata/%[1]s" {
     capabilities = ["read"]
 }`
+
 	ClusterPolicy string = `
 path "cluster/data/%s" {
     capabilities = ["read"]
@@ -89,11 +94,11 @@ var (
 	}
 	RepoPathTemplate VaultTemplate = VaultTemplate{
 		name:     "repoPath",
-		template: "{{.ProviderId}}/{{.Type}}/{{.Id}}/{{.Username}}/{{.Permission}}",
+		template: "{{.ProviderId}}/{{.Product}}{{ if ne .Project \"\" }}/{{.Project}}{{ end }}",
 	}
 	RepoPolicyPathTemplate VaultTemplate = VaultTemplate{
 		name:     "repoPolicy",
-		template: "{{.ProviderId}}-{{.Type}}-{{.Id}}-{{.Username}}-{{.Permission}}",
+		template: "{{.ProviderId}}-{{.Product}}{{ if ne .Project \"\" }}-{{.Project}}{{ end }}",
 	}
 	ClusterPathTemplate VaultTemplate = VaultTemplate{
 		name:     "clusterPath",
@@ -153,11 +158,37 @@ func (x *GitKVs) getData() map[string]interface{} {
 	return secretData
 }
 
+const (
+	AuthTypeKey      = "authType"
+	AuthTypeToken    = "token"
+	AuthTypePassword = "password"
+)
+
 func (x *RepoAccount) getData() map[string]interface{} {
-	return map[string]interface{}{
-		"username": x.GetUsername(),
-		"password": x.GetPassword(),
+	data := map[string]interface{}{}
+	for k, v := range x.Additionals {
+		data[k] = v
 	}
+
+	data[AuthTypeKey] = x.AuthType
+	switch x.AuthType {
+	case AuthTypeToken:
+		token := x.GetToken()
+		if token == nil {
+			data["token"] = ""
+		}
+		data["token"] = token.Token
+	case AuthTypePassword:
+		account := x.GetAccount()
+		if account == nil {
+			data["username"] = ""
+			data["password"] = ""
+		}
+		data["username"] = account.GetUsername()
+		data["password"] = account.GetPassword()
+	}
+
+	return data
 }
 
 func (x *ClusterAccount) getData() map[string]interface{} {
@@ -254,7 +285,12 @@ func (x *RepoRequest) ConvertRequest() (*SecretRequest, error) {
 		return nil, err
 	}
 
-	secretData := x.GetAccount().getData()
+	secretData := make(map[string]interface{}, 0)
+	account := x.GetAccount()
+	if account != nil {
+		secretData = x.GetAccount().getData()
+	}
+
 	policyData := fmt.Sprintf(SecretPolicy, secretMeta.FullPath)
 
 	return &SecretRequest{

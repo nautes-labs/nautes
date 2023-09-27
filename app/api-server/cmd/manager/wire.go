@@ -28,13 +28,14 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/internal/data"
 	"github.com/nautes-labs/nautes/app/api-server/internal/server"
 	"github.com/nautes-labs/nautes/app/api-server/internal/service"
-	cluster "github.com/nautes-labs/nautes/app/api-server/pkg/cluster"
+	clustermanagement "github.com/nautes-labs/nautes/app/api-server/pkg/clusters"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	"github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"github.com/nautes-labs/nautes/pkg/queue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, logger log.Logger, nodesTree nodestree.NodesTree, config *configs.Config, client client.Client, clusteroperator cluster.ClusterRegistrationOperator) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, logger log.Logger, nodesTree nodestree.NodesTree, config *configs.Config, client client.Client, clusteroperator clustermanagement.ClusterRegistrationOperator, q queue.Queuer) (*kratos.App, func(), error) {
 	panic(wire.Build(server.ProviderSet, data.ProviderSet, biz.ProviderSet, service.ProviderSet, newApp))
 }

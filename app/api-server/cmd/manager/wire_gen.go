@@ -14,9 +14,10 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/internal/data"
 	"github.com/nautes-labs/nautes/app/api-server/internal/server"
 	"github.com/nautes-labs/nautes/app/api-server/internal/service"
-	"github.com/nautes-labs/nautes/app/api-server/pkg/cluster"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/clusters"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	"github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"github.com/nautes-labs/nautes/pkg/queue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,7 +28,7 @@ import (
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, logger log.Logger, nodesTree nodestree.NodesTree, config *configs.Config, client2 client.Client, clusteroperator cluster.ClusterRegistrationOperator) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, logger log.Logger, nodesTree nodestree.NodesTree, config *configs.Config, client2 client.Client, clusteroperator cluster.ClusterRegistrationOperator, q queue.Queuer) (*kratos.App, func(), error) {
 	codeRepo, err := data.NewCodeRepo(config)
 	if err != nil {
 		return nil, nil, err
@@ -56,8 +57,7 @@ func wireApp(confServer *conf.Server, logger log.Logger, nodesTree nodestree.Nod
 	projectService := service.NewProjectService(projectUsecase)
 	environmentUsecase := biz.NewEnviromentUsecase(logger, config, codeRepo, nodesTree, resourcesUsecase)
 	environmentService := service.NewEnvironmentService(environmentUsecase)
-	dexRepo := data.NewDexRepo(client2)
-	clusterUsecase := biz.NewClusterUsecase(logger, codeRepo, secretrepo, resourcesUsecase, config, client2, clusteroperator, dexRepo)
+	clusterUsecase := biz.NewClusterUsecase(logger, codeRepo, secretrepo, resourcesUsecase, config, client2, clusteroperator, q)
 	clusterService, err := service.NewClusterService(clusterUsecase, config)
 	if err != nil {
 		return nil, nil, err

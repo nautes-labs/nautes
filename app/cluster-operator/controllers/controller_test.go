@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	clusterConfig "github.com/nautes-labs/nautes/pkg/config/cluster"
 )
 
 var _ = Describe("Reconcile", func() {
@@ -43,11 +45,35 @@ var _ = Describe("Reconcile", func() {
 				},
 			},
 			Spec: clustercrd.ClusterSpec{
-				ApiServer:   "https://127.0.0.1",
-				ClusterType: clustercrd.CLUSTER_TYPE_PHYSICAL,
-				ClusterKind: clustercrd.CLUSTER_KIND_KUBERNETES,
-				Usage:       clustercrd.CLUSTER_USAGE_HOST,
-				HostCluster: "",
+				ApiServer:                         "https://127.0.0.1",
+				ClusterType:                       clustercrd.CLUSTER_TYPE_PHYSICAL,
+				ClusterKind:                       clustercrd.CLUSTER_KIND_KUBERNETES,
+				Usage:                             clustercrd.CLUSTER_USAGE_HOST,
+				HostCluster:                       "",
+				ReservedNamespacesAllowedProducts: make(map[string][]string),
+				ProductAllowedClusterResources:    make(map[string][]clustercrd.ClusterResourceInfo),
+				ComponentsList: clustercrd.ComponentsList{
+					Gateway: &clustercrd.Component{
+						Name:      "traefik",
+						Namespace: "traefik",
+						Additions: map[string]string{
+							"httpsNodePort": "30020",
+							"httpNodePort":  "30221",
+						},
+					},
+					OauthProxy: &clustercrd.Component{
+						Name:      "oauth2-proxy",
+						Namespace: "oauth2-proxy",
+					},
+					CertManagement:      &clustercrd.Component{Name: "cert-manager", Namespace: "cert-manager"},
+					Deployment:          &clustercrd.Component{Name: "argocd", Namespace: "argocd"},
+					EventListener:       &clustercrd.Component{Name: "argo-events", Namespace: "argo-events"},
+					MultiTenant:         &clustercrd.Component{Name: "hnc", Namespace: "hnc"},
+					Pipeline:            &clustercrd.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+					ProgressiveDelivery: &clustercrd.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+					SecretManagement:    &clustercrd.Component{Name: "vault", Namespace: "vault"},
+					SecretSync:          &clustercrd.Component{Name: "external-secrets", Namespace: "external-secrets"},
+				},
 			},
 		}
 		wantErr = nil
@@ -56,11 +82,19 @@ var _ = Describe("Reconcile", func() {
 		}
 	})
 
+	BeforeEach(func() {
+		err := clusterConfig.SetClusterValidateConfig()
+		Expect(err).Should(BeNil())
+	})
+
 	AfterEach(func() {
 		wantErr = nil
 		err := k8sClient.Delete(context.Background(), cluster)
 		Expect(client.IgnoreNotFound(err)).Should(BeNil())
 		err = WaitForDelete(cluster)
+		Expect(err).Should(BeNil())
+
+		err = clusterConfig.DeleteValidateConfig()
 		Expect(err).Should(BeNil())
 	})
 
@@ -79,7 +113,6 @@ var _ = Describe("Reconcile", func() {
 		}, nc)
 		Expect(err).Should(BeNil())
 		Expect(nc.Status.MgtAuthStatus.SecretID).Should(Equal("1"))
-
 	})
 
 	It("sync failed", func() {

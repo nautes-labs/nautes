@@ -29,3 +29,7 @@ func (r *DeploymentRuntime) GetNamespaces() []string {
 	}
 	return namespaces
 }
+
+func (r *DeploymentRuntime) GetRuntimeType() RuntimeType {
+	return RuntimeTypeDeploymentRuntime
+}

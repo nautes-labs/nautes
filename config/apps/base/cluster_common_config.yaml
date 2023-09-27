@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nautes-configs
+  namespace: system
+data:
+  clusterCommonConfig.yaml: |
+        save:
+            host:
+                - nautes/overlays/production/clusters/kustomization.yaml
+                - tenant/production/host-cluster-appset.yaml
+                - host-clusters/_HOST_CLUSTER_/production/vcluster-appset.yaml
+            worker:
+                physical:
+                    - nautes/overlays/production/clusters/kustomization.yaml
+                    - runtimes/_RUNTIME_/initial/overlays/production/kustomization.yaml
+                    - runtimes/_RUNTIME_/initial/overlays/production/cm-nautes.yaml
+                    - runtimes/_RUNTIME_/runtime-app.yaml
+                    - runtimes/_RUNTIME_/runtime-project.yaml
+                    - tenant/production/runtime-appset.yaml
+                    - tenant/production/runtime-initial-appset.yaml
+                virtual:
+                    - nautes/overlays/production/clusters/kustomization.yaml
+                    - runtimes/_RUNTIME_/initial/overlays/production/kustomization.yaml
+                    - runtimes/_RUNTIME_/initial/overlays/production/cm-nautes.yaml
+                    - host-clusters/_HOST_CLUSTER_/vclusters
+                    - runtimes/_RUNTIME_/runtime-app.yaml
+                    - runtimes/_RUNTIME_/runtime-project.yaml
+                    - tenant/production/runtime-appset.yaml
+                    - tenant/production/runtime-initial-appset.yaml
+
+        remove:
+            host:
+                - nautes/overlays/production/clusters/kustomization.yaml
+                - tenant/production/host-cluster-appset.yaml
+                - host-clusters/_HOST_CLUSTER_/production/vcluster-appset.yaml
+            worker:
+                physical:
+                    - nautes/overlays/production/clusters/kustomization.yaml
+                virtual:
+                    - nautes/overlays/production/clusters/kustomization.yaml

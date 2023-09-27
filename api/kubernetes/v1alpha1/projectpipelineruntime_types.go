@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type Gitlab struct {
@@ -129,6 +130,9 @@ type ProjectPipelineRuntimeStatus struct {
 	// IllegalEventSources records eventsources that will not be synchronized to the environment,
 	// and why it will not be synchronized to the past
 	IllegalEventSources []IllegalEventSource `json:"illegalEventSources"`
+	// +optional
+	// +nullable
+	DeployStatus *runtime.RawExtension `json:"deployStatus,omitempty" yaml:"deployStatus"`
 }
 
 type IllegalEventSource struct {

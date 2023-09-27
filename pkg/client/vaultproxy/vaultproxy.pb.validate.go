@@ -1156,9 +1156,67 @@ func (m *RepoAccount) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Username
+	// no validation rules for AuthType
 
-	// no validation rules for Password
+	if all {
+		switch v := interface{}(m.GetToken()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RepoAccountValidationError{
+					field:  "Token",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RepoAccountValidationError{
+					field:  "Token",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetToken()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RepoAccountValidationError{
+				field:  "Token",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetAccount()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RepoAccountValidationError{
+					field:  "Account",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RepoAccountValidationError{
+					field:  "Account",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAccount()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RepoAccountValidationError{
+				field:  "Account",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for Additionals
 
 	if len(errors) > 0 {
 		return RepoAccountMultiError(errors)
@@ -1237,6 +1295,235 @@ var _ interface {
 	ErrorName() string
 } = RepoAccountValidationError{}
 
+// Validate checks the field values on Token with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Token) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Token with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in TokenMultiError, or nil if none found.
+func (m *Token) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Token) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetToken()) < 1 {
+		err := TokenValidationError{
+			field:  "Token",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return TokenMultiError(errors)
+	}
+
+	return nil
+}
+
+// TokenMultiError is an error wrapping multiple validation errors returned by
+// Token.ValidateAll() if the designated constraints aren't met.
+type TokenMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TokenMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TokenMultiError) AllErrors() []error { return m }
+
+// TokenValidationError is the validation error returned by Token.Validate if
+// the designated constraints aren't met.
+type TokenValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TokenValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TokenValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TokenValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TokenValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TokenValidationError) ErrorName() string { return "TokenValidationError" }
+
+// Error satisfies the builtin error interface
+func (e TokenValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sToken.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TokenValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TokenValidationError{}
+
+// Validate checks the field values on Account with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Account) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Account with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in AccountMultiError, or nil if none found.
+func (m *Account) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Account) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetUsername()) < 1 {
+		err := AccountValidationError{
+			field:  "Username",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if utf8.RuneCountInString(m.GetPassword()) < 1 {
+		err := AccountValidationError{
+			field:  "Password",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return AccountMultiError(errors)
+	}
+
+	return nil
+}
+
+// AccountMultiError is an error wrapping multiple validation errors returned
+// by Account.ValidateAll() if the designated constraints aren't met.
+type AccountMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AccountMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AccountMultiError) AllErrors() []error { return m }
+
+// AccountValidationError is the validation error returned by Account.Validate
+// if the designated constraints aren't met.
+type AccountValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AccountValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AccountValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AccountValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AccountValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AccountValidationError) ErrorName() string { return "AccountValidationError" }
+
+// Error satisfies the builtin error interface
+func (e AccountValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAccount.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AccountValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AccountValidationError{}
+
 // Validate checks the field values on RepoMeta with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -1270,9 +1557,9 @@ func (m *RepoMeta) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	if utf8.RuneCountInString(m.GetType()) < 1 {
+	if utf8.RuneCountInString(m.GetProduct()) < 1 {
 		err := RepoMetaValidationError{
-			field:  "Type",
+			field:  "Product",
 			reason: "value length must be at least 1 runes",
 		}
 		if !all {
@@ -1281,38 +1568,7 @@ func (m *RepoMeta) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	if utf8.RuneCountInString(m.GetId()) < 1 {
-		err := RepoMetaValidationError{
-			field:  "Id",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
-	if utf8.RuneCountInString(m.GetUsername()) < 1 {
-		err := RepoMetaValidationError{
-			field:  "Username",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
-	if utf8.RuneCountInString(m.GetPermission()) < 1 {
-		err := RepoMetaValidationError{
-			field:  "Permission",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Project
 
 	if len(errors) > 0 {
 		return RepoMetaMultiError(errors)
@@ -1451,17 +1707,6 @@ func (m *RepoRequest) validate(all bool) error {
 				cause:  err,
 			}
 		}
-	}
-
-	if m.GetAccount() == nil {
-		err := RepoRequestValidationError{
-			field:  "Account",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
 	}
 
 	if all {

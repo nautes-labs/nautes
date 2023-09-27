@@ -843,18 +843,18 @@ components:
                     type: string
                 namespace:
                     type: string
+                additions:
+                    type: object
+                    additionalProperties:
+                        type: string
         api.cluster.v1.ComponentsList:
             type: object
             properties:
                 multi_tenant:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
-                cert_mgt:
-                    $ref: '#/components/schemas/api.cluster.v1.Component'
-                secret_mgt:
-                    $ref: '#/components/schemas/api.cluster.v1.Component'
                 secret_sync:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
-                ingress_controller:
+                gateway:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
                 deployment:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
@@ -944,13 +944,8 @@ components:
                 host_cluster:
                     type: string
                     description: host_cluster specifies the host cluster name if the cluster is a virtual cluster.
-                argocd_host:
-                    type: string
-                    description: argocd_host specifies the ArgoCD host name.
                 vcluster:
                     $ref: '#/components/schemas/api.cluster.v1.Vcluster'
-                traefik:
-                    $ref: '#/components/schemas/api.cluster.v1.Traefik'
                 kubeconfig:
                     type: string
                     description: kubeconfig specifies the Kubeconfig file of the cluster.
@@ -960,9 +955,6 @@ components:
                 primary_domain:
                     type: string
                     description: primary_domain is used to build the domain of components within the cluster.
-                tekton_host:
-                    type: string
-                    description: tekton_host is the domain for the tekton dashboard, and it must be a subdomain of the PrimaryDomain
                 reserved_namespaces_allowed_products:
                     type: object
                     additionalProperties:
@@ -976,16 +968,6 @@ components:
                 components_list:
                     $ref: '#/components/schemas/api.cluster.v1.ComponentsList'
             description: Body represents the body of the save request.
-        api.cluster.v1.Traefik:
-            type: object
-            properties:
-                http_node_port:
-                    type: string
-                    description: httpNodePort specifies the NodePort for the HTTP port of the Traefik ingress controller.
-                https_node_port:
-                    type: string
-                    description: httpsNodePort specifies the NodePort for the HTTPS port of the Traefik ingress controller.
-            description: Traefik represents the configuration for the Traefik ingress controller.
         api.cluster.v1.Vcluster:
             type: object
             properties:

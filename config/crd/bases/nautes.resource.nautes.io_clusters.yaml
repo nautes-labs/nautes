@@ -65,8 +65,14 @@ spec:
                 description: ComponentsList declares the specific components used
                   by the cluster
                 properties:
-                  certMgt:
+                  certManagement:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -78,7 +84,13 @@ spec:
                     - namespace
                     type: object
                   deployment:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -90,7 +102,13 @@ spec:
                     - namespace
                     type: object
                   eventListener:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -101,8 +119,14 @@ spec:
                     - name
                     - namespace
                     type: object
-                  ingressController:
+                  gateway:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -114,7 +138,31 @@ spec:
                     - namespace
                     type: object
                   multiTenant:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
+                      name:
+                        minLength: 1
+                        type: string
+                      namespace:
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  oauthProxy:
+                    nullable: true
+                    properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -126,7 +174,13 @@ spec:
                     - namespace
                     type: object
                   pipeline:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -138,7 +192,13 @@ spec:
                     - namespace
                     type: object
                   progressiveDelivery:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -149,8 +209,14 @@ spec:
                     - name
                     - namespace
                     type: object
-                  secretMgt:
+                  secretManagement:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -162,7 +228,13 @@ spec:
                     - namespace
                     type: object
                   secretSync:
+                    nullable: true
                     properties:
+                      additions:
+                        additionalProperties:
+                          type: string
+                        nullable: true
+                        type: object
                       name:
                         minLength: 1
                         type: string
@@ -197,6 +269,7 @@ spec:
                   type: array
                 description: ReservedNamespacesAllowedProducts key is product name,
                   value is the list of cluster resources.
+                nullable: true
                 type: object
               reservedNamespacesAllowedProducts:
                 additionalProperties:
@@ -205,6 +278,7 @@ spec:
                   type: array
                 description: ReservedNamespacesAllowedProducts key is namespace name,
                   value is the product name list witch can use namespace.
+                nullable: true
                 type: object
               usage:
                 description: the usage of cluster, for user use it directry or deploy

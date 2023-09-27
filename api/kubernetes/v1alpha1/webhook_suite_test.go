@@ -62,9 +62,12 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
+
+	use := false
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		UseExistingCluster:    &use,
 	}
 
 	cfg, err := testEnv.Start()
@@ -79,19 +82,23 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nautesNamespaceName,
-		},
-	})
-	Expect(err).NotTo(HaveOccurred())
+	if isCreateNamespace(k8sClient, nautesNamespaceName) {
+		err = k8sClient.Create(context.TODO(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nautesNamespaceName,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+	}
 
-	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: tmpNamespaceName,
-		},
-	})
-	Expect(err).NotTo(HaveOccurred())
+	if isCreateNamespace(k8sClient, tmpNamespaceName) {
+		err = k8sClient.Create(context.TODO(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: tmpNamespaceName,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	ctx, cancel = context.WithCancel(context.TODO())
 	logger = logf.FromContext(ctx)
@@ -147,6 +154,20 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func isCreateNamespace(k8sClient client.Client, createdNamespace string) bool {
+	namespaces := &corev1.NamespaceList{}
+	err := k8sClient.List(context.Background(), namespaces)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, namespace := range namespaces.Items {
+		if namespace.Name == createdNamespace {
+			return false
+		}
+	}
+
+	return true
+}
 
 func randNum() string {
 	return fmt.Sprintf("%04d", rand.Intn(999999))

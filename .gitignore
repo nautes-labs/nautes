@@ -42,3 +42,6 @@ ca/*
 # log
 .log/**
 *.log
+.DS_Store
+
+config/crd/bases/_.yaml

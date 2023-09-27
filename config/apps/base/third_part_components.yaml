@@ -1,0 +1,135 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nautes-configs
+  namespace: system
+data:
+  thirdPartComponents.yaml: |
+    - name: tekton
+      namespace: tekton-pipelines
+      type: pipeline
+      default: true
+      general: false
+      properties:
+        - name: host
+          type: string
+          regexPattern: ^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)\.)*(?:[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)$
+          required: true
+      installPath:
+        generic:
+          - runtimes/_RUNTIME_/tekton
+          - runtimes/_RUNTIME_/production/tekton-app.yaml
+          - runtimes/_RUNTIME_/production/tekton-cluster-tasks-app.yaml
+    - name: argocd
+      namespace: argocd
+      type: deployment
+      default: true
+      general: true
+      properties:
+        - name: host
+          type: string
+          regexPattern: ^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)\.)*(?:[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)$
+          required: true
+      installPath:
+        generic:
+          - runtimes/_RUNTIME_/argocd
+          - tenant/production/runtime-argocd-appset.yaml
+    - name: argo-events
+      namespace: argo-events
+      type: eventListener
+      default: true
+      general: false
+      properties:
+      installPath:
+        generic:
+          - runtimes/_RUNTIME_/production/argo-events-app.yaml
+          - runtimes/_RUNTIME_/argoevents
+    - name: argo-rollouts
+      namespace: argo-rollouts
+      type: progressiveDelivery
+      default: true
+      general: false
+      properties:
+      installPath:
+        generic:
+          - runtimes/_RUNTIME_/production/argo-rollouts-app.yaml
+    - name: hnc
+      namespace: hnc-system
+      type: multiTenant
+      default: true
+      general: true
+      properties:
+      installPath:
+        generic:
+          - runtimes/_RUNTIME_/production/hnc-app.yaml
+    - name: cert-manager
+      namespace: cert-manager
+      type: certManagement
+      default: true
+      general: true
+      properties:
+      installPath:
+        generic:
+          - ""
+    - name: vault
+      namespace: vault
+      type: secretManagement
+      default: true
+      general: true
+      properties:
+      installPath:
+        worker&physical:
+          - runtimes/_RUNTIME_/production/vault-app.yaml
+          - runtimes/_RUNTIME_/initial/overlays/production/rbac-vault.yaml
+        worker&virtual:
+          - runtimes/_RUNTIME_/production/vault-app.yaml
+    - name: external-secrets
+      namespace: external-secrets
+      type: secretSync
+      default: true
+      general: true
+      properties:
+      installPath:
+        generic:
+          - runtimes/_RUNTIME_/production/external-secret-app.yaml
+          - runtimes/_RUNTIME_/production/external-secrets-resources-app.yaml
+    - name: oauth2-proxy
+      namespace: oauth2-proxy
+      type: oauthProxy
+      default: true
+      general: false
+      properties:
+      installPath:
+        host&physical:
+        - host-clusters/_HOST_CLUSTER_/production/oauth2-proxy-app.yaml
+        - host-clusters/_HOST_CLUSTER_/production/oauth2-proxy-resources-app.yaml
+        - host-clusters/_HOST_CLUSTER_/oauth2-proxy
+        worker&physical:
+        - runtimes/_RUNTIME_/production/oauth2-proxy-app.yaml
+        - runtimes/_RUNTIME_/production/oauth2-proxy-resources-app.yaml
+        - runtimes/_RUNTIME_/oauth2-proxy
+    - name: traefik
+      namespace: traefik
+      type: gateway
+      default: true
+      general: true
+      properties:
+        - name: httpNodePort
+          type: number
+          regexPattern: ^[0-9]+$
+          required: true
+          default: 30080
+        - name: httpsNodePort
+          type: number
+          regexPattern: ^[0-9]+$
+          required: true
+          default: 30443
+      installPath:
+        host&physical:
+          - host-clusters/_HOST_CLUSTER_/production/traefik-app.yaml
+          - host-clusters/_HOST_CLUSTER_/production/traefik-resources-app.yaml
+          - host-clusters/_HOST_CLUSTER_/traefik
+        worker&physical:
+          - runtimes/_RUNTIME_/production/traefik-app.yaml
+          - runtimes/_RUNTIME_/production/traefik-resources-app.yaml
+          - runtimes/_RUNTIME_/traefik

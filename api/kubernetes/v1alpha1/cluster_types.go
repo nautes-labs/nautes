@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"reflect"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -67,9 +69,11 @@ type ClusterSpec struct {
 	WorkerType     ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
 	ComponentsList ComponentsList  `json:"componentsList"`
 	// +optional
+	// +nullable
 	// ReservedNamespacesAllowedProducts key is namespace name, value is the product name list witch can use namespace.
 	ReservedNamespacesAllowedProducts map[string][]string `json:"reservedNamespacesAllowedProducts"`
 	// +optional
+	// +nullable
 	// ReservedNamespacesAllowedProducts key is product name, value is the list of cluster resources.
 	ProductAllowedClusterResources map[string][]ClusterResourceInfo `json:"productAllowedClusterResources"`
 }
@@ -86,28 +90,43 @@ type Component struct {
 	Name string `json:"name"`
 	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
+	// +optional
+	// +nullable
+	Additions map[string]string `json:"additions"`
 }
 
 // ComponentsList declares the specific components used by the cluster
 type ComponentsList struct {
 	// +optional
-	CertMgt *Component `json:"certMgt"`
+	// +nullable
+	CertManagement *Component `json:"certManagement"`
 	// +optional
+	// +nullable
 	Deployment *Component `json:"deployment"`
 	// +optional
+	// +nullable
 	EventListener *Component `json:"eventListener"`
 	// +optional
-	IngressController *Component `json:"ingressController"`
+	// +nullable
+	Gateway *Component `json:"gateway"`
 	// +optional
+	// +nullable
 	MultiTenant *Component `json:"multiTenant"`
 	// +optional
+	// +nullable
 	Pipeline *Component `json:"pipeline"`
 	// +optional
+	// +nullable
 	ProgressiveDelivery *Component `json:"progressiveDelivery"`
 	// +optional
-	SecretMgt *Component `json:"secretMgt"`
+	// +nullable
+	SecretManagement *Component `json:"secretManagement"`
 	// +optional
+	// +nullable
 	SecretSync *Component `json:"secretSync"`
+	// +optional
+	// +nullable
+	OauthProxy *Component `json:"oauthProxy"`
 }
 
 // ClusterStatus defines the observed state of Cluster
@@ -190,4 +209,23 @@ type ClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&Cluster{}, &ClusterList{})
+}
+
+func ConvertComponentsListToMap(list ComponentsList) map[string]*Component {
+	componentsListMap := make(map[string]*Component, 0)
+
+	val := reflect.ValueOf(list)
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		if field.Type().Kind() != reflect.Ptr {
+			continue
+		}
+
+		compoentType := val.Type().Field(i).Tag.Get("json")
+		component := val.Field(i).Interface().(*Component)
+		componentsListMap[compoentType] = component
+	}
+
+	return componentsListMap
 }

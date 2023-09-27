@@ -19,10 +19,7 @@ import (
 	"fmt"
 
 	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	secprovider "github.com/nautes-labs/nautes/app/runtime-operator/internal/secret/provider"
-	runtimecontext "github.com/nautes-labs/nautes/app/runtime-operator/pkg/context"
-	interfaces "github.com/nautes-labs/nautes/app/runtime-operator/pkg/interface"
-	nautescfg "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,9 +32,8 @@ import (
 // ProjectPipelineRuntimeReconciler reconciles a ProjectPipelineRuntime object
 type ProjectPipelineRuntimeReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	Syncer       interfaces.RuntimeSyncer
-	NautesConfig nautescfg.NautesConfigs
+	Scheme *runtime.Scheme
+	Syncer syncer.Syncer
 }
 
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=projectpipelineruntimes,verbs=get;list;watch;create;update;patch;delete
@@ -64,26 +60,19 @@ func (r *ProjectPipelineRuntimeReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cfg, err := r.NautesConfig.GetConfigByClient(r.Client)
+	task, err := r.Syncer.NewTasks(ctx, runtime, runtime.Status.DeployStatus)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get nautes config failed: %w", err)
+		return ctrl.Result{}, fmt.Errorf("create deploy task failed: %w", err)
 	}
-	ctx = runtimecontext.NewNautesConfigContext(ctx, *cfg)
-
-	secClient, err := secprovider.GetSecretClient(ctx)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("get secret provider failed: %w", err)
-	}
-	ctx = runtimecontext.NewSecretClientContext(ctx, secClient)
-	defer secClient.Logout()
 
 	if !runtime.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(runtime, runtimeFinalizerName) {
 			return ctrl.Result{}, nil
 		}
 
-		if err := r.Syncer.Delete(ctx, runtime); err != nil {
-			setPipelineRuntimeStatus(runtime, nil, err)
+		cache, err := task.Delete(ctx)
+		if err != nil {
+			setPipelineRuntimeStatus(runtime, cache, err)
 			if err := r.Status().Update(ctx, runtime); err != nil {
 				logger.Error(err, "update status failed")
 			}
@@ -115,10 +104,9 @@ func (r *ProjectPipelineRuntimeReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, fmt.Errorf("validate runtime failed: %w", err)
 	}
 
-	legalRuntime := NewPipelineRuntimeWithOutIllegalEventSource(*runtime, illegalEventSources)
-	deployInfo, err := r.Syncer.Sync(ctx, legalRuntime)
+	cache, err := task.Run(ctx)
+	setPipelineRuntimeStatus(runtime, cache, err)
 
-	setPipelineRuntimeStatus(runtime, deployInfo, err)
 	runtime.Status.IllegalEventSources = illegalEventSources
 	if err := r.Status().Update(ctx, runtime); err != nil {
 		return ctrl.Result{}, err
@@ -169,7 +157,11 @@ func NewPipelineRuntimeWithOutIllegalEventSource(runtime nautescrd.ProjectPipeli
 	return newRuntime
 }
 
-func setPipelineRuntimeStatus(runtime *nautescrd.ProjectPipelineRuntime, result *interfaces.RuntimeDeploymentResult, err error) {
+func setPipelineRuntimeStatus(runtime *nautescrd.ProjectPipelineRuntime, result *runtime.RawExtension, err error) {
+	if result != nil {
+		runtime.Status.DeployStatus = result
+	}
+
 	if err != nil {
 		condition := metav1.Condition{
 			Type:    runtimeConditionType,
@@ -185,9 +177,5 @@ func setPipelineRuntimeStatus(runtime *nautescrd.ProjectPipelineRuntime, result 
 			Reason: runtimeConditionReason,
 		}
 		runtime.Status.Conditions = nautescrd.GetNewConditions(runtime.Status.Conditions, []metav1.Condition{condition}, map[string]bool{runtimeConditionType: true})
-	}
-
-	if result != nil {
-		runtime.Status.Cluster = result.Cluster
 	}
 }

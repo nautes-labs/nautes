@@ -66,9 +66,11 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
+	var use = false
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
+		UseExistingCluster:    &use,
 	}
 
 	var err error
@@ -96,8 +98,9 @@ nautes:
 	Expect(k8sClient).NotTo(BeNil())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Port:   9443,
+		Scheme:             scheme.Scheme,
+		Port:               9443,
+		MetricsBindAddress: ":10241",
 	})
 	Expect(err).NotTo(HaveOccurred())
 

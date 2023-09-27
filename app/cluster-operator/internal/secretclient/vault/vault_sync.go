@@ -122,7 +122,7 @@ func (vc *VaultClient) SyncSecret(cluster, lastCluster *nautescrd.Cluster) (*Syn
 
 	secretMeta, err := vc.getSecretMeta(cluster)
 	if err != nil {
-		return result, fmt.Errorf("secret not found in vault")
+		return result, fmt.Errorf("secret not found in vault: %w", err)
 	}
 
 	result.SecretVersion = secretMeta.CurrentVersion

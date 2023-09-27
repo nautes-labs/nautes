@@ -18,10 +18,10 @@ import (
 	"context"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/initinfo"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/datasource"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 )
 
-type NewDeployer func(namespace string, task initinfo.ComponentInitInfo, db datasource.DataSource) (Deployer, error)
+type NewDeployer func(namespace string, task initinfo.ComponentInitInfo, db database.Database) (Deployer, error)
 
 type Deployer interface {
 	// GetNewResource() {resources}
