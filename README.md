@@ -6,7 +6,7 @@
 <p align=center>
 <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
 <a href="https://img.shields.io/badge/kubernetes-1.21-green"><img src="https://img.shields.io/badge/kubernetes-1.21-green" alt="Kubernetes"></a>
-<a href="https://img.shields.io/badge/version-v0.3.9-green"><img src="https://img.shields.io/badge/version-v0.3.9-green" alt="Version"></a>
+<a href="https://img.shields.io/badge/version-v0.4.0-green"><img src="https://img.shields.io/badge/version-v0.4.0-green" alt="Version"></a>
 </p>
 </div>
 
