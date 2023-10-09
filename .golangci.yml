@@ -32,6 +32,7 @@ run:
     - third_party
     - docs
     - hack
+    - pkg/thirdpartapis
 
   # which files to skip: they will be analyzed, but issues from them
   # won't be reported. Default value is empty list, but there is
@@ -116,7 +117,7 @@ linters-settings:
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#confusing-naming
       - name: confusing-naming
         severity: warning
-        disabled: false
+        disabled: true
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#confusing-results
       - name: confusing-results
         severity: warning

@@ -63,7 +63,7 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
-	mountPath := providervault.TENANT_NAMESPACE
+	mountPath := providervault.TenantNamespace
 	mountInput := &vault.MountInput{
 		Type:                  "kv",
 		Description:           "",
@@ -75,10 +75,10 @@ var _ = BeforeSuite(func() {
 		PluginName:            "",
 	}
 	vaultRawClient.Sys().Mount(mountPath, mountInput)
-	vaultRawClient.KVv2(providervault.TENANT_NAMESPACE).Put(ctx,
-		fmt.Sprintf(providervault.GIT_REPO_ROOT_PATH, gitInstName),
+	vaultRawClient.KVv2(providervault.TenantNamespace).Put(ctx,
+		fmt.Sprintf(providervault.CodeHostingPlatformRootPath, gitInstName),
 		map[string]interface{}{
-			providervault.GIT_REPO_ROOT_KEY: "helpme",
+			providervault.CodeHostingPlatformRootKey: "helpme",
 		})
 
 	cfg := nautescfg.SecretRepo{

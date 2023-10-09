@@ -72,12 +72,12 @@ func GetCertPool(opts ...LoadOption) (*x509.CertPool, error) {
 			}
 		}
 
-		CABytes, err := os.ReadFile(fullPath)
+		caBytes, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, fmt.Errorf("read cert file %s failed: %w", file.Name(), err)
 		}
 
-		caCertPool.AppendCertsFromPEM(CABytes)
+		caCertPool.AppendCertsFromPEM(caBytes)
 	}
 	return caCertPool, nil
 }

@@ -92,11 +92,11 @@ func (k *K8SClient) GetCluster(ctx context.Context, name, namespace string) (*cl
 
 func (k *K8SClient) UpdateCluster(ctx context.Context, cluster *clustercrd.Cluster) error {
 	res := &unstructured.Unstructured{}
-	res_stringamap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cluster)
+	resStringamap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cluster)
 	if err != nil {
 		return err
 	}
-	res.SetUnstructuredContent(res_stringamap)
+	res.SetUnstructuredContent(resStringamap)
 
 	_, err = k.Dynamic.Resource(ClusterGroupResrource).Namespace(cluster.Namespace).Update(ctx, res, metav1.UpdateOptions{})
 	if err != nil {
@@ -107,11 +107,11 @@ func (k *K8SClient) UpdateCluster(ctx context.Context, cluster *clustercrd.Clust
 
 func (k *K8SClient) UpdateStatusCluster(ctx context.Context, cluster *clustercrd.Cluster) error {
 	res := &unstructured.Unstructured{}
-	res_stringamap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cluster)
+	resStringamap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cluster)
 	if err != nil {
 		return err
 	}
-	res.SetUnstructuredContent(res_stringamap)
+	res.SetUnstructuredContent(resStringamap)
 
 	_, err = k.Dynamic.Resource(ClusterGroupResrource).Namespace(cluster.Namespace).UpdateStatus(ctx, res, metav1.UpdateOptions{})
 	if err != nil {

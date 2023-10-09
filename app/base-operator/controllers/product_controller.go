@@ -100,7 +100,6 @@ func (r *ProductReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	logger.V(1).Info("sync finish")
 	return ctrl.Result{}, err
-
 }
 
 // SetupWithManager sets up the controller with the Manager.

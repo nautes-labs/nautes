@@ -95,10 +95,7 @@ func (es *ExternalSecret) CreateSecret(ctx context.Context, secretReq syncer.Sec
 		return fmt.Errorf("build external secret failed: %w", err)
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, es.k8sClient, externalSecret, func() error {
-		spec, err := es.convertReqToExternalSecretSpec(secretReq)
-		if err != nil {
-			return err
-		}
+		spec := es.convertReqToExternalSecretSpec(secretReq)
 		externalSecret.Spec = *spec
 		return nil
 	})
@@ -189,11 +186,8 @@ const (
 	externalSecretRefSecretStoreKind  = "SecretStore"
 )
 
-func (es *ExternalSecret) convertReqToExternalSecretSpec(req syncer.SecretRequest) (*externalsecretv1alpha1.ExternalSecretSpec, error) {
-	secPath, err := es.getVaultSecretPath(req.Source)
-	if err != nil {
-		return nil, fmt.Errorf("get secret path failed")
-	}
+func (es *ExternalSecret) convertReqToExternalSecretSpec(req syncer.SecretRequest) *externalsecretv1alpha1.ExternalSecretSpec {
+	secPath := es.getVaultSecretPath(req.Source)
 	esSpec := &externalsecretv1alpha1.ExternalSecretSpec{
 		SecretStoreRef: externalsecretv1alpha1.SecretStoreRef{
 			Name: buildSecretStoreName(req.Name),
@@ -214,14 +208,14 @@ func (es *ExternalSecret) convertReqToExternalSecretSpec(req syncer.SecretReques
 			},
 		},
 	}
-	return esSpec, nil
+	return esSpec
 }
 
-func (es *ExternalSecret) getVaultSecretPath(secInfo syncer.SecretInfo) (string, error) {
+func (es *ExternalSecret) getVaultSecretPath(secInfo syncer.SecretInfo) string {
 	return fmt.Sprintf("%s/%s/%s/%s", secInfo.CodeRepo.ProviderType,
 		secInfo.CodeRepo.ID,
 		secInfo.CodeRepo.User,
-		secInfo.CodeRepo.Permission), nil
+		secInfo.CodeRepo.Permission)
 }
 
 func getVaultSecretPath(secretType syncer.SecretType) *string {

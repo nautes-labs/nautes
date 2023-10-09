@@ -23,10 +23,10 @@ import (
 )
 
 const (
-	ROLE_NAME_KEY_ARGO    = "Argo"
-	ROLE_NAME_KEY_RUNTIME = "Runtime"
-	AUTH_PATH_FORMAT      = "auth/%s/config"
-	SECRET_PATH_FORMAT    = "kubernetes/%s/default/admin"
+	RoleNameKeyArgo    = "Argo"
+	RoleNameKeyRuntime = "Runtime"
+	AuthPathFormat     = "auth/%s/config"
+	SecretPathFormat   = "kubernetes/%s/default/admin" //nolint:gosec
 )
 
 type SyncResult struct {
@@ -43,7 +43,7 @@ type SyncAuthResult struct {
 }
 
 func (vc *VaultClient) Delete(ctx context.Context, cluster *nautescrd.Cluster) error {
-	ctx = context.WithValue(ctx, CONTEXT_KEY_CFG, *vc.Configs)
+	ctx = context.WithValue(ctx, ContextKeyConfig, *vc.Configs)
 	defer vc.Logout()
 
 	err := vc.deleteCluster(ctx, cluster)
@@ -54,7 +54,7 @@ func (vc *VaultClient) Delete(ctx context.Context, cluster *nautescrd.Cluster) e
 }
 
 func (vc *VaultClient) Sync(ctx context.Context, cluster, lastCluster *nautescrd.Cluster) (*secretclient.SyncResult, error) {
-	ctx = context.WithValue(ctx, CONTEXT_KEY_CFG, *vc.Configs)
+	ctx = context.WithValue(ctx, ContextKeyConfig, *vc.Configs)
 	defer vc.Logout()
 
 	if cluster.Name == vc.TenantAuthName {
@@ -63,7 +63,7 @@ func (vc *VaultClient) Sync(ctx context.Context, cluster, lastCluster *nautescrd
 
 	result, err := vc.SyncCluster(ctx, cluster, lastCluster)
 	if err != nil {
-		vc.CleanCluster(ctx, lastCluster, cluster, result)
+		_ = vc.CleanCluster(ctx, lastCluster, cluster, result)
 		return nil, fmt.Errorf("sync cluster failed: %w", err)
 	}
 
@@ -191,7 +191,7 @@ func (vc *VaultClient) deleteCluster(ctx context.Context, lastCluster *nautescrd
 	return nil
 }
 
-func (vc *VaultClient) CleanCluster(ctx context.Context, cluster, lastCluster *nautescrd.Cluster, result *SyncResult) error {
+func (vc *VaultClient) CleanCluster(ctx context.Context, cluster, lastCluster *nautescrd.Cluster, _ *SyncResult) error {
 	errors := []error{}
 
 	if isNewSecret(cluster, lastCluster) {

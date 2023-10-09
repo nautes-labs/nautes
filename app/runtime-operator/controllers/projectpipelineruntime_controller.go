@@ -21,7 +21,7 @@ import (
 	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -32,7 +32,7 @@ import (
 // ProjectPipelineRuntimeReconciler reconciles a ProjectPipelineRuntime object
 type ProjectPipelineRuntimeReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme *k8sRuntime.Scheme
 	Syncer syncer.Syncer
 }
 
@@ -157,7 +157,7 @@ func NewPipelineRuntimeWithOutIllegalEventSource(runtime nautescrd.ProjectPipeli
 	return newRuntime
 }
 
-func setPipelineRuntimeStatus(runtime *nautescrd.ProjectPipelineRuntime, result *runtime.RawExtension, err error) {
+func setPipelineRuntimeStatus(runtime *nautescrd.ProjectPipelineRuntime, result *k8sRuntime.RawExtension, err error) {
 	if result != nil {
 		runtime.Status.DeployStatus = result
 	}

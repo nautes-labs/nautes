@@ -72,7 +72,8 @@ func getHttpsClient() (*http.Client, error) {
 	}
 
 	tlsConfig := &tls.Config{
-		RootCAs: caCertPool,
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    caCertPool,
 	}
 
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
@@ -120,7 +121,7 @@ func (g *GitLab) GetProducts() ([]nautescrd.Product, error) {
 	}
 
 	newProducts := []nautescrd.Product{}
-	restProducts := []nautescrd.Product{}
+	var restProducts []nautescrd.Product
 	for i, product := range products {
 		restProducts = products[i+1:]
 		isDuplicate := false
@@ -133,16 +134,15 @@ func (g *GitLab) GetProducts() ([]nautescrd.Product, error) {
 		if !isDuplicate {
 			newProducts = append(newProducts, product)
 		}
-
 	}
 
 	return newProducts, nil
 }
 
-func (g *GitLab) GetProductMeta(ctx context.Context, ID string) (baseinterface.ProductMeta, error) {
+func (g *GitLab) GetProductMeta(_ context.Context, id string) (baseinterface.ProductMeta, error) {
 	productMeta := baseinterface.ProductMeta{}
 
-	group, resp, err := g.Groups.GetGroup(ID, nil)
+	group, resp, err := g.Groups.GetGroup(id, nil)
 	if err != nil {
 		return productMeta, fmt.Errorf("get group info failed. code %d: %w", resp.Response.StatusCode, err)
 	}
@@ -155,18 +155,17 @@ func (g *GitLab) GetProductMeta(ctx context.Context, ID string) (baseinterface.P
 	})
 	if err != nil {
 		return productMeta, fmt.Errorf("get meta data failed, code %d: %w", resp.Response.StatusCode, err)
-
 	}
 	if len(projects) != 1 {
 		return productMeta, fmt.Errorf("meta data is nil or more than one")
 	}
 
 	return baseinterface.ProductMeta{
-		ID:     ID,
+		ID:     id,
 		MetaID: fmt.Sprintf("%d", projects[0].ID),
 	}, nil
 }
 
-func (g *GitLab) GetCodeRepoProvider(ctx context.Context) (baseinterface.CodeRepoProvider, error) {
+func (g *GitLab) GetCodeRepoProvider(_ context.Context) (baseinterface.CodeRepoProvider, error) {
 	return g.provider, nil
 }

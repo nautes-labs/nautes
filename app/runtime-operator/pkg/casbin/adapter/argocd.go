@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	_RBAC_FILE_NAME = "policy.csv"
+	rbacFileName = "policy.csv"
 )
 
 var (
@@ -106,7 +106,7 @@ func (ada *Adapter) LoadPolicyFromCluster(key types.NamespacedName) error {
 	if err != nil {
 		return fmt.Errorf("get config map failed: %w", err)
 	}
-	policies, ok := ada.rbacConfigMap.Data[_RBAC_FILE_NAME]
+	policies, ok := ada.rbacConfigMap.Data[rbacFileName]
 	if !ok {
 		policies = ""
 	}
@@ -129,7 +129,7 @@ func (ada *Adapter) SavePolicyToCluster(key types.NamespacedName) error {
 					Namespace: key.Namespace,
 				},
 				Data: map[string]string{
-					_RBAC_FILE_NAME: ada.ExportPolicies(),
+					rbacFileName: ada.ExportPolicies(),
 				},
 			}
 			return ada.GetClient().Create(context.Background(), cm)
@@ -138,7 +138,7 @@ func (ada *Adapter) SavePolicyToCluster(key types.NamespacedName) error {
 	if ada.rbacConfigMap.Data == nil {
 		ada.rbacConfigMap.Data = make(map[string]string)
 	}
-	ada.rbacConfigMap.Data[_RBAC_FILE_NAME] = ada.ExportPolicies()
+	ada.rbacConfigMap.Data[rbacFileName] = ada.ExportPolicies()
 
 	return ada.GetClient().Update(context.Background(), ada.rbacConfigMap)
 }
@@ -148,7 +148,7 @@ func (ada *Adapter) LoadPolicyFromString(policies string) error {
 	return ada.LoadPolicy(argocdModel)
 }
 
-func (ada *Adapter) LoadPolicy(model model.Model) error {
+func (ada *Adapter) LoadPolicy(argocdRBACModel model.Model) error {
 	policies := strings.Split(ada.rawPolicies, "\n")
 	for _, policy := range policies {
 		if policy == "" || strings.HasPrefix(policy, "#") {
@@ -168,13 +168,13 @@ func (ada *Adapter) LoadPolicy(model model.Model) error {
 
 		key := tokens[0]
 		sec := key[:1]
-		if _, ok := model[sec]; !ok {
+		if _, ok := argocdRBACModel[sec]; !ok {
 			return fmt.Errorf("invalid RBAC policy: %s", policy)
 		}
-		if _, ok := model[sec][key]; !ok {
+		if _, ok := argocdRBACModel[sec][key]; !ok {
 			return fmt.Errorf("invalid RBAC policy: %s", policy)
 		}
-		model[sec][key].Policy = append(model[sec][key].Policy, tokens[1:])
+		argocdRBACModel[sec][key].Policy = append(argocdRBACModel[sec][key].Policy, tokens[1:])
 
 		switch sec {
 		case "p":
@@ -185,7 +185,6 @@ func (ada *Adapter) LoadPolicy(model model.Model) error {
 		default:
 			ada.otherPolicies = fmt.Sprintf("%s\n%s", ada.otherPolicies, policy)
 		}
-
 	}
 	return nil
 }
@@ -267,31 +266,31 @@ func (ada *Adapter) DeleteRole(name string) error {
 }
 
 // SavePolicy saves all policy rules to the storage.
-func (ada *Adapter) SavePolicy(model model.Model) error {
+func (ada *Adapter) SavePolicy(model model.Model) error { //nolint
 	return errors.New("not implemented")
 }
 
 // AddPolicy adds a policy rule to the storage.
 // This is part of the Auto-Save feature.
-func (ada *Adapter) AddPolicy(sec string, ptype string, rule []string) error {
+func (ada *Adapter) AddPolicy(sec string, ptype string, rule []string) error { //nolint
 	return errors.New("not implemented")
 }
 
 // RemovePolicy removes a policy rule from the storage.
 // This is part of the Auto-Save feature.
-func (ada *Adapter) RemovePolicy(sec string, ptype string, rule []string) error {
+func (ada *Adapter) RemovePolicy(sec string, ptype string, rule []string) error { //nolint
 	return errors.New("not implemented")
 }
 
 // RemoveFilteredPolicy removes policy rules that match the filter from the storage.
 // This is part of the Auto-Save feature.
-func (ada *Adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int, fieldValues ...string) error {
+func (ada *Adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int, fieldValues ...string) error { //nolint
 	return errors.New("not implemented")
 }
 
 // The modified version of LoadPolicyLine function defined in "persist" package of github.com/casbin/casbin.
 // Uses CVS parser to correctly handle quotes in policy line.
-func loadPolicyLine(line string, model model.Model) error {
+func loadPolicyLine(line string, model model.Model) error { //nolint
 	return errors.New("not implemented")
 }
 

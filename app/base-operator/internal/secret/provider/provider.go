@@ -32,10 +32,10 @@ type NewClient func(cfg nautescfg.SecretRepo) (baseinterface.SecretClient, error
 
 var SecretProviders = map[string]NewClient{}
 
-func GetSecretStore(ctx context.Context, cfg nautescfg.SecretRepo) (baseinterface.SecretClient, error) {
-	NewClient, ok := SecretProviders[string(cfg.RepoType)]
+func GetSecretStore(_ context.Context, cfg nautescfg.SecretRepo) (baseinterface.SecretClient, error) {
+	newClient, ok := SecretProviders[string(cfg.RepoType)]
 	if !ok {
 		return nil, fmt.Errorf("unknow sercret repo type")
 	}
-	return NewClient(cfg)
+	return newClient(cfg)
 }

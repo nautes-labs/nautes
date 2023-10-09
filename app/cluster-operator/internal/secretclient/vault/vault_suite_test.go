@@ -219,7 +219,7 @@ secret:
 	Expect(err).Should(BeNil())
 
 	ctx = context.Background()
-	ctx = context.WithValue(ctx, vaultclient.CONTEXT_KEY_CFG, *cfg)
+	ctx = context.WithValue(ctx, vaultclient.ContextKeyConfig, *cfg)
 	initOpts := func(vs *vaultclient.VaultClient) error {
 		vs.Vault = vaultRawClient
 		vs.VaultProxy = secClient

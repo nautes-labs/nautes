@@ -34,9 +34,9 @@ func init() {
 }
 
 const (
-	CONTEXT_KEY_LABEL        nautesctx.ContextKey = "productprovider.syncer.label"
-	CONTEXT_KEY_CFG          nautesctx.ContextKey = "productprovider.syncer.config"
-	CONTEXT_KEY_LIST_OPTIONS nautesctx.ContextKey = "productprovider.syncer.listopts"
+	ContextKeyLabel       nautesctx.ContextKey = "productprovider.syncer.label"
+	ContextKeyConfig      nautesctx.ContextKey = "productprovider.syncer.config"
+	ContextKeyListOptions nautesctx.ContextKey = "productprovider.syncer.listopts"
 )
 
 var ProductProviders = map[string]ProviderFacotry{}
@@ -75,7 +75,7 @@ func (s *ProductProviderSyncer) Sync(ctx context.Context, productProvider nautes
 
 	ctx = NewSyncContext(ctx, *cfg, label, listOpts)
 
-	source, err := GetProvider(ctx, CONTEXT_KEY_CFG, s.client)
+	source, err := GetProvider(ctx, ContextKeyConfig, s.client)
 	if err != nil {
 		return fmt.Errorf("get product provider failed: %w", err)
 	}
@@ -90,10 +90,7 @@ func (s *ProductProviderSyncer) Sync(ctx context.Context, productProvider nautes
 		return fmt.Errorf("get k8s product list failed: %w", err)
 	}
 
-	newList, updateList, deleteList, err := compareProduct(sourceProducts, k8sProducts.Items)
-	if err != nil {
-		return fmt.Errorf("get error in compare product: %w", err)
-	}
+	newList, updateList, deleteList := compareProduct(sourceProducts, k8sProducts.Items)
 	errs := []error{}
 	errs = append(errs, s.createProduct(ctx, newList, &productProvider)...)
 	errs = append(errs, s.updateProduct(ctx, updateList, &productProvider)...)
@@ -106,11 +103,11 @@ func (s *ProductProviderSyncer) Sync(ctx context.Context, productProvider nautes
 }
 
 // compareProduct check product in provider list is also in k8s list, if yes , check it is need to update.
-// then check product in k8s list is not in provider list, finaly get product need to create update delete
-func compareProduct(srcProducts, k8sProducts []nautescrd.Product) ([]nautescrd.Product, []nautescrd.Product, []nautescrd.Product, error) {
+// then check product in k8s list is not in provider list, finally get product need to create update delete
+func compareProduct(srcProducts, k8sProducts []nautescrd.Product) ([]nautescrd.Product, []nautescrd.Product, []nautescrd.Product) {
 	newList := []nautescrd.Product{}
 	updateList := []nautescrd.Product{}
-	deleteList := []nautescrd.Product{}
+	var deleteList []nautescrd.Product
 
 	for _, srcProduct := range srcProducts {
 		isNew := true
@@ -130,7 +127,7 @@ func compareProduct(srcProducts, k8sProducts []nautescrd.Product) ([]nautescrd.P
 	}
 
 	deleteList = k8sProducts
-	return newList, updateList, deleteList, nil
+	return newList, updateList, deleteList
 }
 
 func isSameProduct(new, old nautescrd.ProductSpec) bool {
@@ -150,10 +147,10 @@ func (s *ProductProviderSyncer) createProduct(ctx context.Context, products []na
 	}
 
 	for _, product := range products {
-		product.Namespace = provider.Namespace
-		product.Labels = label
-		err := s.client.Create(ctx, &product)
-		if err != nil {
+		tmpProduct := product
+		tmpProduct.Namespace = provider.Namespace
+		tmpProduct.Labels = label
+		if err := s.client.Create(ctx, &tmpProduct); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -188,8 +185,8 @@ func (s *ProductProviderSyncer) updateProduct(ctx context.Context, products []na
 
 func (s *ProductProviderSyncer) deleteProduct(ctx context.Context, products []nautescrd.Product) []error {
 	errs := []error{}
-	for _, product := range products {
-		err := s.client.Delete(ctx, &product)
+	for i := range products {
+		err := s.client.Delete(ctx, &products[i])
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -198,14 +195,14 @@ func (s *ProductProviderSyncer) deleteProduct(ctx context.Context, products []na
 	return errs
 }
 
-func GetProvider(ctx context.Context, key nautesctx.ContextKey, client client.Client) (baseinterface.ProductProvider, error) {
+func GetProvider(ctx context.Context, key nautesctx.ContextKey, k8sClient client.Client) (baseinterface.ProductProvider, error) {
 	cfg, err := nautesctx.FromConfigContext(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 
 	providers := &nautescrd.ProductProviderList{}
-	if err = client.List(ctx, providers); err != nil {
+	if err = k8sClient.List(ctx, providers); err != nil {
 		return nil, fmt.Errorf("get resource product provider failed: %w", err)
 	}
 
@@ -218,7 +215,7 @@ func GetProvider(ctx context.Context, key nautesctx.ContextKey, client client.Cl
 	if !ok {
 		return nil, fmt.Errorf("unknow provider type")
 	}
-	prodcutProvider, err := productProviderFactory.GetProvider(ctx, provider.Spec.Name, client, *cfg)
+	prodcutProvider, err := productProviderFactory.GetProvider(ctx, provider.Spec.Name, k8sClient, *cfg)
 	if err != nil {
 		return nil, fmt.Errorf("get product provider failed: %w", err)
 	}
@@ -227,23 +224,23 @@ func GetProvider(ctx context.Context, key nautesctx.ContextKey, client client.Cl
 }
 
 func NewSyncContext(ctx context.Context, cfg nautescfg.Config, label map[string]string, listOpts []client.ListOption) context.Context {
-	ctx = context.WithValue(ctx, CONTEXT_KEY_CFG, cfg)
-	ctx = context.WithValue(ctx, CONTEXT_KEY_LABEL, label)
-	return context.WithValue(ctx, CONTEXT_KEY_LIST_OPTIONS, listOpts)
+	ctx = context.WithValue(ctx, ContextKeyConfig, cfg)
+	ctx = context.WithValue(ctx, ContextKeyLabel, label)
+	return context.WithValue(ctx, ContextKeyListOptions, listOpts)
 }
 
 func FromSyncContext(ctx context.Context) (*nautescfg.Config, map[string]string, []client.ListOption, error) {
-	inter := ctx.Value(CONTEXT_KEY_LIST_OPTIONS)
+	inter := ctx.Value(ContextKeyListOptions)
 	listOpts, ok := inter.([]client.ListOption)
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("get list options failed")
 	}
-	inter = ctx.Value(CONTEXT_KEY_LABEL)
+	inter = ctx.Value(ContextKeyLabel)
 	label, ok := inter.(map[string]string)
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("get label failed")
 	}
-	inter = ctx.Value(CONTEXT_KEY_CFG)
+	inter = ctx.Value(ContextKeyConfig)
 	cfg, ok := inter.(nautescfg.Config)
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("get cfg failed")

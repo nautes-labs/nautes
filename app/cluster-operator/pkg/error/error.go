@@ -21,13 +21,13 @@ type Errors struct {
 	RequeueAfter time.Duration
 }
 
-func NewError(err error, time time.Duration) error {
+func NewError(err error, delay time.Duration) error {
 	if err == nil {
 		return nil
 	}
 
 	return Errors{
 		error:        err,
-		RequeueAfter: time,
+		RequeueAfter: delay,
 	}
 }

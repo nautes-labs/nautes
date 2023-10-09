@@ -22,7 +22,7 @@ import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -51,7 +51,7 @@ const (
 // DeploymentRuntimeReconciler reconciles a DeploymentRuntime object
 type DeploymentRuntimeReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme *k8sRuntime.Scheme
 	Syncer syncer.Syncer
 }
 
@@ -193,7 +193,7 @@ func (r *DeploymentRuntimeReconciler) findDeploymentRuntimeForCoderepo(coderepo 
 	return requests
 }
 
-func setDeployRuntimeStatus(runtime *v1alpha1.DeploymentRuntime, result *runtime.RawExtension, illegalProjectRefs []v1alpha1.IllegalProjectRef, err error) {
+func setDeployRuntimeStatus(runtime *v1alpha1.DeploymentRuntime, result *k8sRuntime.RawExtension, illegalProjectRefs []v1alpha1.IllegalProjectRef, err error) {
 	if result != nil {
 		runtime.Status.DeployStatus = result
 	}
