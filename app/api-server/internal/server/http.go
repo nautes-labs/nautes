@@ -45,11 +45,12 @@ type ServiceProductGroup struct {
 	codeRepoBinding        *service.CodeRepoBindingService
 	product                *service.ProductService
 	project                *service.ProjectService
-	enviroment             *service.EnvironmentService
+	environment            *service.EnvironmentService
 	cluster                *service.ClusterService
 }
 
-func NewServiceGroup(projectPipelineRuntime *service.ProjectPipelineRuntimeService, deploymentRuntime *service.DeploymentruntimeService, codeRepo *service.CodeRepoService, codeRepoBinding *service.CodeRepoBindingService, product *service.ProductService, project *service.ProjectService, enviroment *service.EnvironmentService, cluster *service.ClusterService) *ServiceProductGroup {
+//nolint:all
+func NewServiceGroup(projectPipelineRuntime *service.ProjectPipelineRuntimeService, deploymentRuntime *service.DeploymentruntimeService, codeRepo *service.CodeRepoService, codeRepoBinding *service.CodeRepoBindingService, product *service.ProductService, project *service.ProjectService, environment *service.EnvironmentService, cluster *service.ClusterService) *ServiceProductGroup {
 	return &ServiceProductGroup{
 		projectPipelineRuntime: projectPipelineRuntime,
 		deploymentRuntime:      deploymentRuntime,
@@ -57,7 +58,7 @@ func NewServiceGroup(projectPipelineRuntime *service.ProjectPipelineRuntimeServi
 		codeRepoBinding:        codeRepoBinding,
 		product:                product,
 		project:                project,
-		enviroment:             enviroment,
+		environment:            environment,
 		cluster:                cluster,
 	}
 }
@@ -65,7 +66,7 @@ func NewServiceGroup(projectPipelineRuntime *service.ProjectPipelineRuntimeServi
 func (s *ServiceProductGroup) Register(srv *http.Server) {
 	productv1.RegisterProductHTTPServer(srv, s.product)
 	projectv1.RegisterProjectHTTPServer(srv, s.project)
-	environmentv1.RegisterEnvironmentHTTPServer(srv, s.enviroment)
+	environmentv1.RegisterEnvironmentHTTPServer(srv, s.environment)
 	clusterv1.RegisterClusterHTTPServer(srv, s.cluster)
 	coderepov1.RegisterCodeRepoHTTPServer(srv, s.codeRepo)
 	coderepobindingv1.RegisterCodeRepoBindingHTTPServer(srv, s.codeRepoBinding)

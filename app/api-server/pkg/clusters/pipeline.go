@@ -26,9 +26,8 @@ func NewPipelineServer(cluster *resourcev1alpha1.Cluster) (Pipeline, error) {
 		return nil, fmt.Errorf("failed to get deployment component")
 	}
 
-	var component = cluster.Spec.ComponentsList.Pipeline
-	switch component.Name {
-	case "tekton":
+	component := cluster.Spec.ComponentsList.Pipeline
+	if component.Name == "tekton" {
 		return NewTekton(), nil
 	}
 
@@ -44,7 +43,7 @@ func NewTekton() Pipeline {
 	return &Tekton{}
 }
 
-func (t *Tekton) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
+func (t *Tekton) GetDefaultValue(_ string, opt *DefaultValueOptions) (string, error) {
 	if opt.Cluster == nil {
 		return "", nil
 	}

@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,26 +38,26 @@ type RretryCountType string
 type getResouceName func(nodes nodestree.Node) (string, error)
 
 type ResourcesUsecase struct {
-	log        log.Logger
-	codeRepo   CodeRepo
-	secretRepo Secretrepo
-	gitRepo    GitRepo
-	nodestree  nodestree.NodesTree
-	configs    *nautesconfigs.Config
+	log          *log.Helper
+	codeRepo     CodeRepo
+	secretRepo   Secretrepo
+	gitRepo      GitRepo
+	nodeOperator nodestree.NodesTree
+	configs      *nautesconfigs.Config
 }
 
-func NewResourcesUsecase(log log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, gitRepo GitRepo, nodestree nodestree.NodesTree, configs *nautesconfigs.Config) *ResourcesUsecase {
+func NewResourcesUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, gitRepo GitRepo, nodeOperator nodestree.NodesTree, configs *nautesconfigs.Config) *ResourcesUsecase {
 	return &ResourcesUsecase{
-		log:        log,
-		codeRepo:   codeRepo,
-		secretRepo: secretRepo,
-		gitRepo:    gitRepo,
-		nodestree:  nodestree,
-		configs:    configs,
+		log:          log.NewHelper(log.With(logger)),
+		codeRepo:     codeRepo,
+		secretRepo:   secretRepo,
+		gitRepo:      gitRepo,
+		nodeOperator: nodeOperator,
+		configs:      configs,
 	}
 }
 
-func (r *ResourcesUsecase) Get(ctx context.Context, resourceKind, productName string, operator nodestree.NodesOperator, getResourceName getResouceName) (*nodestree.Node, error) {
+func (r *ResourcesUsecase) Get(ctx context.Context, resourceKind, productName string, _ nodestree.NodesOperator, getResourceName getResouceName) (*nodestree.Node, error) {
 	_, project, err := r.GetGroupAndProjectByGroupID(ctx, productName)
 	if err != nil {
 		return nil, err
@@ -71,12 +70,12 @@ func (r *ResourcesUsecase) Get(ctx context.Context, resourceKind, productName st
 
 	defer cleanCodeRepo(localPath)
 
-	err = r.nodestree.FilterIgnoreByLayout(localPath)
+	err = r.nodeOperator.FilterIgnoreByLayout(localPath)
 	if err != nil {
 		return nil, err
 	}
 
-	nodes, err := r.nodestree.Load(localPath)
+	nodes, err := r.nodeOperator.Load(localPath)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func (r *ResourcesUsecase) Get(ctx context.Context, resourceKind, productName st
 	return resourceNode, nil
 }
 
-func (r *ResourcesUsecase) List(ctx context.Context, gid interface{}, operator nodestree.NodesOperator) (*nodestree.Node, error) {
+func (r *ResourcesUsecase) List(ctx context.Context, gid interface{}, _ nodestree.NodesOperator) (*nodestree.Node, error) {
 	_, project, err := r.GetGroupAndProjectByGroupID(ctx, gid)
 	if err != nil {
 		if commonv1.IsProjectNotFound(err) {
@@ -113,12 +112,12 @@ func (r *ResourcesUsecase) List(ctx context.Context, gid interface{}, operator n
 
 	defer cleanCodeRepo(localPath)
 
-	err = r.nodestree.FilterIgnoreByLayout(localPath)
+	err = r.nodeOperator.FilterIgnoreByLayout(localPath)
 	if err != nil {
 		return nil, err
 	}
 
-	nodes, err := r.nodestree.Load(localPath)
+	nodes, err := r.nodeOperator.Load(localPath)
 	if err != nil {
 		return nil, err
 	}
@@ -140,26 +139,26 @@ func (r *ResourcesUsecase) Save(ctx context.Context, resourceOptions *resourceOp
 
 	product, project, err := r.GetGroupAndProjectByGroupID(ctx, resourceOptions.productName)
 	if err != nil {
-		r.log.Log(-1, "msg", "failed to get product and coderepo data", "err", err)
+		r.log.Errorf("failed to get product and coderepo data, err: %s", err)
 		return err
 	}
 
 	localPath, err := r.CloneCodeRepo(ctx, project.HttpUrlToRepo)
 	if err != nil {
-		r.log.Log(-1, "msg", "failed to clone coderepo", "url", project.HttpUrlToRepo)
+		r.log.Errorf("failed to clone coderepo %s", project.HttpUrlToRepo)
 		return err
 	}
 
 	defer cleanCodeRepo(localPath)
 
-	err = r.nodestree.FilterIgnoreByLayout(localPath)
+	err = r.nodeOperator.FilterIgnoreByLayout(localPath)
 	if err != nil {
 		return err
 	}
 
-	nodes, err := r.nodestree.Load(localPath)
+	nodes, err := r.nodeOperator.Load(localPath)
 	if err != nil {
-		r.log.Log(-1, "msg", "first load nodes tree failed", "err", err)
+		r.log.Errorf("failed to load nodes tree, err: %s", err)
 		return err
 	}
 
@@ -172,47 +171,47 @@ func (r *ResourcesUsecase) Save(ctx context.Context, resourceOptions *resourceOp
 	if resourceNode == nil {
 		resourceNode, err = resourceOptions.operator.CreateNode(localPath, data)
 		if err != nil {
-			r.log.Log(-1, "msg", "failed to create node", "err", err)
+			r.log.Errorf("failed to create node, err: %s", err)
 			return err
 		}
 	} else {
 		resourceNode, err = resourceOptions.operator.UpdateNode(resourceNode, data)
 		if err != nil {
-			r.log.Log(-1, "failed to update node", "err", err)
+			r.log.Errorf("failed to update node, err: %s", err)
 			return err
 		}
 	}
 
-	newNodes, err := r.InsertNodes(r.nodestree, &nodes, resourceNode)
+	newNodes, err := r.InsertNodes(r.nodeOperator, &nodes, resourceNode)
 	if err != nil {
-		r.log.Log(-1, "msg", "failed to insert node", "err", err)
+		r.log.Errorf("failed to insert node, err: %s", err)
 		return err
 	}
 
 	if !resourceOptions.insecureSkipCheck {
 		options.Nodes = *newNodes
-		err = r.nodestree.Compare(options)
+		err = r.nodeOperator.Compare(options)
 		if err != nil {
-			r.log.Log(-1, "msg", "recheck failed", "err", err)
+			r.log.Errorf("failed to validate, err: %s", err)
 			return err
 		}
 	}
 
 	err = r.WriteResource(resourceNode)
 	if err != nil {
-		r.log.Log(-1, "msg", "failed to write resource", "err", err)
+		r.log.Errorf("failed to write resource, err: %s", err)
 		return err
 	}
 
-	err = r.SaveDeployConfig(&nodes, localPath)
+	err = r.updateKustomization(&nodes, localPath)
 	if err != nil {
-		r.log.Log(-1, "msg", "failed to saved deploy config", "err", err)
+		r.log.Errorf("failed to saved deploy config", "err", err)
 		return err
 	}
 
 	err = r.PushToGit(ctx, localPath)
 	if err != nil {
-		r.log.Log(-1, "msg", "failed to git submission", "err", err)
+		r.log.Errorf("failed to git submission, err: %s", err)
 		return err
 	}
 
@@ -232,12 +231,12 @@ func (r *ResourcesUsecase) Delete(ctx context.Context, resourceOptions *resource
 
 	defer cleanCodeRepo(localPath)
 
-	err = r.nodestree.FilterIgnoreByLayout(localPath)
+	err = r.nodeOperator.FilterIgnoreByLayout(localPath)
 	if err != nil {
 		return err
 	}
 
-	nodes, err := r.nodestree.Load(localPath)
+	nodes, err := r.nodeOperator.Load(localPath)
 	if err != nil {
 		return err
 	}
@@ -264,7 +263,7 @@ func (r *ResourcesUsecase) Delete(ctx context.Context, resourceOptions *resource
 
 	if !resourceOptions.insecureSkipCheck {
 		options.Nodes = *newNodes
-		err = r.nodestree.Compare(options)
+		err = r.nodeOperator.Compare(options)
 		if err != nil {
 			return err
 		}
@@ -275,7 +274,7 @@ func (r *ResourcesUsecase) Delete(ctx context.Context, resourceOptions *resource
 		return err
 	}
 
-	err = r.SaveDeployConfig(&nodes, localPath)
+	err = r.updateKustomization(&nodes, localPath)
 	if err != nil {
 		return err
 	}
@@ -298,12 +297,12 @@ func (r *ResourcesUsecase) loadDefaultProjectNodes(ctx context.Context, productN
 		return nil, err
 	}
 
-	err = r.nodestree.FilterIgnoreByLayout(path)
+	err = r.nodeOperator.FilterIgnoreByLayout(path)
 	if err != nil {
 		return nil, err
 	}
 
-	nodes, err := r.nodestree.Load(path)
+	nodes, err := r.nodeOperator.Load(path)
 	if err != nil {
 		return nil, err
 	}
@@ -311,22 +310,22 @@ func (r *ResourcesUsecase) loadDefaultProjectNodes(ctx context.Context, productN
 	return &nodes, nil
 }
 
-func (r *ResourcesUsecase) InsertNodes(nodestree nodestree.NodesTree, nodes, resource *nodestree.Node) (*nodestree.Node, error) {
-	return nodestree.InsertNodes(nodes, resource)
+func (r *ResourcesUsecase) InsertNodes(nodeOperator nodestree.NodesTree, nodes, resource *nodestree.Node) (*nodestree.Node, error) {
+	return nodeOperator.InsertNodes(nodes, resource)
 }
 
-// GetNode get specifial node accroding to resource kind and name
+// GetNode get specifial node according to resource kind and name
 func (r *ResourcesUsecase) GetNode(nodes *nodestree.Node, kind, resourceName string) *nodestree.Node {
-	return r.nodestree.GetNode(nodes, kind, resourceName)
+	return r.nodeOperator.GetNode(nodes, kind, resourceName)
 }
 
 func (r *ResourcesUsecase) GetNodes() (*nodestree.Node, error) {
-	return r.nodestree.GetNodes()
+	return r.nodeOperator.GetNodes()
 }
 
-// RemoveNode delete the specified node accroding to the path
+// RemoveNode delete the specified node according to the path
 func (r *ResourcesUsecase) RemoveNode(nodes, node *nodestree.Node) (*nodestree.Node, error) {
-	nodes, err := r.nodestree.RemoveNode(nodes, node)
+	nodes, err := r.nodeOperator.RemoveNode(nodes, node)
 	if err != nil {
 		return nil, err
 	}
@@ -349,9 +348,9 @@ func (r *ResourcesUsecase) GetGroupAndProjectByGroupID(ctx context.Context, gid 
 }
 
 // GetCodeRepoName The name of the codeRepo resource must be prefixed with repo-, eg: repo-1
-func (r *ResourcesUsecase) GetCodeRepo(ctx context.Context, ProductName, codeRepoName string) (*Project, error) {
+func (r *ResourcesUsecase) GetCodeRepo(ctx context.Context, productName, codeRepoName string) (*Project, error) {
 	pid := ""
-	group, err := r.codeRepo.GetGroup(ctx, ProductName)
+	group, err := r.codeRepo.GetGroup(ctx, productName)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +384,7 @@ func (r *ResourcesUsecase) CloneCodeRepo(ctx context.Context, url string) (path 
 }
 
 // WriteResource Write project resource content to a file
-func (r *ResourcesUsecase) WriteResource(node *nodestree.Node) (err error) {
+func (r *ResourcesUsecase) WriteResource(node *nodestree.Node) error {
 	jsonBytes, err := json.Marshal(node.Content)
 	if err != nil {
 		return fmt.Errorf("failed to convert resource to json data, err: %v", err)
@@ -415,13 +414,13 @@ func (r *ResourcesUsecase) WriteResource(node *nodestree.Node) (err error) {
 		return fmt.Errorf("failed to write resource file, err: %v", err)
 	}
 
-	return
+	return nil
 }
 
-func (r *ResourcesUsecase) SaveDeployConfig(nodes *nodestree.Node, path string) error {
-	var deployDirectory = fmt.Sprintf("%s/%s", path, r.configs.Deploy.ArgoCD.Kustomize.DefaultPath.DefaultProject)
-	var kustomizationFilePath = fmt.Sprintf("%s/%s", deployDirectory, KustomizationFileName)
-	var kustomization = &kustomize.Kustomization{
+func (r *ResourcesUsecase) updateKustomization(nodes *nodestree.Node, path string) error {
+	deployDir := fmt.Sprintf("%s/%s", path, r.configs.Deploy.ArgoCD.Kustomize.DefaultPath.DefaultProject)
+	kustomizationFilePath := fmt.Sprintf("%s/%s", deployDir, KustomizationFileName)
+	kustomization := &kustomize.Kustomization{
 		TypeMeta: kustomize.TypeMeta{
 			APIVersion: kustomize.KustomizationVersion,
 			Kind:       kustomize.KustomizationKind,
@@ -538,40 +537,27 @@ func (r *ResourcesUsecase) ConvertRepoNameToCodeRepoName(ctx context.Context, pr
 	return fmt.Sprintf("%s%d", RepoPrefix, int(project.ID)), nil
 }
 
-var (
-	cacheGroup = make(map[string]*Group)
-)
-
 func (r *ResourcesUsecase) ConvertProductToGroupName(ctx context.Context, productName string) (string, error) {
 	var err error
 	var id int
 
-	group, ok := cacheGroup[productName]
-	if !ok {
-		id, err = utilstrings.ExtractNumber(ProductPrefix, productName)
-		if err != nil {
-			return "", err
-		}
+	id, err = utilstrings.ExtractNumber(ProductPrefix, productName)
+	if err != nil {
+		return "", err
+	}
 
-		group, err = r.codeRepo.GetGroup(ctx, id)
-		if err != nil {
-			return "", err
-		}
+	group, err := r.codeRepo.GetGroup(ctx, id)
+	if err != nil {
+		return "", err
 	}
 
 	return group.Name, nil
 }
 
 func (r *ResourcesUsecase) ConvertGroupToProductName(ctx context.Context, productName string) (string, error) {
-	var err error
-
-	group, ok := cacheGroup[productName]
-	if !ok {
-		group, err = r.codeRepo.GetGroup(ctx, productName)
-		if err != nil {
-			return "", err
-		}
-		cacheGroup[productName] = group
+	group, err := r.codeRepo.GetGroup(ctx, productName)
+	if err != nil {
+		return "", err
 	}
 
 	return fmt.Sprintf("%s%d", ProductPrefix, int(group.ID)), nil
@@ -595,13 +581,10 @@ func (r *ResourcesUsecase) retryAutoMerge(ctx context.Context, path string) erro
 
 	err = r.gitRepo.Push(ctx, path)
 	if err != nil {
-		ok, count, err := isMergeExceededTimes(ctx, 3)
-		if err != nil {
-			return err
-		}
+		ok, count := isMergeExceededTimes(ctx, 3)
 
 		if !ok {
-			count += 1
+			count++
 			ctx = withCount(ctx, count)
 			time.Sleep(3 * time.Second)
 			return r.PushToGit(ctx, path)
@@ -614,19 +597,19 @@ func (r *ResourcesUsecase) retryAutoMerge(ctx context.Context, path string) erro
 	return nil
 }
 
-func isMergeExceededTimes(ctx context.Context, exceed int) (bool, int, error) {
+func isMergeExceededTimes(ctx context.Context, exceed int) (bool, int) {
 	count := getCount(ctx)
 	val, ok := count.(int)
 	// if the count type error, immediately terminate retry.
 	if !ok {
-		return true, exceed, nil
+		return true, exceed
 	}
 
 	if val == exceed {
-		return true, val, nil
+		return true, val
 	}
 
-	return false, val, nil
+	return false, val
 }
 
 func cleanCodeRepo(filename string) {
@@ -647,7 +630,7 @@ func getCount(ctx context.Context) interface{} {
 }
 
 func deleteResource(node *nodestree.Node) (err error) {
-	fileinfos, err := ioutil.ReadDir(filepath.Dir(node.Path))
+	fileinfos, err := os.ReadDir(filepath.Dir(node.Path))
 	if err != nil {
 		if ok := os.IsNotExist(err); ok {
 			return nil

@@ -36,7 +36,7 @@ type SecretContent struct {
 	PrivateKey string
 }
 
-func (r *CodeRepoReconciler) getSecret(ctx context.Context, codeRepo *resourcev1alpha1.CodeRepo, configs *nautesconfigs.Config) (*SecretContent, error) {
+func (r *CodeRepoReconciler) getSecret(_ context.Context, codeRepo *resourcev1alpha1.CodeRepo, configs *nautesconfigs.Config) (*SecretContent, error) {
 	secretsEngine := SecretsEngine
 	secretsKey := SecretsKey
 	secretPath := fmt.Sprintf("%s/%s/%s/%s", configs.Git.GitType, codeRepo.Name, "default", "readonly")
@@ -55,14 +55,14 @@ func (r *CodeRepoReconciler) getSecret(ctx context.Context, codeRepo *resourcev1
 		return nil, err
 	}
 
-	secret, err := r.Secret.GetSecret(secretOptions)
+	secretData, err := r.Secret.GetSecret(secretOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret: %w", err)
 	}
 
 	return &SecretContent{
-		ID:         strconv.Itoa(secret.ID),
-		PrivateKey: secret.Data,
+		ID:         strconv.Itoa(secretData.ID),
+		PrivateKey: secretData.Data,
 	}, nil
 }
 

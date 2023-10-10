@@ -15,9 +15,6 @@
 package cluster
 
 import (
-	"fmt"
-
-	utilStrings "github.com/nautes-labs/nautes/app/argo-operator/util/strings"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,7 +27,3 @@ const (
 var (
 	condition metav1.Condition
 )
-
-func spliceResourceName(name string) string {
-	return fmt.Sprintf("%s-%s", name, utilStrings.RandStringRunes(5))
-}

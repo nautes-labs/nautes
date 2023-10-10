@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -75,7 +74,7 @@ type CompareOptions struct {
 	ProductName string
 }
 
-func NewNodestree(fileOptions *FileOptions, config *Config, client client.Client) NodesTree {
+func NewNodestree(fileOptions *FileOptions, config *Config, k8sClient client.Client) NodesTree {
 	return &nodesTree{
 		fileOptions: fileOptions,
 		checks: []checkFn{
@@ -84,33 +83,33 @@ func NewNodestree(fileOptions *FileOptions, config *Config, client client.Client
 			CheckResouceReference,
 			CheckNumberOfResources,
 		},
-		client: client,
+		client: k8sClient,
 		config: config,
 	}
 }
 
-func (in *nodesTree) AppendIgnoreFilePath(paths []string) {
-	in.fileOptions.IgnorePath = append(in.fileOptions.IgnorePath, paths...)
+func (n *nodesTree) AppendIgnoreFilePath(paths []string) {
+	n.fileOptions.IgnorePath = append(n.fileOptions.IgnorePath, paths...)
 }
 
-func (in *nodesTree) GetFileOptions() *FileOptions {
-	return in.fileOptions
+func (n *nodesTree) GetFileOptions() *FileOptions {
+	return n.fileOptions
 }
 
-func (in *nodesTree) GetResourceLayoutConfigs() *Config {
-	return in.config
+func (n *nodesTree) GetResourceLayoutConfigs() *Config {
+	return n.config
 }
 
 // Compare comparison between file tree and standard layout
-func (in *nodesTree) Compare(options CompareOptions) error {
+func (n *nodesTree) Compare(options CompareOptions) error {
 	config, err := NewConfig()
 	if err != nil {
 		return err
 	}
 
 	if len(config.Sub) > 0 && len(options.Nodes.Children) > 0 {
-		for _, fn := range in.checks {
-			err := fn(options, in)
+		for _, fn := range n.checks {
+			err := fn(options, n)
 			if err != nil {
 				return err
 			}
@@ -120,7 +119,7 @@ func (in *nodesTree) Compare(options CompareOptions) error {
 	return nil
 }
 
-func (in *nodesTree) InsertNodes(nodes, resource *Node) (*Node, error) {
+func (n *nodesTree) InsertNodes(nodes, resource *Node) (*Node, error) {
 	mapping := make(map[string]*Node)
 	NodesToMapping(nodes, mapping)
 
@@ -133,8 +132,8 @@ func (in *nodesTree) InsertNodes(nodes, resource *Node) (*Node, error) {
 	} else {
 		subPath := filepath.Dir(resource.Path)
 		subName := strings.Split(subPath, "/")
-		len := len(subName)
-		name := subName[len-1]
+		subNameLength := len(subName)
+		name := subName[subNameLength-1]
 		leval := resource.Level - 1
 
 		subNode := &Node{
@@ -145,23 +144,23 @@ func (in *nodesTree) InsertNodes(nodes, resource *Node) (*Node, error) {
 			Level:    leval,
 		}
 
-		return in.InsertNodes(nodes, subNode)
+		return n.InsertNodes(nodes, subNode)
 	}
 
 	return nodes, nil
 }
 
-func (in *nodesTree) GetNode(nodes *Node, kind, targetNodeName string) (node *Node) {
-	for _, n := range nodes.Children {
-		if !n.IsDir {
-			k1 := GetResourceValue(n.Content, "TypeMeta", "Kind")
-			n1 := GetResourceValue(n.Content, "ObjectMeta", "Name")
+func (n *nodesTree) GetNode(nodes *Node, kind, targetNodeName string) (node *Node) {
+	for _, node = range nodes.Children {
+		if !node.IsDir {
+			k1 := GetResourceValue(node.Content, "TypeMeta", "Kind")
+			n1 := GetResourceValue(node.Content, "ObjectMeta", "Name")
 			if n1 == targetNodeName && k1 == kind {
-				return n
+				return node
 			}
 		}
 
-		node = in.GetNode(n, kind, targetNodeName)
+		node = n.GetNode(node, kind, targetNodeName)
 		if node != nil {
 			return
 		}
@@ -170,7 +169,7 @@ func (in *nodesTree) GetNode(nodes *Node, kind, targetNodeName string) (node *No
 	return
 }
 
-func (in *nodesTree) RemoveNode(nodes *Node, targetNode *Node) (*Node, error) {
+func (n *nodesTree) RemoveNode(nodes *Node, targetNode *Node) (*Node, error) {
 	mapping := make(map[string]*Node)
 	NodesToMapping(nodes, mapping)
 	subPath := filepath.Dir(targetNode.Path)
@@ -203,19 +202,19 @@ func (in *nodesTree) RemoveNode(nodes *Node, targetNode *Node) (*Node, error) {
 	return nodes, nil
 }
 
-func (i *nodesTree) AppendOperators(operator NodesOperator) {
-	i.operators = append(i.operators, operator)
+func (n *nodesTree) AppendOperators(operator NodesOperator) {
+	n.operators = append(n.operators, operator)
 }
 
-func (r *nodesTree) FilterIgnoreByLayout(path string) error {
-	layoutConfigs := r.GetResourceLayoutConfigs()
+func (n *nodesTree) FilterIgnoreByLayout(nodePath string) error {
+	layoutConfigs := n.GetResourceLayoutConfigs()
 
 	layoutNames := make(map[string]struct{})
 	for _, config := range layoutConfigs.Sub {
 		layoutNames[config.Name] = struct{}{}
 	}
 
-	dir, err := os.Open(path)
+	dir, err := os.Open(nodePath)
 	if err != nil {
 		fmt.Printf("failed to open dir: %s", err)
 		return err
@@ -236,19 +235,19 @@ func (r *nodesTree) FilterIgnoreByLayout(path string) error {
 		}
 	}
 
-	r.AppendIgnoreFilePath(ignorePaths)
+	n.AppendIgnoreFilePath(ignorePaths)
 
 	return nil
 }
 
-func (i *nodesTree) Load(path string) (root Node, err error) {
-	if strings.TrimSpace(path) == "" {
+func (n *nodesTree) Load(nodePath string) (root Node, err error) {
+	if strings.TrimSpace(nodePath) == "" {
 		err = fmt.Errorf("file or directory cannot be empty")
 		return
 	}
 
-	root.Path = path
-	root.Level += 1
+	root.Path = nodePath
+	root.Level++
 
 	var file fs.FileInfo
 	file, err = os.Stat(root.Path)
@@ -259,28 +258,28 @@ func (i *nodesTree) Load(path string) (root Node, err error) {
 	root.IsDir = file.IsDir()
 
 	if root.IsDir {
-		err = explorerRecursive(&root, i.fileOptions, i.operators)
+		err = explorerRecursive(&root, n.fileOptions, n.operators)
 		if err != nil {
 			return
 		}
 	}
 
-	i.nodes = &root
+	n.nodes = &root
 
 	return
 }
 
-func (i *nodesTree) GetNodes() (*Node, error) {
-	if i.nodes == nil {
+func (n *nodesTree) GetNodes() (*Node, error) {
+	if n.nodes == nil {
 		return nil, fmt.Errorf("the nodes is nill, please load the nodes")
 	}
 
-	return i.nodes, nil
+	return n.nodes, nil
 }
 
 // explorerRecursive traverse of the file tree
 func explorerRecursive(node *Node, fileOptions *FileOptions, operators []NodesOperator) error {
-	sub, err := ioutil.ReadDir(node.Path)
+	sub, err := os.ReadDir(node.Path)
 	if err != nil {
 		return fmt.Errorf("directory does not exist or cannot be opened, %w", err)
 	}
@@ -294,7 +293,7 @@ func explorerRecursive(node *Node, fileOptions *FileOptions, operators []NodesOp
 			Level: node.Level + 1,
 		}
 
-		if ok := fileFiltering(fileOptions, f.Name(), tmp); ok {
+		if ok := fileFiltering(fileOptions, f.Name()); ok {
 			continue
 		}
 
@@ -311,7 +310,7 @@ func explorerRecursive(node *Node, fileOptions *FileOptions, operators []NodesOp
 			// Processing file content type as string.
 			if fileOptions.ContentType == StringContentType {
 				if !InContainsDir(child.Path, fileOptions.IgnorePath) {
-					buffer, err := ioutil.ReadFile(child.Path)
+					buffer, err := os.ReadFile(child.Path)
 					if err != nil {
 						return err
 					}
@@ -336,7 +335,7 @@ func explorerRecursive(node *Node, fileOptions *FileOptions, operators []NodesOp
 }
 
 func convertResource(child *Node, operators []NodesOperator) (cr interface{}, err error) {
-	buffer, err := ioutil.ReadFile(child.Path)
+	buffer, err := os.ReadFile(child.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %v file content, err: %w", child.Name, err)
 	}
@@ -381,7 +380,7 @@ func convertResource(child *Node, operators []NodesOperator) (cr interface{}, er
 	return cr, nil
 }
 
-func fileFiltering(option *FileOptions, name, pathstr string) bool {
+func fileFiltering(option *FileOptions, name string) bool {
 	if ok := IsInSlice(option.IgnoreFile, name); ok {
 		return true
 	}

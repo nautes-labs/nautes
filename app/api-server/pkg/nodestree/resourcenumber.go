@@ -83,7 +83,7 @@ func setMapping(mapping map[string]*nodeInfo, node *Node, targetCount int) map[s
 			TargetCount: targetCount,
 		}
 	} else {
-		val.Count += 1
+		val.Count++
 	}
 
 	return mapping

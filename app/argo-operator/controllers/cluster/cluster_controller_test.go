@@ -17,6 +17,7 @@ package cluster
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -29,9 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-
+	utilstrings "github.com/nautes-labs/nautes/app/argo-operator/util/strings"
 	clusterConfig "github.com/nautes-labs/nautes/pkg/config/cluster"
+	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 )
 
 var (
@@ -40,6 +41,10 @@ var (
 	errNotFoundCluster = errors.New("cluster is not found")
 	errGetSecret       = errors.New("secret path is error")
 )
+
+func spliceResourceName() string {
+	return fmt.Sprintf("cluster-%s", utilstrings.RandStringRunes(5))
+}
 
 var _ = Describe("Cluster controller test cases", func() {
 	const (
@@ -123,7 +128,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		toCreate := &resourcev1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      resourceName,
@@ -214,7 +219,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -313,7 +318,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, nil, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -423,7 +428,7 @@ var _ = Describe("Cluster controller test cases", func() {
 			},
 		}
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -543,7 +548,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -670,7 +675,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -797,7 +802,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -884,7 +889,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -971,7 +976,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,
@@ -1098,7 +1103,7 @@ var _ = Describe("Cluster controller test cases", func() {
 		k8sClient = fakeCtl.GetClient()
 		fakeCtl.startCluster(argocd, secret, nautesConfig)
 
-		var resourceName = spliceResourceName("cluster")
+		var resourceName = spliceResourceName()
 		key := types.NamespacedName{
 			Namespace: DefaultNamespace,
 			Name:      resourceName,

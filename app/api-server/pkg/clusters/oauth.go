@@ -26,9 +26,7 @@ func NewOAuthProxyServer(cluster *resourcev1alpha1.Cluster) (OAuthProxy, error) 
 	}
 
 	component := cluster.Spec.ComponentsList.OauthProxy
-
-	switch component.Name {
-	case "oauth2-proxy":
+	if component.Name == "oauth2-proxy" {
 		return NewOAuth2Proxy(), nil
 	}
 
@@ -51,23 +49,19 @@ func NewOAuth2Proxy() OAuthProxy {
 	return &OAuth2Proxy{}
 }
 
-func (t *OAuth2Proxy) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
-	return "OAuth2Proxy", nil
-}
-
 func (o *OAuth2Proxy) GetOauthProxyServer(param *ClusterRegistrationParams) *OAuthProxyServer {
 	cluster := param.Cluster
 	redirect := o.GenerateOAuthProxyRedirect(cluster)
 	whitelistDomain := o.generateOAuthProxyWhitelistDomain(cluster)
 	hosts := o.getOAuthProxyHosts(cluster)
-	Ingresses := o.getIngress(param)
+	ingresses := o.getIngress(param)
 
 	return &OAuthProxyServer{
 		OAuth2Proxy: &OAuth2Proxy{
 			Hosts:           hosts,
 			WhitelistDomain: whitelistDomain,
 			Redirect:        redirect,
-			Ingresses:       Ingresses,
+			Ingresses:       ingresses,
 		},
 	}
 }
@@ -110,6 +104,7 @@ func (o *OAuth2Proxy) getOAuthProxyHosts(cluster *resourcev1alpha1.Cluster) stri
 
 func (o *OAuth2Proxy) getIngress(param *ClusterRegistrationParams) []*Ingress {
 	var hosts []*Ingress
+	var clusters = param.Clusters
 
 	if IsPhysicalProjectPipelineRuntime(param.Cluster) {
 		host := o.getIngressHost(param.Cluster)
@@ -121,10 +116,10 @@ func (o *OAuth2Proxy) getIngress(param *ClusterRegistrationParams) []*Ingress {
 		return hosts
 	}
 
-	for _, cluster := range param.Clusters {
-		if IsVirtualProjectPipelineRuntime(&cluster) &&
+	for i, cluster := range clusters {
+		if IsVirtualProjectPipelineRuntime(&clusters[i]) &&
 			cluster.Spec.HostCluster == param.Cluster.Name {
-			host := o.getIngressHost(&cluster)
+			host := o.getIngressHost(&clusters[i])
 			hosts = append(hosts, &Ingress{
 				Name: cluster.GetName(),
 				Host: host,

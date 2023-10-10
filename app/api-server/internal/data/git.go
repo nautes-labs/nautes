@@ -78,7 +78,8 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 	}
 	// set git config user name
 	localRepositoryPath := fmt.Sprintf("%s/%s", localRepositarySubPath, repoName)
-	cmd1 := exec.Command("git", "config", "user.name", param.User)
+	intput1 := fmt.Sprintf("config user.name %s", param.User)
+	cmd1 := exec.Command("git", intput1)
 	cmd1.Dir = localRepositoryPath
 	err = cmd1.Run()
 	if err != nil {
@@ -86,7 +87,8 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 	}
 
 	// set git config user email
-	cmd2 := exec.Command("git", "config", "user.email", param.Email)
+	input2 := fmt.Sprintf("config user.email %s", param.Email)
+	cmd2 := exec.Command("git", input2)
 	cmd2.Dir = localRepositoryPath
 	err = cmd2.Run()
 	if err != nil {
@@ -96,7 +98,7 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 	return localRepositoryPath, nil
 }
 
-func (g *gitRepo) Diff(ctx context.Context, path string, command ...string) (string, error) {
+func (g *gitRepo) Diff(_ context.Context, path string, command ...string) (string, error) {
 	cmd := exec.Command("git", "diff")
 	cmd.Args = append(cmd.Args, command...)
 	cmd.Dir = path
@@ -108,7 +110,7 @@ func (g *gitRepo) Diff(ctx context.Context, path string, command ...string) (str
 	return string(data), nil
 }
 
-func (g *gitRepo) Fetch(ctx context.Context, path string, command ...string) (string, error) {
+func (g *gitRepo) Fetch(_ context.Context, path string, command ...string) (string, error) {
 	cmd := exec.Command("git", "fetch")
 	cmd.Args = append(cmd.Args, command...)
 	cmd.Dir = path
@@ -120,7 +122,7 @@ func (g *gitRepo) Fetch(ctx context.Context, path string, command ...string) (st
 	return string(data), nil
 }
 
-func (g *gitRepo) Merge(ctx context.Context, path string) (string, error) {
+func (g *gitRepo) Merge(_ context.Context, path string) (string, error) {
 	cmd := exec.Command("git", "merge")
 	cmd.Dir = path
 	data, err := cmd.CombinedOutput()
@@ -158,36 +160,32 @@ func (g *gitRepo) Commit(ctx context.Context, path string) error {
 		return err
 	}
 
-	msg, err := generateCommitMessage(ctx)
-	if err != nil {
-		return err
-	}
-
-	cmdCommit := exec.Command("git", "commit", "-m", msg)
+	commit := generateCommitMessage(ctx)
+	cmdCommit := exec.Command("git", "commit", "-m", commit)
 	cmdCommit.Dir = path
 	data, err := cmdCommit.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("commit data: %v, err: %w", string(data), err)
+		return fmt.Errorf("commit output: %v, err: %w", string(data), err)
 	}
 
 	return nil
 }
 
-// generateCommitMessage is commit message through resource infomation splicing.
+// generateCommitMessage is commit message through resource information splicing.
 // eg: [API] Save_CodeRepoBinding: coderepobinding1, Product: test-product, CodeRepo: repo-1.
-func generateCommitMessage(ctx context.Context) (string, error) {
+func generateCommitMessage(ctx context.Context) string {
 	var commitMsg string
 
 	value := ctx.Value(biz.ResourceInfoKey)
 	info, ok := value.(*biz.ResourceInfo)
 	if !ok {
-		return "[API] Save operator", nil
+		return "[API] Save operator"
 	}
 	// If request resource kind is product,
 	// It means that when creating a product, the default commit message is initial.
 	if info.ResourceKind == nodestree.Product && info.Method == biz.SaveMethod {
 		commitMsg = "initial commit."
-		return commitMsg, nil
+		return commitMsg
 	}
 
 	commitMsg = fmt.Sprintf("[API] %s_%s: %s", info.Method, info.ResourceKind, info.ResourceName)
@@ -204,10 +202,10 @@ func generateCommitMessage(ctx context.Context) (string, error) {
 		commitMsg += "."
 	}
 
-	return commitMsg, nil
+	return commitMsg
 }
 
-func (g *gitRepo) Push(ctx context.Context, path string, command ...string) error {
+func (g *gitRepo) Push(_ context.Context, path string, command ...string) error {
 	cmd := exec.Command("git", "push")
 	cmd.Args = append(cmd.Args, command...)
 	cmd.Dir = path

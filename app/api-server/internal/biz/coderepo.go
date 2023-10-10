@@ -35,7 +35,7 @@ type CodeRepoUsecase struct {
 	log                    *log.Helper
 	codeRepo               CodeRepo
 	secretRepo             Secretrepo
-	nodestree              nodestree.NodesTree
+	nodeOperator           nodestree.NodesTree
 	config                 *nautesconfigs.Config
 	resourcesUsecase       *ResourcesUsecase
 	codeRepoBindingUsecase *CodeRepoBindingUsecase
@@ -47,18 +47,18 @@ type CodeRepoData struct {
 	Spec resourcev1alpha1.CodeRepoSpec
 }
 
-func NewCodeRepoUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, nodestree nodestree.NodesTree, config *nautesconfigs.Config, resourcesUsecase *ResourcesUsecase, codeRepoBindingUsecase *CodeRepoBindingUsecase, client client.Client) *CodeRepoUsecase {
+func NewCodeRepoUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, nodeOperator nodestree.NodesTree, config *nautesconfigs.Config, resourcesUsecase *ResourcesUsecase, codeRepoBindingUsecase *CodeRepoBindingUsecase, client client.Client) *CodeRepoUsecase {
 	codeRepoUsecase := &CodeRepoUsecase{
 		log:                    log.NewHelper(log.With(logger)),
 		codeRepo:               codeRepo,
 		secretRepo:             secretRepo,
-		nodestree:              nodestree,
+		nodeOperator:           nodeOperator,
 		config:                 config,
 		resourcesUsecase:       resourcesUsecase,
 		codeRepoBindingUsecase: codeRepoBindingUsecase,
 		client:                 client,
 	}
-	nodestree.AppendOperators(codeRepoUsecase)
+	nodeOperator.AppendOperators(codeRepoUsecase)
 	return codeRepoUsecase
 }
 
@@ -167,9 +167,9 @@ func (c *CodeRepoUsecase) listProjectCodeRepos(ctx context.Context, productName 
 
 		if len(projects) < PerPage {
 			break
-		} else {
-			options.ListOptions.Page += 1
 		}
+
+		options.ListOptions.Page++
 	}
 
 	return items, nil
@@ -299,15 +299,13 @@ func (c *CodeRepoUsecase) DeleteCodeRepo(ctx context.Context, options *BizOption
 		return err
 	}
 
-	if err = c.codeRepo.DeleteCodeRepo(ctx, pid); err != nil {
-		return err
-	}
+	err = c.codeRepo.DeleteCodeRepo(ctx, pid)
 
-	return nil
+	return err
 }
 
-func (c *CodeRepoUsecase) getCodeRepoByName(ctx context.Context, nodes *nodestree.Node, codeRepoName string) (*resourcev1alpha1.CodeRepo, error) {
-	node := c.nodestree.GetNode(nodes, nodestree.CodeRepo, codeRepoName)
+func (c *CodeRepoUsecase) getCodeRepoByName(_ context.Context, nodes *nodestree.Node, codeRepoName string) (*resourcev1alpha1.CodeRepo, error) {
+	node := c.nodeOperator.GetNode(nodes, nodestree.CodeRepo, codeRepoName)
 	if node == nil {
 		return nil, commonv1.ErrorNodeNotFound("failed to get coderepo of repository %s", codeRepoName)
 	}
@@ -579,7 +577,7 @@ func (c *CodeRepoUsecase) removeInvalidProjectAccessTokens(ctx context.Context, 
 		return err
 	}
 
-	err = c.deleteSameNameAccessToken(accessTokensToDelete, projectAccessTokens, ctx, pid)
+	err = c.deleteSameNameAccessToken(ctx, accessTokensToDelete, projectAccessTokens, pid)
 	if err != nil {
 		return err
 	}
@@ -587,7 +585,7 @@ func (c *CodeRepoUsecase) removeInvalidProjectAccessTokens(ctx context.Context, 
 	return nil
 }
 
-func (c *CodeRepoUsecase) deleteSameNameAccessToken(accessTokensToDelete []*ProjectAccessToken, projectAccessTokens []*ProjectAccessToken, ctx context.Context, pid int) error {
+func (c *CodeRepoUsecase) deleteSameNameAccessToken(ctx context.Context, accessTokensToDelete []*ProjectAccessToken, projectAccessTokens []*ProjectAccessToken, pid int) error {
 	for _, token := range accessTokensToDelete {
 		for _, validToken := range projectAccessTokens {
 			if token.Name == validToken.Name {
@@ -617,9 +615,9 @@ func (c *CodeRepoUsecase) filterAccessTokensByIDList(ctx context.Context, pid in
 	return filteredAccessTokens, nil
 }
 
-type listFunc func(ctx context.Context, pid int, opts *ListOptions) ([]interface{}, error)
+type ListFunc func(ctx context.Context, pid int, opts *ListOptions) ([]interface{}, error)
 
-func getAllItems(ctx context.Context, pid int, opts *ListOptions, getAllFunc listFunc) ([]interface{}, error) {
+func getAllItems(ctx context.Context, pid int, opts *ListOptions, getAllFunc ListFunc) ([]interface{}, error) {
 	allItems := []interface{}{}
 	var err error
 	for {
@@ -628,7 +626,7 @@ func getAllItems(ctx context.Context, pid int, opts *ListOptions, getAllFunc lis
 		if err != nil {
 			return nil, err
 		}
-		opts.Page += 1
+		opts.Page++
 		allItems = append(allItems, items...)
 		if len(items) != opts.PerPage {
 			break
@@ -677,7 +675,7 @@ func GetAllDeployKeys(ctx context.Context, codeRepo CodeRepo, pid int) ([]*Proje
 		Page:    1,
 		PerPage: 10,
 	}
-	items, err := getAllItems(ctx, pid, opts, ListDeployKeys(ctx, codeRepo, pid, opts))
+	items, err := getAllItems(ctx, pid, opts, ListDeployKeys(codeRepo))
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +691,7 @@ func GetAllDeployKeys(ctx context.Context, codeRepo CodeRepo, pid int) ([]*Proje
 	return allDeployKeys, nil
 }
 
-func ListDeployKeys(ctx context.Context, codeRepo CodeRepo, pid int, opts *ListOptions) listFunc {
+func ListDeployKeys(codeRepo CodeRepo) ListFunc {
 	return func(ctx context.Context, pid int, opts *ListOptions) ([]interface{}, error) {
 		keys, err := codeRepo.ListDeployKeys(ctx, pid, opts)
 		if err != nil {
@@ -725,7 +723,13 @@ func (c *CodeRepoUsecase) saveDeployKeyToGitAndSecretRepo(ctx context.Context, p
 	extendKVs := make(map[string]string)
 	extendKVs[Fingerprint] = projectDeployKey.Key
 	extendKVs[DeployKeyID] = strconv.Itoa(projectDeployKey.ID)
-	err = c.secretRepo.SaveDeployKey(ctx, getCodeRepoResourceName(pid), string(privateKey), DefaultUser, permission, extendKVs)
+	data := &SecretData{
+		Name:       getCodeRepoResourceName(pid),
+		User:       DefaultUser,
+		Permission: permission,
+		Key:        string(privateKey),
+	}
+	err = c.secretRepo.SaveDeployKey(ctx, data, extendKVs)
 	if err != nil {
 		return nil, err
 	}
@@ -736,7 +740,7 @@ func (c *CodeRepoUsecase) saveDeployKeyToGitAndSecretRepo(ctx context.Context, p
 func (c *CodeRepoUsecase) createAccessTokenToGitAndSecretRepo(ctx context.Context, pid int) (*ProjectAccessToken, error) {
 	name := AccessTokenName
 	scopes := []string{string(APIPermission)}
-	accessLevel := AccessLevelValue(Maintainer)
+	accessLevel := Maintainer
 	projectToken, err := c.codeRepo.CreateProjectAccessToken(ctx, pid, &CreateProjectAccessTokenOptions{
 		Name:        &name,
 		Scopes:      &scopes,
@@ -748,7 +752,7 @@ func (c *CodeRepoUsecase) createAccessTokenToGitAndSecretRepo(ctx context.Contex
 
 	extendKVs := make(map[string]string)
 	extendKVs[AccessTokenID] = strconv.Itoa(projectToken.ID)
-	err = c.secretRepo.SaveProjectAccessToken(ctx, getCodeRepoResourceName(pid), string(projectToken.Token), DefaultUser, name, extendKVs)
+	err = c.secretRepo.SaveProjectAccessToken(ctx, getCodeRepoResourceName(pid), projectToken.Token, DefaultUser, name, extendKVs)
 	if err != nil {
 		return nil, err
 	}
@@ -782,7 +786,7 @@ func (c *CodeRepoUsecase) CreateNode(path string, data interface{}) (*nodestree.
 
 	codeRepoProvider, err := getCodeRepoProvider(c.client, c.config.Nautes.Namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the infomation of the codeRepoProvider list when creating node")
+		return nil, fmt.Errorf("failed to get the information of the codeRepoProvider list when creating node")
 	}
 
 	if codeRepoProvider != nil {
@@ -816,7 +820,7 @@ func (c *CodeRepoUsecase) UpdateNode(node *nodestree.Node, data interface{}) (*n
 	codeRepo.Spec = val.Spec
 	codeRepoProvider, err := getCodeRepoProvider(c.client, c.config.Nautes.Namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the infomation of the codeRepoProvider list when creating node")
+		return nil, fmt.Errorf("failed to get the information of the codeRepoProvider list when creating node")
 	}
 
 	if codeRepoProvider != nil {

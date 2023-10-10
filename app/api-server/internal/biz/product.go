@@ -160,7 +160,6 @@ func (p *ProductUsecase) ListProducts(ctx context.Context) ([]*GroupAndProjectIt
 			})
 
 			p.lock.Unlock()
-
 		}(gid, project)
 	}
 
@@ -242,7 +241,7 @@ func (p *ProductUsecase) saveDefaultProject(ctx context.Context, group *Group) (
 		}
 		defer cleanCodeRepo(localPath)
 
-		err = p.resourcesUsecase.SaveDeployConfig(nil, localPath)
+		err = p.resourcesUsecase.updateKustomization(nil, localPath)
 		if err != nil {
 			return nil, err
 		}
@@ -337,7 +336,7 @@ func CreateGroup(ctx context.Context, codeRepo CodeRepo, gitOptions *GitGroupOpt
 	return
 }
 
-func UpdateGroup(ctx context.Context, codeRepo CodeRepo, configClient *nautesconfigs.Config, gid int, git *GitGroupOptions) (group *Group, err error) {
+func UpdateGroup(ctx context.Context, codeRepo CodeRepo, _ *nautesconfigs.Config, gid int, git *GitGroupOptions) (group *Group, err error) {
 	group, err = codeRepo.UpdateGroup(ctx, gid, git)
 	if err != nil {
 		return nil, err

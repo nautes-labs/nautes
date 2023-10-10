@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	deploymentruntimev1 "github.com/nautes-labs/nautes/api/api-server/deploymentruntime/v1"
-	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/internal/biz"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
@@ -117,11 +116,17 @@ func (s *DeploymentruntimeService) ListDeploymentRuntimes(ctx context.Context, r
 }
 
 func (s *DeploymentruntimeService) SaveDeploymentRuntime(ctx context.Context, req *deploymentruntimev1.SaveRequest) (*deploymentruntimev1.SaveReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.SaveMethod, "", "", nodestree.DeploymentRuntime, req.DeploymentruntimeName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.SaveMethod,
+		ResourceKind: nodestree.DeploymentRuntime,
+		ResourceName: req.DeploymentruntimeName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	data := &biz.DeploymentRuntimeData{
 		Name: req.DeploymentruntimeName,
-		Spec: v1alpha1.DeploymentRuntimeSpec{
+		Spec: resourcev1alpha1.DeploymentRuntimeSpec{
 			Product:     req.ProductName,
 			ProjectsRef: req.Body.ProjectsRef,
 			Destination: resourcev1alpha1.DeploymentRuntimesDestination{
@@ -151,7 +156,13 @@ func (s *DeploymentruntimeService) SaveDeploymentRuntime(ctx context.Context, re
 }
 
 func (s *DeploymentruntimeService) DeleteDeploymentRuntime(ctx context.Context, req *deploymentruntimev1.DeleteRequest) (*deploymentruntimev1.DeleteReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.DeleteMethod, "", "", nodestree.DeploymentRuntime, req.DeploymentruntimeName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.DeploymentRuntime,
+		ResourceName: req.DeploymentruntimeName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ResouceName:       req.DeploymentruntimeName,
@@ -168,13 +179,13 @@ func (s *DeploymentruntimeService) DeleteDeploymentRuntime(ctx context.Context, 
 	}, nil
 }
 
-func (d *DeploymentruntimeService) ConvertProductAndRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
-	err := d.ConvertCodeRepoToRepoName(ctx, runtime)
+func (s *DeploymentruntimeService) ConvertProductAndRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
+	err := s.ConvertCodeRepoToRepoName(ctx, runtime)
 	if err != nil {
 		return err
 	}
 
-	err = d.ConvertProductToGroupName(ctx, runtime)
+	err = s.ConvertProductToGroupName(ctx, runtime)
 	if err != nil {
 		return err
 	}
@@ -182,12 +193,12 @@ func (d *DeploymentruntimeService) ConvertProductAndRepoName(ctx context.Context
 	return nil
 }
 
-func (p *DeploymentruntimeService) ConvertCodeRepoToRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
+func (s *DeploymentruntimeService) ConvertCodeRepoToRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
 	if runtime.Spec.ManifestSource.CodeRepo == "" {
 		return fmt.Errorf("the codeRepo field value of deploymentruntime %s should not be empty", runtime.Name)
 	}
 
-	repoName, err := p.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, runtime.Spec.ManifestSource.CodeRepo)
+	repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, runtime.Spec.ManifestSource.CodeRepo)
 	if err != nil {
 		return err
 	}
@@ -196,12 +207,12 @@ func (p *DeploymentruntimeService) ConvertCodeRepoToRepoName(ctx context.Context
 	return nil
 }
 
-func (c *DeploymentruntimeService) ConvertProductToGroupName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
+func (s *DeploymentruntimeService) ConvertProductToGroupName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
 	if runtime.Spec.Product == "" {
 		return fmt.Errorf("the product field value of deploymentruntime %s should not be empty", runtime.Name)
 	}
 
-	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, runtime.Spec.Product)
+	groupName, err := s.resourcesUsecase.ConvertProductToGroupName(ctx, runtime.Spec.Product)
 	if err != nil {
 		return err
 	}

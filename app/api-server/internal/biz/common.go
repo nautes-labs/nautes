@@ -75,22 +75,24 @@ const (
 )
 
 const (
-	// layout resouce directory names.
+	// layout resource directory names.
 	CodeReposSubDir = "code-repos"
 	RuntimesDir     = "runtimes"
 	EnvSubDir       = "envs"
 	ProjectsDir     = "projects"
 )
 
+type RescourceContext string
+
 // Constants used to store commit information.
 const (
-	ResourceInfoKey = "ResourceInfoKey"
+	ResourceInfoKey RescourceContext = "ResourceInfoKey"
 	// mark this request method
 	SaveMethod   = "Save"
 	DeleteMethod = "Delete"
 )
 
-// This is inital page options.
+// This is initial page options.
 const (
 	PerPage = 40
 	Page    = 1
@@ -122,16 +124,17 @@ type CodeRepoTotalPermission struct {
 	ReadOnly     *CodeRepoPermission
 }
 
+type RescourceInformation struct {
+	ProductName       string
+	Method            string
+	ParentResouceKind string
+	ParentResouceName string
+	ResourceKind      string
+	ResourceName      string
+}
+
 // SetResourceContext is mount resource information to context.
-func SetResourceContext(ctx context.Context, productName, method, parentResouceKind, parentResouceName, resourceKind, resourceName string) context.Context {
-	info := &ResourceInfo{
-		ProductName:        productName,
-		Method:             method,
-		ParentResouceKind:  parentResouceKind,
-		ParentResourceName: parentResouceName,
-		ResourceKind:       resourceKind,
-		ResourceName:       resourceName,
-	}
+func SetResourceContext(ctx context.Context, info *RescourceInformation) context.Context {
 	return context.WithValue(ctx, ResourceInfoKey, info)
 }
 

@@ -132,7 +132,7 @@ func IsIPPortURL(urlString string) bool {
 	return ip != nil
 }
 
-func CheckURL(url string) bool {
+func CheckURL(address string) bool {
 	regex := regexp.MustCompile(`^(https?://)`)
-	return regex.MatchString(url)
+	return regex.MatchString(address)
 }

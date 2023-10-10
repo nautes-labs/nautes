@@ -37,15 +37,17 @@ type OAuth struct {
 }
 
 type Connector struct {
-	Type   string `yaml:"type"`
-	ID     string `yaml:"id"`
-	Name   string `yaml:"name"`
-	Config struct {
-		BaseURL      string `yaml:"baseURL"`
-		ClientID     string `yaml:"clientID"`
-		ClientSecret string `yaml:"clientSecret"`
-		RedirectURI  string `yaml:"redirectURI"`
-	} `yaml:"config"`
+	Type   string           `yaml:"type"`
+	ID     string           `yaml:"id"`
+	Name   string           `yaml:"name"`
+	Config ConnectorsConfig `yaml:"config"`
+}
+
+type ConnectorsConfig struct {
+	BaseURL      string `yaml:"baseURL"`
+	ClientID     string `yaml:"clientID"`
+	ClientSecret string `yaml:"clientSecret"`
+	RedirectURI  string `yaml:"redirectURI"`
 }
 
 type Web struct {

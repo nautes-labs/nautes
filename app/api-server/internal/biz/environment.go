@@ -42,18 +42,18 @@ type EnviromentData struct {
 	Spec resourcev1alpha1.EnvironmentSpec
 }
 
-func NewEnviromentUsecase(logger log.Logger, config *nautesconfigs.Config, codeRepo CodeRepo, nodestree nodestree.NodesTree, resourcesUsecase *ResourcesUsecase) *EnvironmentUsecase {
-	env := &EnvironmentUsecase{log: log.NewHelper(log.With(logger)), config: config, codeRepo: codeRepo, nodestree: nodestree, resourcesUsecase: resourcesUsecase}
-	nodestree.AppendOperators(env)
+func NewEnviromentUsecase(logger log.Logger, config *nautesconfigs.Config, codeRepo CodeRepo, nodeOperator nodestree.NodesTree, resourcesUsecase *ResourcesUsecase) *EnvironmentUsecase {
+	env := &EnvironmentUsecase{log: log.NewHelper(log.With(logger)), config: config, codeRepo: codeRepo, nodestree: nodeOperator, resourcesUsecase: resourcesUsecase}
+	nodeOperator.AppendOperators(env)
 	return env
 }
 
-func (c *EnvironmentUsecase) ConvertProductToGroupName(ctx context.Context, env *resourcev1alpha1.Environment) error {
+func (e *EnvironmentUsecase) ConvertProductToGroupName(ctx context.Context, env *resourcev1alpha1.Environment) error {
 	if env.Spec.Product == "" {
-		return fmt.Errorf("the product field value of enviroment %s should not be empty", env.Spec.Product)
+		return fmt.Errorf("the product field value of environment %s should not be empty", env.Spec.Product)
 	}
 
-	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, env.Spec.Product)
+	groupName, err := e.resourcesUsecase.ConvertProductToGroupName(ctx, env.Spec.Product)
 	if err != nil {
 		return err
 	}
@@ -93,33 +93,6 @@ func (e *EnvironmentUsecase) ListEnvironments(ctx context.Context, productName s
 	nodes := nodestree.ListsResourceNodes(*resourceNodes, nodestree.Environment)
 
 	return nodes, nil
-}
-
-func (e *EnvironmentUsecase) nodesToLists(nodes nodestree.Node) ([]*resourcev1alpha1.Environment, error) {
-	var resourcesSubDir *nodestree.Node
-	var resources []*resourcev1alpha1.Environment
-
-	for _, child := range nodes.Children {
-		if child.Name == EnvSubDir {
-			resourcesSubDir = child
-			break
-		}
-	}
-
-	if resourcesSubDir == nil {
-		return nil, ErrorNodetNotFound
-	}
-
-	for _, node := range resourcesSubDir.Children {
-		env, err := e.nodeToResource(node)
-		if err != nil {
-			return nil, err
-		}
-
-		resources = append(resources, env)
-	}
-
-	return resources, nil
 }
 
 func (e *EnvironmentUsecase) nodeToResource(node *nodestree.Node) (*resourcev1alpha1.Environment, error) {
@@ -286,9 +259,9 @@ func (e *EnvironmentUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.Environment)
 	for i := 0; i < len(resourceNodes); i++ {
 		for j := i + 1; j < len(resourceNodes); j++ {
-			if v1, ok := resourceNodes[i].Content.(*resourcev1alpha1.Environment); ok {
-				if v2, ok := resourceNodes[j].Content.(*resourcev1alpha1.Environment); ok {
-					ok, err := v1.Compare(v2)
+			if runtime1, ok := resourceNodes[i].Content.(*resourcev1alpha1.Environment); ok {
+				if runtime2, ok := resourceNodes[j].Content.(*resourcev1alpha1.Environment); ok {
+					ok, err := runtime1.Compare(runtime2)
 					if err != nil {
 						return false, err
 					}

@@ -63,7 +63,6 @@ func (r *CodeRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	r.Log.V(1).Info("Start Reconcile", ResourceName, codeRepo.Name)
-
 	if codeRepo.ObjectMeta.DeletionTimestamp.IsZero() {
 		if err = codeRepo.Validate(); err != nil {
 			r.Log.V(1).Error(err, "resource verification failed", ResourceName, codeRepo.Name)
@@ -77,7 +76,6 @@ func (r *CodeRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			r.Log.V(1).Error(err, "failed to add finalizer", ResourceName, codeRepo.Name)
 			return ctrl.Result{}, err
 		}
-
 	} else {
 		if codeRepo.Status.Sync2ArgoStatus != nil && codeRepo.Status.Sync2ArgoStatus.Url != "" {
 			if err := r.deleteCodeRepo(codeRepo.Status.Sync2ArgoStatus.Url); err != nil {
@@ -120,7 +118,7 @@ func (r *CodeRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	secret, err := r.getSecret(ctx, codeRepo, nautesConfigs)
+	secretData, err := r.getSecret(ctx, codeRepo, nautesConfigs)
 	if err != nil {
 		errMsg := fmt.Errorf("failed to get secret, err: %v", err)
 		r.Log.V(1).Error(err, "failed to get secret", ResourceName, codeRepo.Name)
@@ -132,7 +130,7 @@ func (r *CodeRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	r.Log.V(1).Info("Successfully get secret", ResourceName, codeRepo.Name)
 
-	sync, err := r.syncCodeRepo2Argocd(codeRepo, url, secret)
+	sync, err := r.syncCodeRepo2Argocd(codeRepo, url, secretData)
 	if err != nil {
 		errMsg := fmt.Errorf("failed to sync codeRepo to argocd, err: %v", err)
 		r.Log.V(1).Error(err, "failed to sync codeRepo to argocd", ResourceName, codeRepo.Name)
@@ -143,7 +141,7 @@ func (r *CodeRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if sync {
-		if err = r.setSync2ArgoStatus(ctx, codeRepo, url, secret.ID); err != nil {
+		if err = r.setSync2ArgoStatus(ctx, codeRepo, url, secretData.ID); err != nil {
 			r.Log.V(1).Error(err, "failed to set Sync2ArgoStatus status", ResourceName, codeRepo.Name)
 			if err := r.setConditionAndUpdateStatus(ctx, codeRepo, err.Error(), metav1.ConditionFalse); err != nil {
 				return ctrl.Result{}, err

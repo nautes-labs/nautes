@@ -24,7 +24,6 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 
 	"net/http/pprof"
-	_ "net/http/pprof"
 
 	nethppt "net/http"
 
@@ -65,15 +64,14 @@ func init() {
 }
 
 func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server) *kratos.App {
-
 	pprofMux := nethppt.NewServeMux()
 	pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
 	pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	server := &nethppt.Server{Addr: fmt.Sprintf(":%d", 6060), Handler: pprofMux}
-	go server.ListenAndServe()
+	server := &nethppt.Server{Addr: fmt.Sprintf(":%d", 6060), Handler: pprofMux} //nolint:gosec
+	go server.ListenAndServe()                                                   //nolint:errcheck
 
 	return kratos.New(
 		kratos.ID(id),
@@ -100,7 +98,10 @@ func main() {
 		"span.id", tracing.SpanID(),
 	)
 
-	logger.Log(-1, "global-config-namespace", globalConfigNamespace, "global-config-name", globalConfigName)
+	err := logger.Log(-1, "global-config-namespace", globalConfigNamespace, "global-config-name", globalConfigName)
+	if err != nil {
+		panic(err)
+	}
 
 	c := config.New(
 		config.WithSource(
@@ -118,17 +119,17 @@ func main() {
 		panic(err)
 	}
 
-	client, err := kubernetes.NewClient()
+	k8sClient, err := kubernetes.NewClient()
 	if err != nil {
 		panic(err)
 	}
 
-	nodesTree, err := NewNodestree(client)
+	nodesTree, err := NewNodestree(k8sClient)
 	if err != nil {
 		panic(err)
 	}
 
-	nautesconfigs, err := GetNautesConfigs(client, globalConfigNamespace, globalConfigName)
+	gloabalConfigs, err := GetNautesConfigs(k8sClient, globalConfigNamespace, globalConfigName)
 	if err != nil {
 		panic(err)
 	}
@@ -141,7 +142,7 @@ func main() {
 	stop := make(chan struct{})
 	q := nautesqueue.NewQueue(stop, 1)
 
-	app, cleanup, err := wireApp(bc.Server, logger, nodesTree, nautesconfigs, client, clusterOperator, q)
+	app, cleanup, err := wireApp(bc.Server, logger, nodesTree, gloabalConfigs, k8sClient, clusterOperator, q)
 	if err != nil {
 		panic(err)
 	}
@@ -154,8 +155,8 @@ func main() {
 	}
 }
 
-func NewNodestree(client client.Client) (nodestree.NodesTree, error) {
-	resources_layout, err := nodestree.NewConfig()
+func NewNodestree(k8sClient client.Client) (nodestree.NodesTree, error) {
+	resourcesLayout, err := nodestree.NewConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -164,17 +165,17 @@ func NewNodestree(client client.Client) (nodestree.NodesTree, error) {
 		ExclusionsSuffix: []string{".txt", ".md"},
 		ContentType:      nodestree.CRDContentType,
 	}
-	nodesTree := nodestree.NewNodestree(fileOptions, resources_layout, client)
+	nodesTree := nodestree.NewNodestree(fileOptions, resourcesLayout, k8sClient)
 
 	return nodesTree, nil
 }
 
-func GetNautesConfigs(c client.Client, namespace, name string) (nautesConfigs *nautesconfigs.Config, err error) {
-	config := nautesconfigs.NautesConfigs{
+func GetNautesConfigs(k8sClient client.Client, namespace, configName string) (nautesConfigs *nautesconfigs.Config, err error) {
+	c := nautesconfigs.NautesConfigs{
 		Namespace: namespace,
-		Name:      name,
+		Name:      configName,
 	}
-	nautesConfigs, err = config.GetConfigByClient(c)
+	nautesConfigs, err = c.GetConfigByClient(k8sClient)
 	if err != nil {
 		return
 	}

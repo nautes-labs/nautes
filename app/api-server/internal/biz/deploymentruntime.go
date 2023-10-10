@@ -32,7 +32,7 @@ import (
 type DeploymentRuntimeUsecase struct {
 	log              *log.Helper
 	codeRepo         CodeRepo
-	nodestree        nodestree.NodesTree
+	nodeOperator     nodestree.NodesTree
 	resourcesUsecase *ResourcesUsecase
 	client           client.Client
 	config           *nautesconfigs.Config
@@ -43,16 +43,16 @@ type DeploymentRuntimeData struct {
 	Spec resourcev1alpha1.DeploymentRuntimeSpec
 }
 
-func NewDeploymentRuntimeUsecase(logger log.Logger, codeRepo CodeRepo, nodestree nodestree.NodesTree, resourcesUsecase *ResourcesUsecase, client client.Client, config *nautesconfigs.Config) *DeploymentRuntimeUsecase {
+func NewDeploymentRuntimeUsecase(logger log.Logger, codeRepo CodeRepo, nodeOperator nodestree.NodesTree, resourcesUsecase *ResourcesUsecase, k8sClient client.Client, config *nautesconfigs.Config) *DeploymentRuntimeUsecase {
 	runtime := &DeploymentRuntimeUsecase{
 		log:              log.NewHelper(log.With(logger)),
 		codeRepo:         codeRepo,
-		nodestree:        nodestree,
+		nodeOperator:     nodeOperator,
 		resourcesUsecase: resourcesUsecase,
-		client:           client,
+		client:           k8sClient,
 		config:           config,
 	}
-	nodestree.AppendOperators(runtime)
+	nodeOperator.AppendOperators(runtime)
 	return runtime
 }
 
@@ -112,7 +112,7 @@ func (d *DeploymentRuntimeUsecase) SaveDeploymentRuntime(ctx context.Context, op
 	return nil
 }
 
-func (e *DeploymentRuntimeUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
+func (d *DeploymentRuntimeUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
 	val, ok := data.(*DeploymentRuntimeData)
 	if !ok {
 		return nil, fmt.Errorf("failed to create node, the path is %s", path)
@@ -141,7 +141,7 @@ func (e *DeploymentRuntimeUsecase) CreateNode(path string, data interface{}) (*n
 	}, nil
 }
 
-func (e *DeploymentRuntimeUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {
+func (d *DeploymentRuntimeUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {
 	val, ok := data.(*DeploymentRuntimeData)
 	if !ok {
 		return nil, fmt.Errorf("failed to update node %s", resourceNode.Name)
@@ -163,7 +163,7 @@ func (e *DeploymentRuntimeUsecase) UpdateNode(resourceNode *nodestree.Node, data
 	return resourceNode, nil
 }
 
-func (d *DeploymentRuntimeUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, k8sClient client.Client) (bool, error) {
+func (d *DeploymentRuntimeUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, _ client.Client) (bool, error) {
 	if node.Kind != nodestree.DeploymentRuntime {
 		return false, nil
 	}
@@ -215,7 +215,7 @@ func (d *DeploymentRuntimeUsecase) CheckReference(options nodestree.CompareOptio
 		return true, err
 	}
 
-	validateClient := validate.NewValidateClient(d.client, d.nodestree, &options.Nodes, d.config.Nautes.Namespace, options.ProductName)
+	validateClient := validate.NewValidateClient(d.client, d.nodeOperator, &options.Nodes, d.config.Nautes.Namespace, options.ProductName)
 	deploymentRuntime.Namespace = options.ProductName
 	illegalProjectRefs, err := deploymentRuntime.Validate(context.TODO(), validateClient)
 	if err != nil {
@@ -240,9 +240,9 @@ func (d *DeploymentRuntimeUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.DeploymentRuntime)
 	for i := 0; i < len(resourceNodes); i++ {
 		for j := i + 1; j < len(resourceNodes); j++ {
-			if v1, ok := resourceNodes[i].Content.(*resourcev1alpha1.DeploymentRuntime); ok {
-				if v2, ok := resourceNodes[j].Content.(*resourcev1alpha1.DeploymentRuntime); ok {
-					ok, err := v1.Compare(v2)
+			if runtime1, ok := resourceNodes[i].Content.(*resourcev1alpha1.DeploymentRuntime); ok {
+				if runtime2, ok := resourceNodes[j].Content.(*resourcev1alpha1.DeploymentRuntime); ok {
+					ok, err := runtime1.Compare(runtime2)
 					if err != nil {
 						return false, err
 					}

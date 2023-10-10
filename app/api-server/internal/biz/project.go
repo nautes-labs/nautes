@@ -41,9 +41,9 @@ type ProjectData struct {
 	Language    string
 }
 
-func NewProjectUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, nodestree nodestree.NodesTree, configs *nautesconfigs.Config, resourcesUsecase *ResourcesUsecase) *ProjectUsecase {
-	project := &ProjectUsecase{log: log.NewHelper(log.With(logger)), codeRepo: codeRepo, secretRepo: secretRepo, nodestree: nodestree, configs: configs, resourcesUsecase: resourcesUsecase}
-	nodestree.AppendOperators(project)
+func NewProjectUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, nodeOperator nodestree.NodesTree, configs *nautesconfigs.Config, resourcesUsecase *ResourcesUsecase) *ProjectUsecase {
+	project := &ProjectUsecase{log: log.NewHelper(log.With(logger)), codeRepo: codeRepo, secretRepo: secretRepo, nodestree: nodeOperator, configs: configs, resourcesUsecase: resourcesUsecase}
+	nodeOperator.AppendOperators(project)
 	return project
 }
 
@@ -68,9 +68,9 @@ func (p *ProjectUsecase) GetProject(ctx context.Context, projectName, productNam
 func (p *ProjectUsecase) nodeToProject(node *nodestree.Node) (*resourcev1alpha1.Project, error) {
 	if project, ok := node.Content.(*resourcev1alpha1.Project); ok {
 		return project, nil
-	} else {
-		return nil, fmt.Errorf("failed to get %s project", node.Name)
 	}
+
+	return nil, fmt.Errorf("failed to get %s project", node.Name)
 }
 
 func (p *ProjectUsecase) ListProjects(ctx context.Context, productName string) ([]*resourcev1alpha1.Project, error) {
@@ -182,7 +182,6 @@ func (p *ProjectUsecase) CreateNode(path string, data interface{}) (*nodestree.N
 	}
 
 	return resourceNode, nil
-
 }
 
 func (p *ProjectUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {
@@ -206,7 +205,7 @@ func (p *ProjectUsecase) UpdateNode(resourceNode *nodestree.Node, data interface
 	return resourceNode, nil
 }
 
-func (p *ProjectUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, k8sClient client.Client) (bool, error) {
+func (p *ProjectUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, _ client.Client) (bool, error) {
 	if node.Kind != nodestree.Project {
 		return false, nil
 	}

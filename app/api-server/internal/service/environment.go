@@ -102,7 +102,13 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, req *environm
 }
 
 func (s *EnvironmentService) SaveEnvironment(ctx context.Context, req *environmentv1.SaveRequest) (*environmentv1.SaveReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.SaveMethod, "", "", nodestree.Environment, req.EnvironmentName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.SaveMethod,
+		ResourceKind: nodestree.Environment,
+		ResourceName: req.EnvironmentName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ResouceName:       req.EnvironmentName,
@@ -126,7 +132,13 @@ func (s *EnvironmentService) SaveEnvironment(ctx context.Context, req *environme
 }
 
 func (s *EnvironmentService) DeleteEnvironment(ctx context.Context, req *environmentv1.DeleteRequest) (*environmentv1.DeleteReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.DeleteMethod, "", "", nodestree.Environment, req.EnvironmentName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.Environment,
+		ResourceName: req.EnvironmentName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ResouceName:       req.EnvironmentName,

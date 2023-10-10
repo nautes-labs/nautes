@@ -120,7 +120,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	secret, err := r.getSecret(ctx, req.Name, req.Namespace, nautesConfigs)
+	secretData, err := r.getSecret(ctx, req.Name, nautesConfigs)
 	if err != nil {
 		r.Log.V(1).Error(err, "failed to get secret", ResourceName, cluster.Name)
 		condition = metav1.Condition{Type: ClusterConditionType, Message: err.Error(), Reason: RegularUpdate, Status: metav1.ConditionFalse}
@@ -130,7 +130,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
-	tune, err := r.syncCluster2Argocd(ctx, cluster, secret.Kubeconfig, secret.ID)
+	tune, err := r.syncCluster2Argocd(ctx, cluster, secretData.Kubeconfig, secretData.ID)
 	if tune && err != nil {
 		errMsg := fmt.Errorf("failed to sync cluster to argocd, err: %v", err)
 		r.Log.V(1).Error(err, "failed to sync cluster to argocd", ResourceName, cluster.Name)

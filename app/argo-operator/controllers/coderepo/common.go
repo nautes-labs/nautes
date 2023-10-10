@@ -14,17 +14,7 @@
 
 package coderepo
 
-import (
-	"fmt"
-
-	utilstrings "github.com/nautes-labs/nautes/app/argo-operator/util/strings"
-)
-
 const (
 	RegularUpdate         = "RegularUpdate"
 	CodeRepoConditionType = "CodeRepoSyncToArgocd"
 )
-
-func generateResourceName(name string) string {
-	return fmt.Sprintf("%s-%s", name, utilstrings.RandStringRunes(5))
-}

@@ -29,33 +29,45 @@ type ConfigMap struct {
 }
 
 type DexConfig struct {
-	Issuer  string `yaml:"issuer"`
-	Storage struct {
-		Type string `yaml:"type"`
-	} `yaml:"storage"`
-	Web struct {
-		HTTP string `yaml:"http"`
-	} `yaml:"web"`
-	Connectors []struct {
-		Type   string `yaml:"type"`
-		ID     string `yaml:"id"`
-		Name   string `yaml:"name"`
-		Config struct {
-			BaseURL      string `yaml:"baseURL"`
-			ClientID     string `yaml:"clientID"`
-			ClientSecret string `yaml:"clientSecret"`
-			RedirectURI  string `yaml:"redirectURI"`
-		} `yaml:"config"`
-	} `yaml:"connectors"`
-	Oauth2 struct {
-		SkipApprovalScreen bool `yaml:"skipApprovalScreen"`
-	} `yaml:"oauth2"`
-	StaticClients []struct {
-		ID           string   `yaml:"id"`
-		RedirectURIs []string `yaml:"redirectURIs"`
-		Name         string   `yaml:"name"`
-		Secret       string   `yaml:"secret"`
-	} `yaml:"staticClients"`
+	Issuer        string          `yaml:"issuer"`
+	Storage       Storage         `yaml:"storage"`
+	Web           Web             `yaml:"web"`
+	Connectors    []Connectors    `yaml:"connectors"`
+	Oauth2        Oauth2          `yaml:"oauth2"`
+	StaticClients []StaticClients `yaml:"staticClients"`
+}
+
+type Storage struct {
+	Type string `yaml:"type"`
+}
+
+type Web struct {
+	HTTP string `yaml:"http"`
+}
+
+type Connectors struct {
+	Type   string           `yaml:"type"`
+	ID     string           `yaml:"id"`
+	Name   string           `yaml:"name"`
+	Config ConnectorsConfig `yaml:"config"`
+}
+
+type ConnectorsConfig struct {
+	BaseURL      string `yaml:"baseURL"`
+	ClientID     string `yaml:"clientID"`
+	ClientSecret string `yaml:"clientSecret"`
+	RedirectURI  string `yaml:"redirectURI"`
+}
+
+type Oauth2 struct {
+	SkipApprovalScreen bool `yaml:"skipApprovalScreen"`
+}
+
+type StaticClients struct {
+	ID           string   `yaml:"id"`
+	RedirectURIs []string `yaml:"redirectURIs"`
+	Name         string   `yaml:"name"`
+	Secret       string   `yaml:"secret"`
 }
 
 type Dex struct {

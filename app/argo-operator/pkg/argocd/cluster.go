@@ -22,6 +22,8 @@ import (
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 )
 
+const Authorization = "Authorization"
+
 type ClusterOperation interface {
 	GetClusterInfo(clusterURL string) (*ClusterResponse, error)
 	GetCluster(clusterURL string) (*ClusterData, error)
@@ -36,53 +38,6 @@ type cluster struct {
 
 func NewArgocdCluster(argocd *ArgocdClient) ClusterOperation {
 	return &cluster{argocd: argocd}
-}
-
-type tlsClientConfig struct {
-	Insecure bool   `json:"insecure"`
-	CaData   string `json:"caData"`
-	CertData string `json:"certData"`
-	KeyData  string `json:"keyData"`
-}
-
-type ClusterDataConfig struct {
-	TlsClientConfig tlsClientConfig `json:"tlsClientConfig"`
-}
-
-type Info struct {
-	serverVersion string
-}
-
-type ConnectionState struct {
-	AttemptedAt string `json:"attemptedAt"`
-	Message     string `json:"message"`
-	Status      string `json:"status"`
-}
-
-type ClusterResponse struct {
-	Name            string          `json:"name"`
-	ConnectionState ConnectionState `json:"connectionState"`
-	Server          string          `json:"server"`
-}
-
-type ClusterData struct {
-	Server string            `json:"server"`
-	Name   string            `json:"name"`
-	Config ClusterDataConfig `json:"config"`
-	Info   Info              `json:"info"`
-	Labels map[string]string `json:"labels"`
-}
-
-type ClusterInstance struct {
-	Name            string                        `json:"name"`
-	ApiServer       string                        `json:"apiServer"`
-	ClusterType     string                        `json:"clusterType"`
-	HostCluster     string                        `json:"hostType"`
-	Provider        string                        `json:"provider"`
-	CertificateData string                        `json:"certficateData"`
-	CaData          string                        `json:"caData"`
-	KeyData         string                        `json:"keyData"`
-	Usage           resourcev1alpha1.ClusterUsage `json:"usage"`
 }
 
 // sync cluster to argocd
@@ -117,15 +72,13 @@ func (c *cluster) CreateCluster(clusterInstance *ClusterInstance) error {
 		}
 	}
 
-	url := fmt.Sprintf("%s/api/v1/clusters?upsert=true", c.argocd.client.url)
+	address := fmt.Sprintf("%s/api/v1/clusters?upsert=true", c.argocd.client.url)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
 
-	authorization := "Authorization"
-
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
+		SetHeader(Authorization, bearerToken).
 		SetBody(data).
-		Post(url)
+		Post(address)
 	if err != nil {
 		return err
 	}
@@ -133,7 +86,7 @@ func (c *cluster) CreateCluster(clusterInstance *ClusterInstance) error {
 		return nil
 	}
 
-	return fmt.Errorf("Failed to sync cluster, the status code is %d,  err: %s", result.StatusCode(), result)
+	return fmt.Errorf("failed to sync cluster, the status code is %d,  err: %s", result.StatusCode(), result)
 }
 
 // remove cluster from argo
@@ -144,13 +97,12 @@ func (c *cluster) DeleteCluster(clusterURL string) (string, error) {
 	}
 
 	clusterName := url.QueryEscape(clusterURL)
-	url := fmt.Sprintf("%s/api/v1/clusters/%s", c.argocd.client.url, clusterName)
+	address := fmt.Sprintf("%s/api/v1/clusters/%s", c.argocd.client.url, clusterName)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
-		Delete(url)
+		SetHeader(Authorization, bearerToken).
+		Delete(address)
 	if err != nil {
 		return "", err
 	}
@@ -164,13 +116,12 @@ func (c *cluster) DeleteCluster(clusterURL string) (string, error) {
 
 func (c *cluster) GetClusterInfo(clusterURL string) (*ClusterResponse, error) {
 	clusterName := url.QueryEscape(clusterURL)
-	url := splitRequestClusterUrl(c.argocd.client.url, clusterName)
+	address := splitRequestClusterUrl(c.argocd.client.url, clusterName)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
-		Get(url)
+		SetHeader(Authorization, bearerToken).
+		Get(address)
 	if err != nil {
 		return nil, err
 	}
@@ -191,18 +142,17 @@ func (c *cluster) GetClusterInfo(clusterURL string) (*ClusterResponse, error) {
 		return response, nil
 	}
 
-	return nil, fmt.Errorf("Get cluster info result: %v", result)
+	return nil, fmt.Errorf("failed to get cluster information, err: %s", result)
 }
 
 func (c *cluster) GetCluster(clusterURL string) (*ClusterData, error) {
 	clusterName := url.QueryEscape(clusterURL)
-	url := splitRequestClusterUrl(c.argocd.client.url, clusterName)
+	address := splitRequestClusterUrl(c.argocd.client.url, clusterName)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
-		Get(url)
+		SetHeader(Authorization, bearerToken).
+		Get(address)
 	if err != nil {
 		return nil, err
 	}
@@ -217,14 +167,14 @@ func (c *cluster) GetCluster(clusterURL string) (*ClusterData, error) {
 		return clusterData, nil
 	}
 
-	return nil, fmt.Errorf("Get cluster result: %v", result)
+	return nil, fmt.Errorf("failed to get cluster, err: %s", result)
 }
 
 func (c *cluster) UpdateCluster(clusterInstance *ClusterInstance) error {
 	var serverVersion = "1.21+"
 
 	clusterName := url.QueryEscape(clusterInstance.ApiServer)
-	url := splitRequestClusterUrl(c.argocd.client.url, clusterName)
+	address := splitRequestClusterUrl(c.argocd.client.url, clusterName)
 
 	tlsConfig := tlsClientConfig{
 		Insecure: false,
@@ -255,12 +205,11 @@ func (c *cluster) UpdateCluster(clusterInstance *ClusterInstance) error {
 	}
 
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
+		SetHeader(Authorization, bearerToken).
 		SetBody(data).
-		Put(url)
+		Put(address)
 	if err != nil {
 		return err
 	}

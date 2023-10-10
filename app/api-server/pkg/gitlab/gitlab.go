@@ -39,8 +39,8 @@ func NewGitlabOperator() GitlabOperator {
 	return &GitlabClient{}
 }
 
-func (g *GitlabClient) NewGitlabClient(url, token string) (GitlabOperator, error) {
-	cert, err := GetCertificate(url)
+func (g *GitlabClient) NewGitlabClient(address, token string) (GitlabOperator, error) {
+	cert, err := GetCertificate(address)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,7 @@ func (g *GitlabClient) NewGitlabClient(url, token string) (GitlabOperator, error
 	tlsConfig := &tls.Config{
 		RootCAs:      caCertPool,
 		Certificates: []tls.Certificate{srvCert},
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	httpClient := &http.Client{
@@ -60,12 +61,12 @@ func (g *GitlabClient) NewGitlabClient(url, token string) (GitlabOperator, error
 		},
 	}
 
-	client, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(url), gitlab.WithHTTPClient(httpClient))
+	oauthClient, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(httpClient))
 	if err != nil {
-		return nil, fmt.Errorf("failed to inital gitlab client, %w", err)
-	} else {
-		g.client = client
+		return nil, fmt.Errorf("failed to initial gitlab client, %w", err)
 	}
+
+	g.client = oauthClient
 
 	return g, nil
 }

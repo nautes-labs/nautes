@@ -16,14 +16,13 @@ package cluster
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 )
 
 const (
-	ClusterTemplatesDir = "cluster-tempaltes"
+	ClusterTemplatesDir = "cluster-templates"
 )
 
 type FileOperation interface {
@@ -87,7 +86,7 @@ func (c *File) WriteFile(filePath string, content []byte) error {
 		}
 	}
 
-	err := ioutil.WriteFile(filePath, content, 0644)
+	err := os.WriteFile(filePath, content, 0644) //nolint
 	if err != nil {
 		return err
 	}

@@ -132,7 +132,15 @@ func (s *CodeRepoBindingService) SaveCodeRepoBinding(ctx context.Context, req *c
 		return nil, err
 	}
 
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.SaveMethod, nodestree.CodeRepo, codeRepoResourceName, nodestree.CodeRepoBinding, req.CoderepoBindingName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:            biz.SaveMethod,
+		ResourceKind:      nodestree.CodeRepoBinding,
+		ResourceName:      req.CoderepoBindingName,
+		ProductName:       req.ProductName,
+		ParentResouceKind: nodestree.CodeRepo,
+		ParentResouceName: codeRepoResourceName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ProductName:       req.ProductName,
@@ -160,7 +168,13 @@ func (s *CodeRepoBindingService) SaveCodeRepoBinding(ctx context.Context, req *c
 }
 
 func (s *CodeRepoBindingService) DeleteCodeRepoBinding(ctx context.Context, req *coderepobindingv1.DeleteRequest) (*coderepobindingv1.DeleteReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.DeleteMethod, "", "", nodestree.CodeRepoBinding, req.CoderepoBindingName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.CodeRepoBinding,
+		ResourceName: req.CoderepoBindingName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ProductName:       req.ProductName,
@@ -177,14 +191,14 @@ func (s *CodeRepoBindingService) DeleteCodeRepoBinding(ctx context.Context, req 
 	}, nil
 }
 
-func (c *CodeRepoBindingService) ConvertProductAndRepoName(ctx context.Context, resource *resourcev1alpha1.CodeRepoBinding) error {
-	repoName, err := c.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, resource.Spec.CodeRepo)
+func (s *CodeRepoBindingService) ConvertProductAndRepoName(ctx context.Context, resource *resourcev1alpha1.CodeRepoBinding) error {
+	repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, resource.Spec.CodeRepo)
 	if err != nil {
 		return err
 	}
 	resource.Spec.CodeRepo = repoName
 
-	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, resource.Spec.Product)
+	groupName, err := s.resourcesUsecase.ConvertProductToGroupName(ctx, resource.Spec.Product)
 	if err != nil {
 		return err
 	}

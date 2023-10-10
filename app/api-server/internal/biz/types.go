@@ -65,7 +65,11 @@ type SecretData struct {
 	// The ID of the secret
 	ID int `json:"id"`
 	// The data associated with the secret
-	Data string `json:"key"`
+	Name       string `json:"name"`
+	Data       string `json:"data"`
+	Permission string `json:"permission"`
+	Key        string `json:"tag"`
+	User       string `json:"user"`
 }
 
 type ProjectDeployKey struct {

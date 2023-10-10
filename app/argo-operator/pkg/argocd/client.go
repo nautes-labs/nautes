@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	AdminInitialAdminSecret = "argocd-initial-admin-secret"
+	AdminInitialAdminSecret = "argocd-initial-admin-secret" //nolint:gosec
 	DefaultNamespace        = "argocd"
 	DefaultServiceAccount   = "default"
 )
@@ -46,7 +46,7 @@ func NewArgocd(url string) (c *ArgocdClient) {
 		client: &Client{url: url},
 		http:   resty.New().SetTimeout(30 * time.Second),
 	}
-	c.http.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	c.http.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}) //nolint:gosec
 	c.ArgocdAuth = NewArgocdAuth(c)
 	c.ArgocdCluster = NewArgocdCluster(c)
 	c.ArgocdCodeRepo = NewArgocdCodeRepo(c)

@@ -17,6 +17,7 @@ package coderepo
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -24,6 +25,8 @@ import (
 	argocd "github.com/nautes-labs/nautes/app/argo-operator/pkg/argocd"
 	secret "github.com/nautes-labs/nautes/app/argo-operator/pkg/secret"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+
+	utilstrings "github.com/nautes-labs/nautes/app/argo-operator/util/strings"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +41,10 @@ var (
 	errDeleteRepository = errors.New("failed to delete repository")
 	errGetSecret        = errors.New("failed to get secret")
 )
+
+func generateResourceName() string {
+	return fmt.Sprintf("coderepo-%s", utilstrings.RandStringRunes(5))
+}
 
 var _ = Describe("CodeRepo controller test cases", func() {
 	const (
@@ -120,7 +127,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -192,7 +199,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -260,7 +267,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -346,7 +353,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -461,7 +468,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -572,7 +579,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -683,7 +690,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -800,7 +807,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -874,7 +881,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,
@@ -948,7 +955,7 @@ var _ = Describe("CodeRepo controller test cases", func() {
 			},
 		}
 
-		var resourceName = generateResourceName("coderepo")
+		var resourceName = generateResourceName()
 		key := types.NamespacedName{
 			Namespace: "nautes",
 			Name:      resourceName,

@@ -71,7 +71,7 @@ func (s *ProjectPipelineRuntimeService) GetProjectPipelineRuntime(ctx context.Co
 		return nil, err
 	}
 
-	return covertProjectPipelineRuntime(runtime, req.ProductName)
+	return covertProjectPipelineRuntime(runtime)
 }
 
 func (s *ProjectPipelineRuntimeService) ListProjectPipelineRuntimes(ctx context.Context, req *projectpipelineruntimev1.ListsRequest) (*projectpipelineruntimev1.ListsReply, error) {
@@ -103,7 +103,7 @@ func (s *ProjectPipelineRuntimeService) ListProjectPipelineRuntimes(ctx context.
 			continue
 		}
 
-		item, err := covertProjectPipelineRuntime(runtime, req.ProductName)
+		item, err := covertProjectPipelineRuntime(runtime)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +128,14 @@ func (s *ProjectPipelineRuntimeService) SaveProjectPipelineRuntime(ctx context.C
 		ProductName:       req.ProductName,
 		InsecureSkipCheck: req.InsecureSkipCheck,
 	}
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.SaveMethod, nodestree.Project, req.Body.Project, nodestree.ProjectPipelineRuntime, req.ProjectPipelineRuntimeName)
+
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.SaveMethod,
+		ResourceKind: nodestree.ProjectPipelineRuntime,
+		ResourceName: req.ProjectPipelineRuntimeName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 	err = s.projectPipelineRuntime.SaveProjectPipelineRuntime(ctx, options, data)
 	if err != nil {
 		return nil, err
@@ -169,7 +176,13 @@ func (s *ProjectPipelineRuntimeService) DeleteProjectPipelineRuntime(ctx context
 		ProductName:       req.ProductName,
 		InsecureSkipCheck: req.InsecureSkipCheck,
 	}
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.DeleteMethod, "", "", nodestree.ProjectPipelineRuntime, req.ProjectPipelineRuntimeName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.ProjectPipelineRuntime,
+		ResourceName: req.ProjectPipelineRuntimeName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 	err := s.projectPipelineRuntime.DeleteProjectPipelineRuntime(ctx, options)
 	if err != nil {
 		return nil, err
@@ -216,7 +229,7 @@ func convertAdditionalResources(additionalResources interface{}) interface{} {
 	return nil
 }
 
-func covertProjectPipelineRuntime(projectPipelineRuntime *resourcev1alpha1.ProjectPipelineRuntime, productName string) (*projectpipelineruntimev1.GetReply, error) {
+func covertProjectPipelineRuntime(projectPipelineRuntime *resourcev1alpha1.ProjectPipelineRuntime) (*projectpipelineruntimev1.GetReply, error) {
 	pipelines := convertProjectRuntimeToPipelines(projectPipelineRuntime)
 	eventSources := convertEventSourceToEvent(projectPipelineRuntime)
 	pipelineTriggers := convertPipelineTriggersToTriggers(projectPipelineRuntime)
@@ -238,13 +251,13 @@ func covertProjectPipelineRuntime(projectPipelineRuntime *resourcev1alpha1.Proje
 	}, nil
 }
 
-func (p *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx context.Context, projectPipelineRuntime *resourcev1alpha1.ProjectPipelineRuntime) error {
+func (s *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx context.Context, projectPipelineRuntime *resourcev1alpha1.ProjectPipelineRuntime) error {
 	if projectPipelineRuntime.Spec.PipelineSource == "" {
 		return fmt.Errorf("the pipelineSource field value of projectPipelineRuntime %s should not be empty", projectPipelineRuntime.Name)
 	}
 
 	if projectPipelineRuntime.Spec.PipelineSource != "" {
-		repoName, err := p.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, projectPipelineRuntime.Spec.PipelineSource)
+		repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, projectPipelineRuntime.Spec.PipelineSource)
 		if err != nil {
 			return err
 		}
@@ -252,7 +265,7 @@ func (p *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx contex
 	}
 
 	if projectPipelineRuntime.Spec.AdditionalResources != nil && projectPipelineRuntime.Spec.AdditionalResources.Git != nil && projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo != "" {
-		repoName, err := p.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
+		repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
 		if err != nil {
 			return err
 		}
@@ -261,7 +274,7 @@ func (p *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx contex
 
 	for _, event := range projectPipelineRuntime.Spec.EventSources {
 		if event.Gitlab != nil {
-			repoName, err := p.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, event.Gitlab.RepoName)
+			repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, event.Gitlab.RepoName)
 			if err != nil {
 				return err
 			}
@@ -373,7 +386,6 @@ func convertPipelines(pipelines []*projectpipelineruntimev1.Pipeline) (resourceP
 		}
 
 		resourcePipelines = append(resourcePipelines, resourcePipeline)
-
 	}
 
 	return resourcePipelines

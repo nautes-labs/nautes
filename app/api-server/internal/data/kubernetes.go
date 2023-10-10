@@ -28,11 +28,11 @@ type Kubernetes struct {
 }
 
 func NewKubernetes() (biz.Kubernetes, error) {
-	client, err := kubernetes.NewKubernetes()
+	k8sClient, err := kubernetes.NewKubernetes()
 	if err != nil {
 		return nil, err
 	}
-	return &Kubernetes{Client: client}, nil
+	return &Kubernetes{Client: k8sClient}, nil
 }
 
 func (k *Kubernetes) ListCodeRepoBindings(ctx context.Context) (*resourcev1alpha1.CodeRepoBindingList, error) {

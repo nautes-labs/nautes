@@ -57,7 +57,7 @@ func findSymbol(str string) string {
 
 	if match != "" {
 		return match
-	} else {
-		return ""
 	}
+
+	return ""
 }

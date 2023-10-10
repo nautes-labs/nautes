@@ -78,10 +78,10 @@ type clusterInfo struct {
 	valid  bool
 }
 
-func (r *ClusterReconciler) createCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, kubeconfig *kubeconfig.KubectlConfig) error {
-	cientCertificateData := base64.StdEncoding.EncodeToString(kubeconfig.Clusters[0].Cluster.CertificateAuthorityData)
-	clientCertificateData := base64.StdEncoding.EncodeToString(kubeconfig.Users[0].User.ClientCertificateData)
-	clientKeyData := base64.StdEncoding.EncodeToString(kubeconfig.Users[0].User.ClientKeyData)
+func (r *ClusterReconciler) createCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, cfg *kubeconfig.KubectlConfig) error {
+	cientCertificateData := base64.StdEncoding.EncodeToString(cfg.Clusters[0].Cluster.CertificateAuthorityData)
+	clientCertificateData := base64.StdEncoding.EncodeToString(cfg.Users[0].User.ClientCertificateData)
+	clientKeyData := base64.StdEncoding.EncodeToString(cfg.Users[0].User.ClientKeyData)
 
 	toCreate := &argocd.ClusterInstance{
 		Name:            cluster.ObjectMeta.Name,
@@ -110,10 +110,10 @@ func (r *ClusterReconciler) createCluster(ctx context.Context, cluster *resource
 	return nil
 }
 
-func (r *ClusterReconciler) updateCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, kubeconfig *kubeconfig.KubectlConfig) error {
-	cientCertificateData := base64.StdEncoding.EncodeToString(kubeconfig.Clusters[0].Cluster.CertificateAuthorityData)
-	clientCertificateData := base64.StdEncoding.EncodeToString(kubeconfig.Users[0].User.ClientCertificateData)
-	clientKeyData := base64.StdEncoding.EncodeToString(kubeconfig.Users[0].User.ClientKeyData)
+func (r *ClusterReconciler) updateCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, cfg *kubeconfig.KubectlConfig) error {
+	cientCertificateData := base64.StdEncoding.EncodeToString(cfg.Clusters[0].Cluster.CertificateAuthorityData)
+	clientCertificateData := base64.StdEncoding.EncodeToString(cfg.Users[0].User.ClientCertificateData)
+	clientKeyData := base64.StdEncoding.EncodeToString(cfg.Users[0].User.ClientKeyData)
 
 	toUpdate := &argocd.ClusterInstance{
 		Name:            cluster.ObjectMeta.Name,
@@ -140,7 +140,7 @@ func (r *ClusterReconciler) updateCluster(ctx context.Context, cluster *resource
 	return nil
 }
 
-func (r *ClusterReconciler) deleteCluster(ctx context.Context, apiServer string) error {
+func (r *ClusterReconciler) deleteCluster(_ context.Context, apiServer string) error {
 	err := r.Argocd.Auth().Login()
 	if err != nil {
 		return err
@@ -150,9 +150,8 @@ func (r *ClusterReconciler) deleteCluster(ctx context.Context, apiServer string)
 	if err != nil {
 		if _, ok := err.(*argocd.IsNoAuth); ok {
 			return nil
-		} else {
-			return err
 		}
+		return err
 	}
 
 	_, err = r.Argocd.Cluster().DeleteCluster(clusterInfo.Server)

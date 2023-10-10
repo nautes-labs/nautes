@@ -114,7 +114,7 @@ func getVclusterHttpsNodePort(vcluster *VclusterInfo) string {
 		return vcluster.HttpsNodePort
 	}
 
-	randPort := rand.Intn(maxNodePort-minNodePort+1) + minNodePort
+	randPort := rand.Intn(maxNodePort-minNodePort+1) + minNodePort //nolint
 	return strconv.Itoa(randPort)
 }
 
@@ -182,8 +182,7 @@ func getOauthProxyServer(param *ClusterRegistrationParams) *OAuthProxyServer {
 	var cluster = param.Cluster
 	var componentName = cluster.Spec.ComponentsList.OauthProxy.Name
 
-	switch componentName {
-	case "oauth2-proxy":
+	if componentName == "oauth2-proxy" {
 		t := NewOAuth2Proxy()
 		return t.GetOauthProxyServer(param)
 	}
@@ -198,8 +197,7 @@ func getGatewayServer(param *ClusterRegistrationParams) *GatewayServer {
 
 	var componentName = param.Cluster.Spec.ComponentsList.Gateway.Name
 
-	switch componentName {
-	case "traefik":
+	if componentName == "traefik" {
 		t := NewTraefik()
 		return t.GetGatewayServer(param)
 	}
@@ -214,9 +212,7 @@ func getDeploymentServer(param *ClusterRegistrationParams) *DeploymentServer {
 
 	var cluster = param.Cluster
 	var componentName = cluster.Spec.ComponentsList.Deployment.Name
-
-	switch componentName {
-	case "argocd":
+	if componentName == "argocd" {
 		t := NewArgocd()
 		return t.GetDeploymentServer(param)
 	}

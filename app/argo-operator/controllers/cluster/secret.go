@@ -41,7 +41,7 @@ func (r *ClusterReconciler) isSecretChange(cluster *resourcev1alpha1.Cluster, id
 }
 
 // Get stored key and vaule using vault secret
-func (r *ClusterReconciler) getSecret(ctx context.Context, clusterName, namespace string, configs *nautesconfigs.Config) (*SecretContent, error) {
+func (r *ClusterReconciler) getSecret(_ context.Context, clusterName string, configs *nautesconfigs.Config) (*SecretContent, error) {
 	secretPath := fmt.Sprintf("kubernetes/%s/%s/%s", clusterName, "default", "admin")
 	secretsEngine := "cluster"
 	secretsKey := "kubeconfig"
@@ -61,18 +61,18 @@ func (r *ClusterReconciler) getSecret(ctx context.Context, clusterName, namespac
 		return nil, err
 	}
 
-	secret, err := r.Secret.GetSecret(secretOptions)
+	secretData, err := r.Secret.GetSecret(secretOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret, err: %w", err)
 	}
 
-	kubeconfig, err := r.ConvertKubeconfig([]byte(secret.Data))
+	cfg, err := r.ConvertKubeconfig([]byte(secretData.Data))
 	if err != nil {
 		return nil, err
 	}
 
 	return &SecretContent{
-		ID:         strconv.Itoa(secret.ID),
-		Kubeconfig: kubeconfig,
+		ID:         strconv.Itoa(secretData.ID),
+		Kubeconfig: cfg,
 	}, nil
 }

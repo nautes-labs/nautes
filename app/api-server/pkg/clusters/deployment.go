@@ -27,9 +27,8 @@ func NewDeploymentServer(cluster *resourcev1alpha1.Cluster) (Deployment, error) 
 	}
 
 	component := cluster.Spec.ComponentsList.Deployment
-
-	switch component.Name {
-	case "argocd":
+	componentName := component.Name
+	if componentName == "argocd" {
 		return NewArgocd(), nil
 	}
 
@@ -46,7 +45,7 @@ func NewArgocd() Deployment {
 	return &Argocd{}
 }
 
-func (t *Argocd) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
+func (a *Argocd) GetDefaultValue(_ string, opt *DefaultValueOptions) (string, error) {
 	if opt.Cluster == nil {
 		return "", nil
 	}

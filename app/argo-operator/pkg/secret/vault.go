@@ -51,36 +51,36 @@ func NewVaultClient() (SecretOperator, error) {
 }
 
 func NewKubernetesClient() (client.Client, error) {
-	client, err := client.New(config.GetConfigOrDie(), client.Options{})
+	k8sClient, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	return k8sClient, nil
 }
 
-func (v *VaultClient) Init(config *SecretConfig) error {
-	httpClient, err := NewHttpClient(config.SecretRepo.Vault.CABundle)
+func (v *VaultClient) Init(secretConfig *SecretConfig) error {
+	httpClient, err := NewHttpClient(secretConfig.SecretRepo.Vault.CABundle)
 	if err != nil {
 		return err
 	}
 
-	kubernetesAuth, err := NewKubernetesAuth(config.SecretRepo.Vault.MountPath, config.SecretRepo.OperatorName)
+	kubernetesAuth, err := NewKubernetesAuth(secretConfig.SecretRepo.Vault.MountPath, secretConfig.SecretRepo.OperatorName)
 	if err != nil {
 		return err
 	}
 
 	vaultConfig := vault.DefaultConfig()
-	vaultConfig.Address = config.SecretRepo.Vault.Addr
+	vaultConfig.Address = secretConfig.SecretRepo.Vault.Addr
 	vaultConfig.HttpClient = httpClient
 
-	client, err := vault.NewClient(vaultConfig)
+	vaultClient, err := vault.NewClient(vaultConfig)
 	if err != nil {
 		return err
 	}
-	v.client = client
+	v.client = vaultClient
 
-	authInfo, err := client.Auth().Login(context.Background(), kubernetesAuth)
+	authInfo, err := vaultClient.Auth().Login(context.Background(), kubernetesAuth)
 	if err != nil {
 		return fmt.Errorf("unable to log in with Kubernetes auth: %w", err)
 	}
@@ -92,8 +92,8 @@ func (v *VaultClient) Init(config *SecretConfig) error {
 	return nil
 }
 
-func (s *VaultClient) Logout(client *vault.Client) error {
-	err := client.Auth().Token().RevokeSelf("")
+func (v *VaultClient) Logout(vaultClient *vault.Client) error {
+	err := vaultClient.Auth().Token().RevokeSelf("")
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,9 @@ func (s *VaultClient) Logout(client *vault.Client) error {
 }
 
 func (v *VaultClient) GetSecret(secretOptions SecretOptions) (*SecretData, error) {
-	defer v.Logout(v.client)
+	defer func() {
+		_ = v.Logout(v.client)
+	}()
 
 	secret, err := v.client.KVv2(secretOptions.SecretEngine).Get(context.Background(), secretOptions.SecretPath)
 	if err != nil {
@@ -113,8 +115,8 @@ func (v *VaultClient) GetSecret(secretOptions SecretOptions) (*SecretData, error
 		return nil, fmt.Errorf("unable to read versions list: %w", err)
 	}
 
-	len := len(metadata)
-	lastSecretMetadata := metadata[len-1]
+	metadatLength := len(metadata)
+	lastSecretMetadata := metadata[metadatLength-1]
 
 	secretValue := secret.Data[secretOptions.SecretKey]
 	if secretValue == nil {
@@ -137,7 +139,8 @@ func NewHttpClient(ca string) (*http.Client, error) {
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs: caCertPool,
+				RootCAs:    caCertPool,
+				MinVersion: tls.VersionTLS12,
 			},
 		},
 	}, nil

@@ -67,7 +67,13 @@ func (s *ProjectService) ListProjects(ctx context.Context, req *projectv1.ListsR
 }
 
 func (s *ProjectService) SaveProject(ctx context.Context, req *projectv1.SaveRequest) (*projectv1.SaveReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.SaveMethod, "", "", nodestree.Project, req.ProjectName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.SaveMethod,
+		ResourceKind: nodestree.Project,
+		ResourceName: req.ProjectName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	project := &biz.ProjectData{
 		ProjectName: req.ProjectName,
@@ -89,7 +95,14 @@ func (s *ProjectService) SaveProject(ctx context.Context, req *projectv1.SaveReq
 }
 
 func (s *ProjectService) DeleteProject(ctx context.Context, req *projectv1.DeleteRequest) (*projectv1.DeleteReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.DeleteMethod, "", "", nodestree.Project, req.ProjectName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.Project,
+		ResourceName: req.ProjectName,
+		ProductName:  req.ProductName,
+	}
+
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ResouceName:       req.ProjectName,

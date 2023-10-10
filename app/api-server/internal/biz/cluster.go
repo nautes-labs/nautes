@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+
 	"os"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -62,13 +62,14 @@ type ClusterData struct {
 	HostCluster string
 }
 
-func NewClusterUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, resourcesUsecase *ResourcesUsecase, configs *nautesconfigs.Config, client client.Client, clusters clustermanagement.ClusterRegistrationOperator, q queue.Queuer) *ClusterUsecase {
-	var clusterUsage = &ClusterUsecase{log: log.NewHelper(log.With(logger)),
+func NewClusterUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, resourcesUsecase *ResourcesUsecase, configs *nautesconfigs.Config, k8sClient client.Client, clusters clustermanagement.ClusterRegistrationOperator, q queue.Queuer) *ClusterUsecase {
+	var clusterUsage = &ClusterUsecase{
+		log:              log.NewHelper(log.With(logger)),
 		codeRepo:         codeRepo,
 		secretRepo:       secretRepo,
 		resourcesUsecase: resourcesUsecase,
 		configs:          configs,
-		client:           client,
+		client:           k8sClient,
 		clusters:         clusters,
 		queue:            q,
 	}
@@ -122,7 +123,7 @@ func (c *ClusterUsecase) ListClusters(ctx context.Context) ([]*resourcev1alpha1.
 	return clusters, nil
 }
 
-func (c *ClusterUsecase) SaveCluster(ctx context.Context, param *clustermanagement.ClusterRegistrationParams, kubeconfig string) error {
+func (c *ClusterUsecase) SaveCluster(ctx context.Context, param *clustermanagement.ClusterRegistrationParams, kubeconfigData string) error {
 	var cluster = param.Cluster
 
 	err := param.Cluster.ValidateCluster(context.TODO(), param.Cluster, c.client, false)
@@ -132,7 +133,7 @@ func (c *ClusterUsecase) SaveCluster(ctx context.Context, param *clustermanageme
 	}
 
 	if clustermanagement.IsPhysical(param.Cluster) {
-		err := c.SaveKubeconfig(ctx, param.Cluster.Name, param.Cluster.Spec.ApiServer, kubeconfig)
+		err := c.SaveKubeconfig(ctx, param.Cluster.Name, param.Cluster.Spec.ApiServer, kubeconfigData)
 		if err != nil {
 			c.log.Errorf("failed to call 'SaveCluster', could not save kubeconfig to secret store, cluster name: %s, err: %s", cluster.Name, err)
 			return fmt.Errorf("failed to save kubeconfig to secret store, err: %s", err)
@@ -152,7 +153,7 @@ func (c *ClusterUsecase) SaveCluster(ctx context.Context, param *clustermanageme
 		return err
 	}
 
-	err = c.isRefreshHostCluster(cluster, ctx)
+	err = c.isRefreshHostCluster(ctx, cluster)
 	if err != nil {
 		return err
 	}
@@ -274,7 +275,6 @@ func (c *ClusterUsecase) RefreshHostCluster(clusterName string, bytes []byte) er
 }
 
 func (c *ClusterUsecase) DeleteCluster(ctx context.Context, clusterName string) error {
-
 	url := GetClusterTemplateHttpsURL(c.configs)
 	clusterTemplateLocalPath, err := c.CloneRepository(ctx, url)
 	if err != nil {
@@ -323,7 +323,7 @@ func (c *ClusterUsecase) DeleteCluster(ctx context.Context, clusterName string) 
 		return fmt.Errorf("failed to save git config to git repo, err: %s", err)
 	}
 
-	err = c.isRefreshHostCluster(cluster, ctx)
+	err = c.isRefreshHostCluster(ctx, cluster)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (c *ClusterUsecase) DeleteCluster(ctx context.Context, clusterName string) 
 	return nil
 }
 
-func (c *ClusterUsecase) isRefreshHostCluster(cluster *resourcev1alpha1.Cluster, ctx context.Context) error {
+func (c *ClusterUsecase) isRefreshHostCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster) error {
 	if clustermanagement.IsVirtual(cluster) {
 		token := ctx.Value("token").(string)
 		body := &Body{
@@ -375,29 +375,29 @@ func (c *ClusterUsecase) SaveKubeconfig(ctx context.Context, id, server, config 
 	return nil
 }
 
-func (r *ClusterUsecase) ConvertKubeconfig(config, server string) (string, error) {
-	kubeconfig := &kubeconfig.KubectlConfig{}
+func (c *ClusterUsecase) ConvertKubeconfig(config, server string) (string, error) {
+	cfg := &kubeconfig.KubectlConfig{}
 	jsonData, err := yaml.YAMLToJSONStrict([]byte(config))
 	if err != nil {
 		return "", err
 	}
 
-	err = json.Unmarshal([]byte(jsonData), kubeconfig)
+	err = json.Unmarshal(jsonData, cfg)
 	if err != nil {
 		return "", err
 	}
 
-	if len(kubeconfig.Clusters) < 1 {
+	if len(cfg.Clusters) < 1 {
 		return "", fmt.Errorf("invalid kubeconfig file: must have at least one cluster")
 	}
 
-	if len(kubeconfig.Users) < 1 {
+	if len(cfg.Users) < 1 {
 		return "", fmt.Errorf("invalid kubeconfig file: must have at least one user")
 	}
 
-	kubeconfig.Clusters[0].Cluster.Server = server
+	cfg.Clusters[0].Cluster.Server = server
 
-	bytes, err := yaml.Marshal(kubeconfig)
+	bytes, err := yaml.Marshal(cfg)
 	if err != nil {
 		return "", err
 	}
@@ -454,7 +454,7 @@ func GetClusterFromTenantRepository(tenantRepositoryLocalPath, clusterName strin
 		return nil, err
 	}
 
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
