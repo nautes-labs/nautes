@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"os"
-
 	"github.com/go-kratos/kratos/v2/log"
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 
@@ -62,6 +60,7 @@ type ClusterData struct {
 	HostCluster string
 }
 
+//nolint:revive
 func NewClusterUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, resourcesUsecase *ResourcesUsecase, configs *nautesconfigs.Config, k8sClient client.Client, clusters clustermanagement.ClusterRegistrationOperator, q queue.Queuer) *ClusterUsecase {
 	var clusterUsage = &ClusterUsecase{
 		log:              log.NewHelper(log.With(logger)),
@@ -420,17 +419,17 @@ func (c *ClusterUsecase) GetDefaultCertificate(ctx context.Context) (string, err
 }
 
 func (c *ClusterUsecase) GetTenantRepository(ctx context.Context) (*Project, error) {
-	codeRepos := &resourcev1alpha1.CodeRepoList{}
+	codeRepoList := &resourcev1alpha1.CodeRepoList{}
 	labelSelector := labels.SelectorFromSet(map[string]string{TenantLabel: c.configs.Nautes.TenantName})
-	err := c.client.List(context.Background(), codeRepos, &client.ListOptions{LabelSelector: labelSelector})
+	err := c.client.List(context.Background(), codeRepoList, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return nil, err
 	}
-	if len(codeRepos.Items) == 0 {
+	if len(codeRepoList.Items) == 0 {
 		return nil, fmt.Errorf("tenant repository is not found")
 	}
 
-	pid, _ := utilstrings.ExtractNumber(RepoPrefix, codeRepos.Items[0].Name)
+	pid, _ := utilstrings.ExtractNumber(RepoPrefix, codeRepoList.Items[0].Name)
 	repository, err := c.codeRepo.GetCodeRepo(ctx, pid)
 	if err != nil {
 		return nil, err
@@ -445,25 +444,4 @@ func GetClusterTemplateHttpsURL(configs *nautesconfigs.Config) string {
 	}
 
 	return DefaultClusterTemplateURL
-}
-
-func GetClusterFromTenantRepository(tenantRepositoryLocalPath, clusterName string) (*resourcev1alpha1.Cluster, error) {
-	filePath := fmt.Sprintf("%s/%s/%s.yaml", tenantRepositoryLocalPath, NautesClusterDir, clusterName)
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return nil, err
-	}
-
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	var cluster resourcev1alpha1.Cluster
-	err = yaml.Unmarshal(content, &cluster)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cluster, nil
 }

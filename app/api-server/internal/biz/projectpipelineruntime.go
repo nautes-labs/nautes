@@ -44,13 +44,13 @@ type ProjectPipelineRuntimeData struct {
 	Spec resourcev1alpha1.ProjectPipelineRuntimeSpec
 }
 
-func NewProjectPipelineRuntimeUsecase(logger log.Logger, codeRepo CodeRepo, nodeOperator nodestree.NodesTree, resourcesUsecase *ResourcesUsecase, client client.Client, config *nautesconfigs.Config) *ProjectPipelineRuntimeUsecase {
+func NewProjectPipelineRuntimeUsecase(logger log.Logger, codeRepo CodeRepo, nodeOperator nodestree.NodesTree, resourcesUsecase *ResourcesUsecase, k8sClient client.Client, config *nautesconfigs.Config) *ProjectPipelineRuntimeUsecase {
 	runtime := &ProjectPipelineRuntimeUsecase{
 		log:              log.NewHelper(log.With(logger)),
 		codeRepo:         codeRepo,
 		nodeOperator:     nodeOperator,
 		resourcesUsecase: resourcesUsecase,
-		client:           client,
+		client:           k8sClient,
 		config:           config,
 	}
 	nodeOperator.AppendOperators(runtime)
@@ -310,32 +310,17 @@ func (p *ProjectPipelineRuntimeUsecase) isRepeatPipelinePath(runtime *resourcev1
 
 func (p *ProjectPipelineRuntimeUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.ProjectPipelineRuntime)
-
 	for i := 0; i < len(resourceNodes); i++ {
-		runtime1, ok := resourceNodes[i].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
-		if !ok {
-			continue
-		}
-
+		runtime1, _ := resourceNodes[i].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
 		for j := i + 1; j < len(resourceNodes); j++ {
-			runtime2, ok := resourceNodes[j].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
-			if !ok {
-				continue
-			}
-
+			runtime2, _ := resourceNodes[j].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
 			ok, err := runtime1.Compare(runtime2)
 			if err != nil {
 				return true, err
 			}
 
 			if ok {
-				n1 := resourceNodes[i].Name
-				n2 := resourceNodes[j].Name
-				p1 := nodestree.GetResourceValue(resourceNodes[i].Content, "Spec", "Project")
-				p2 := nodestree.GetResourceValue(resourceNodes[j].Content, "Spec", "Project")
-				d1 := fmt.Sprintf("%s/%s", p1, n1)
-				d2 := fmt.Sprintf("%s/%s", p2, n2)
-				return true, fmt.Errorf("duplicate pipeline found in verify the validity of the global template, respectively %s and %s", d1, d2)
+				return true, fmt.Errorf("duplicate reference found between resource %s and resource %s", runtime1.Name, runtime2.Name)
 			}
 		}
 	}
@@ -353,40 +338,4 @@ func (p *ProjectPipelineRuntimeUsecase) CreateResource(kind string) interface{} 
 
 func SpliceCodeRepoResourceName(id int) string {
 	return fmt.Sprintf("%s%d", RepoPrefix, id)
-}
-
-type PipelineRuntimeValidateClient struct {
-	nodes nodestree.Node
-}
-
-func (p *PipelineRuntimeValidateClient) GetCodeRepoList(repoName string) (*resourcev1alpha1.CodeRepoList, error) {
-	resourceNodes := nodestree.ListsResourceNodes(p.nodes, nodestree.CodeRepo)
-	list := &resourcev1alpha1.CodeRepoList{}
-	for _, node := range resourceNodes {
-		val, ok := node.Content.(*resourcev1alpha1.CodeRepo)
-		if !ok {
-			return nil, fmt.Errorf("wrong type found for %s node", node.Name)
-		}
-		if val.Name == repoName {
-			list.Items = append(list.Items, *val)
-		}
-	}
-
-	return list, nil
-}
-
-func (p *PipelineRuntimeValidateClient) GetCodeRepoBindingList(productName, repoName string) (*resourcev1alpha1.CodeRepoBindingList, error) {
-	resourceNodes := nodestree.ListsResourceNodes(p.nodes, nodestree.CodeRepoBinding)
-	list := &resourcev1alpha1.CodeRepoBindingList{}
-	for _, node := range resourceNodes {
-		val, ok := node.Content.(*resourcev1alpha1.CodeRepoBinding)
-		if !ok {
-			return nil, fmt.Errorf("wrong type found for %s node", node.Name)
-		}
-		if val.Spec.Product == productName && val.Spec.CodeRepo == repoName {
-			list.Items = append(list.Items, *val)
-		}
-	}
-
-	return list, nil
 }

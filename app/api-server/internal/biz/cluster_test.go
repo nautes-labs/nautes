@@ -16,6 +16,7 @@ package biz
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -42,6 +43,235 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	hostCluster = &resourcev1alpha1.Cluster{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: resourcev1alpha1.GroupVersion.String(),
+			Kind:       "Cluster",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "host-cluster1",
+			Namespace: nautesConfigs.Nautes.Namespace,
+		},
+		Spec: resourcev1alpha1.ClusterSpec{
+			ApiServer:   "https://kubernetes.svc",
+			ClusterType: resourcev1alpha1.ClusterType("physical"),
+			ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
+			Usage:       resourcev1alpha1.ClusterUsage("host"),
+			ComponentsList: resourcev1alpha1.ComponentsList{
+				Gateway: &resourcev1alpha1.Component{
+					Name:      "traefik",
+					Namespace: "traefik",
+					Additions: map[string]string{
+						"httpsNodePort": "30020",
+						"httpNodePort":  "30443",
+					},
+				},
+				OauthProxy: &resourcev1alpha1.Component{
+					Name:      "oauth2-proxy",
+					Namespace: "oauth2-proxy",
+				},
+			},
+		},
+	}
+	virtualCluster = &resourcev1alpha1.Cluster{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: resourcev1alpha1.GroupVersion.String(),
+			Kind:       "Cluster",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "virtual-cluster1",
+			Namespace: nautesConfigs.Nautes.Namespace,
+		},
+		Spec: resourcev1alpha1.ClusterSpec{
+			ApiServer:   "https://kubernetes.svc",
+			ClusterType: resourcev1alpha1.ClusterType("virtual"),
+			ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
+			Usage:       resourcev1alpha1.ClusterUsage("worker"),
+			HostCluster: "host216",
+			WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+			ComponentsList: resourcev1alpha1.ComponentsList{
+				CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+				Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+				EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+				MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+				Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+				ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+				SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+				SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+				OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+			},
+		},
+	}
+	physcialCluster = &resourcev1alpha1.Cluster{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: resourcev1alpha1.GroupVersion.String(),
+			Kind:       "Cluster",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "physical-cluster1",
+			Namespace: nautesConfigs.Nautes.Namespace,
+		},
+		Spec: resourcev1alpha1.ClusterSpec{
+			ApiServer:   "https://kubernetes.svc",
+			ClusterType: resourcev1alpha1.ClusterType("physical"),
+			ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
+			Usage:       resourcev1alpha1.ClusterUsage("worker"),
+			WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
+			ComponentsList: resourcev1alpha1.ComponentsList{
+				CertManagement: &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
+				Deployment:     &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
+				EventListener:  &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
+				Gateway: &resourcev1alpha1.Component{
+					Name:      "traefik",
+					Namespace: "traefik",
+					Additions: map[string]string{
+						"httpsNodePort": "30020",
+						"httpNodePort":  "30221",
+					},
+				},
+				MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
+				Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
+				ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
+				SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
+				SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
+				OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
+			},
+		},
+	}
+)
+
+var _ = Describe("Get cluster", func() {
+	var (
+		repository = &Project{
+			ID:            22,
+			Name:          "repo-22",
+			HttpUrlToRepo: "http://gitlab.com/repo-22.git",
+		}
+		tenantRepositoryLocalPath = "/tmp/product/cluster-templates"
+		nautesqueueQueue          queue.Queuer
+		stop                      chan struct{}
+	)
+
+	BeforeEach(func() {
+		stop = make(chan struct{})
+		nautesqueueQueue = nautesqueue.NewQueue(stop, 1)
+
+	})
+
+	AfterEach(func() {
+		defer close(stop)
+	})
+
+	It("successfully get cluster", func() {
+		codeRepo := NewMockCodeRepo(ctl)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
+
+		gitRepo := NewMockGitRepo(ctl)
+		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
+
+		resourceusecase := NewResourcesUsecase(logger, codeRepo, nil, gitRepo, nil, nautesConfigs)
+
+		k8sClient := kubernetes.NewMockClient(ctl)
+		k8sClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		clusterOperator := clusterregistration.NewMockClusterRegistrationOperator(ctl)
+		clusterOperator.EXPECT().GetClsuter(gomock.Any(), gomock.Any()).Return(hostCluster, nil)
+
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, nil, resourceusecase, nautesConfigs, k8sClient, clusterOperator, nautesqueueQueue)
+		_, err := clusterUsecase.GetCluster(context.Background(), hostCluster.Name)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("failed to  get cluster", func() {
+		codeRepo := NewMockCodeRepo(ctl)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
+
+		gitRepo := NewMockGitRepo(ctl)
+		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
+
+		resourceusecase := NewResourcesUsecase(logger, codeRepo, nil, gitRepo, nil, nautesConfigs)
+
+		k8sClient := kubernetes.NewMockClient(ctl)
+		k8sClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		clusterOperator := clusterregistration.NewMockClusterRegistrationOperator(ctl)
+		clusterOperator.EXPECT().GetClsuter(gomock.Any(), gomock.Any()).Return(nil, errors.New("failed to get cluster"))
+
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, nil, resourceusecase, nautesConfigs, k8sClient, clusterOperator, nautesqueueQueue)
+		_, err := clusterUsecase.GetCluster(context.Background(), hostCluster.Name)
+		Expect(err).Should(HaveOccurred())
+	})
+})
+
+var _ = Describe("List cluster", func() {
+	var (
+		clusters   = []*resourcev1alpha1.Cluster{hostCluster}
+		repository = &Project{
+			ID:            22,
+			Name:          "repo-22",
+			HttpUrlToRepo: "http://gitlab.com/repo-22.git",
+		}
+		tenantRepositoryLocalPath = "/tmp/product/cluster-templates"
+		nautesqueueQueue          queue.Queuer
+		stop                      chan struct{}
+	)
+
+	BeforeEach(func() {
+		stop = make(chan struct{})
+		nautesqueueQueue = nautesqueue.NewQueue(stop, 1)
+
+	})
+
+	AfterEach(func() {
+		defer close(stop)
+	})
+
+	It("successfully list cluster", func() {
+		codeRepo := NewMockCodeRepo(ctl)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
+
+		gitRepo := NewMockGitRepo(ctl)
+		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
+
+		resourceusecase := NewResourcesUsecase(logger, codeRepo, nil, gitRepo, nil, nautesConfigs)
+
+		k8sClient := kubernetes.NewMockClient(ctl)
+		k8sClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		clusterOperator := clusterregistration.NewMockClusterRegistrationOperator(ctl)
+		clusterOperator.EXPECT().ListClusters(gomock.Any()).Return(clusters, nil)
+
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, nil, resourceusecase, nautesConfigs, k8sClient, clusterOperator, nautesqueueQueue)
+		_, err := clusterUsecase.ListClusters(context.Background())
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("failed to list cluster", func() {
+		codeRepo := NewMockCodeRepo(ctl)
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
+
+		gitRepo := NewMockGitRepo(ctl)
+		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
+
+		resourceusecase := NewResourcesUsecase(logger, codeRepo, nil, gitRepo, nil, nautesConfigs)
+
+		k8sClient := kubernetes.NewMockClient(ctl)
+		k8sClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		clusterOperator := clusterregistration.NewMockClusterRegistrationOperator(ctl)
+		clusterOperator.EXPECT().ListClusters(gomock.Any()).Return(nil, errors.New("failed to list cluster"))
+
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, nil, resourceusecase, nautesConfigs, k8sClient, clusterOperator, nautesqueueQueue)
+		_, err := clusterUsecase.ListClusters(context.Background())
+		Expect(err).Should(HaveOccurred())
+	})
+})
+
 var _ = Describe("Save cluster", func() {
 	var (
 		tenantRepositoryHttpsURL  = fmt.Sprintf("%s/dev-test-tenant/management.git", nautesConfigs.Git.Addr)
@@ -52,101 +282,6 @@ var _ = Describe("Save cluster", func() {
 			SecretPath:   secretPath,
 			SecretEngine: "pki",
 			SecretKey:    "cacert",
-		}
-		virtualCluster = &resourcev1alpha1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: resourcev1alpha1.GroupVersion.String(),
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "virtual-cluster1",
-				Namespace: nautesConfigs.Nautes.Namespace,
-			},
-			Spec: resourcev1alpha1.ClusterSpec{
-				ApiServer:   "https://kubernetes.svc",
-				ClusterType: resourcev1alpha1.ClusterType("virtual"),
-				ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
-				Usage:       resourcev1alpha1.ClusterUsage("worker"),
-				HostCluster: "host216",
-				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
-				ComponentsList: resourcev1alpha1.ComponentsList{
-					CertManagement:      &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
-					Deployment:          &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
-					EventListener:       &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
-					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
-					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
-					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
-					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
-					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
-					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
-				},
-			},
-		}
-		physcialCluster = &resourcev1alpha1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: resourcev1alpha1.GroupVersion.String(),
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "physical-cluster1",
-				Namespace: nautesConfigs.Nautes.Namespace,
-			},
-			Spec: resourcev1alpha1.ClusterSpec{
-				ApiServer:   "https://kubernetes.svc",
-				ClusterType: resourcev1alpha1.ClusterType("physical"),
-				ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
-				Usage:       resourcev1alpha1.ClusterUsage("worker"),
-				WorkerType:  resourcev1alpha1.ClusterWorkTypeDeployment,
-				ComponentsList: resourcev1alpha1.ComponentsList{
-					CertManagement: &resourcev1alpha1.Component{Name: "cert-manager", Namespace: "cert-manager"},
-					Deployment:     &resourcev1alpha1.Component{Name: "argocd", Namespace: "argocd"},
-					EventListener:  &resourcev1alpha1.Component{Name: "argo-events", Namespace: "argo-events"},
-					Gateway: &resourcev1alpha1.Component{
-						Name:      "traefik",
-						Namespace: "traefik",
-						Additions: map[string]string{
-							"httpsNodePort": "30020",
-							"httpNodePort":  "30221",
-						},
-					},
-					MultiTenant:         &resourcev1alpha1.Component{Name: "hnc", Namespace: "hnc"},
-					Pipeline:            &resourcev1alpha1.Component{Name: "tekton", Namespace: "tekton-pipelines"},
-					ProgressiveDelivery: &resourcev1alpha1.Component{Name: "argo-rollouts", Namespace: "argo-rollouts"},
-					SecretManagement:    &resourcev1alpha1.Component{Name: "vault", Namespace: "vault"},
-					SecretSync:          &resourcev1alpha1.Component{Name: "external-secrets", Namespace: "external-secrets"},
-					OauthProxy:          &resourcev1alpha1.Component{Name: "oauth2-proxy", Namespace: "oauth2-proxy"},
-				},
-			},
-		}
-		hostCluster = &resourcev1alpha1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: resourcev1alpha1.GroupVersion.String(),
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "host-cluster1",
-				Namespace: nautesConfigs.Nautes.Namespace,
-			},
-			Spec: resourcev1alpha1.ClusterSpec{
-				ApiServer:   "https://kubernetes.svc",
-				ClusterType: resourcev1alpha1.ClusterType("physical"),
-				ClusterKind: resourcev1alpha1.ClusterKind("kubernetes"),
-				Usage:       resourcev1alpha1.ClusterUsage("host"),
-				ComponentsList: resourcev1alpha1.ComponentsList{
-					Gateway: &resourcev1alpha1.Component{
-						Name:      "traefik",
-						Namespace: "traefik",
-						Additions: map[string]string{
-							"httpsNodePort": "30020",
-							"httpNodePort":  "30443",
-						},
-					},
-					OauthProxy: &resourcev1alpha1.Component{
-						Name:      "oauth2-proxy",
-						Namespace: "oauth2-proxy",
-					},
-				},
-			},
 		}
 		clusterTemplateCloneParam = &CloneRepositoryParam{
 			URL:   nautesConfigs.Nautes.RuntimeTemplateSource,
@@ -171,9 +306,9 @@ var _ = Describe("Save cluster", func() {
 		stop             chan struct{}
 	)
 
-	u, err := url.Parse(nautesConfigs.Git.Addr)
+	adress, err := url.Parse(nautesConfigs.Git.Addr)
 	Expect(err).ShouldNot(HaveOccurred())
-	gitlabCertPath := fmt.Sprintf("%s/%s.crt", gitlab.SSLDirectory, u.Hostname())
+	gitlabCertPath := fmt.Sprintf("%s/%s.crt", gitlab.SSLDirectory, adress.Hostname())
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
@@ -242,8 +377,8 @@ var _ = Describe("Save cluster", func() {
 		}
 		clusteroperator.EXPECT().SaveCluster(gomock.Eq(params)).Return(nil)
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.SaveCluster(context.Background(), params, kubeconfig)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.SaveCluster(context.Background(), params, kubeconfig)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
@@ -265,8 +400,8 @@ var _ = Describe("Save cluster", func() {
 			Cluster: hostCluster,
 		}
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.SaveCluster(context.Background(), params, kubeconfig)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.SaveCluster(context.Background(), params, kubeconfig)
 		Expect(err).Should(HaveOccurred())
 	})
 
@@ -290,8 +425,8 @@ var _ = Describe("Save cluster", func() {
 			Cluster: hostCluster,
 		}
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.SaveCluster(context.Background(), params, kubeconfig)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.SaveCluster(context.Background(), params, kubeconfig)
 		Expect(err).Should(HaveOccurred())
 	})
 
@@ -317,8 +452,8 @@ var _ = Describe("Save cluster", func() {
 			Cluster: hostCluster,
 		}
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.SaveCluster(context.Background(), params, kubeconfig)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.SaveCluster(context.Background(), params, kubeconfig)
 		Expect(err).Should(HaveOccurred())
 	})
 
@@ -363,8 +498,8 @@ var _ = Describe("Save cluster", func() {
 		clusteroperator := clusterregistration.NewMockClusterRegistrationOperator(ctl)
 		clusteroperator.EXPECT().SaveCluster(gomock.Eq(params)).Return(nil)
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.SaveCluster(context.Background(), params, kubeconfig)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.SaveCluster(context.Background(), params, kubeconfig)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
@@ -412,9 +547,9 @@ var _ = Describe("Save cluster", func() {
 		defer close(stop)
 		q := nautesqueue.NewQueue(stop, 1)
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, q)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, q)
 		ctx := context.WithValue(context.Background(), "token", "token")
-		err := clusterusecase.SaveCluster(ctx, params, kubeconfig)
+		err := clusterUsecase.SaveCluster(ctx, params, kubeconfig)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
@@ -455,8 +590,8 @@ var _ = Describe("Save cluster", func() {
 		clusteroperator := clusterregistration.NewMockClusterRegistrationOperator(ctl)
 		clusteroperator.EXPECT().SaveCluster(gomock.Eq(params)).Return(fmt.Errorf("failed to saved cluster %s", virtualCluster.Name))
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.SaveCluster(context.Background(), params, kubeconfig)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.SaveCluster(context.Background(), params, kubeconfig)
 		Expect(err).Should(HaveOccurred())
 	})
 })
@@ -555,8 +690,8 @@ var _ = Describe("Delete cluster", func() {
 		clusteroperator.EXPECT().RemoveCluster(params).Return(nil)
 		clusteroperator.EXPECT().GetClsuter(gomock.Any(), cluster.Name).Return(cluster, nil)
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.DeleteCluster(context.Background(), cluster.Name)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.DeleteCluster(context.Background(), cluster.Name)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
@@ -598,8 +733,8 @@ var _ = Describe("Delete cluster", func() {
 		clusteroperator.EXPECT().RemoveCluster(params).Return(fmt.Errorf("failed to get clustr %s", cluster.Name))
 		clusteroperator.EXPECT().GetClsuter(gomock.Any(), cluster.Name).Return(cluster, nil)
 
-		clusterusecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		err := clusterusecase.DeleteCluster(context.Background(), cluster.Name)
+		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
+		err := clusterUsecase.DeleteCluster(context.Background(), cluster.Name)
 		Expect(err).Should(HaveOccurred())
 	})
 })
