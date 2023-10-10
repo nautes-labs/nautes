@@ -62,9 +62,9 @@ var _ = Describe("HNC", func() {
 			Name:      productName,
 			Namespace: "",
 			Additions: map[string]string{
-				hnc.OptKeyProductResourcePathPipeline: "./pipeline/template",
-				hnc.OptKeyProductResourceRevision:     "main",
-				hnc.OptKeySyncResourceTypes:           "v1/ConfigMap, v1/Pod",
+				hnc.OptKeyProductResourceKustomizeFileFolder: "./pipeline/template",
+				hnc.OptKeyProductResourceRevision:            "main",
+				hnc.OptKeySyncResourceTypes:                  "v1/ConfigMap, v1/Pod",
 			},
 		}
 
