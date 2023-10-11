@@ -20,6 +20,7 @@ import (
 	eventsourcev1alpha1 "github.com/argoproj/argo-events/pkg/apis/eventsource/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -27,7 +28,7 @@ import (
 
 type CalendarEventSourceGenerator struct {
 	Components     *syncer.ComponentList
-	HostEntrypoint EntryPoint
+	HostEntrypoint utils.EntryPoint
 	Namespace      string
 	K8sClient      client.Client
 	DB             database.Database

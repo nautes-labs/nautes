@@ -16,6 +16,7 @@ package configs_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
@@ -29,15 +30,22 @@ func TestNautesconfigs(t *testing.T) {
 }
 
 var configString string
-var configPath = "/tmp/config.yaml"
 
 var _ = Describe("New nautes config", func() {
+	var configPath string
 	BeforeEach(func() {
+		// os.Setenv(nautesconst.EnvNautesHome, "/tmp")
+
+		configPath = "/tmp/config/config.yaml"
 		configString = `
 nautes:
   namespace: "testNamespace"
 `
-		err := os.WriteFile(configPath, []byte(configString), 0600)
+		dir := filepath.Dir(configPath)
+		err := os.MkdirAll(dir, os.ModePerm)
+		Expect(err).Should(BeNil())
+
+		err = os.WriteFile(configPath, []byte(configString), 0600)
 		Expect(err).Should(BeNil())
 	})
 

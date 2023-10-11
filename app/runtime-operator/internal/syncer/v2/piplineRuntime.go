@@ -19,11 +19,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
 	"strings"
 	"text/template"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 	pkgruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -181,13 +184,9 @@ func (prd *PipelineRuntimeDeployer) deployApp(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("get additional app failed: %w", err)
 	}
-	if app == nil {
-		if prd.cache.App != nil {
-			return prd.deployer.DeleteApp(ctx, *prd.cache.App)
-		}
-		return nil
+	if app == nil && prd.cache.App != nil {
+		return prd.deployer.DeleteApp(ctx, *prd.cache.App)
 	}
-	prd.newCache.App = app
 
 	if err := prd.deployer.CreateProduct(ctx, prd.productID); err != nil {
 		return fmt.Errorf("create deployment product failed: %w", err)
@@ -206,6 +205,7 @@ func (prd *PipelineRuntimeDeployer) deployApp(ctx context.Context) error {
 			prd.productID, prd.productName, err)
 	}
 
+	prd.newCache.App = app
 	return prd.deployer.CreateApp(ctx, *app)
 }
 
@@ -247,6 +247,7 @@ func (prd *PipelineRuntimeDeployer) syncUserInSecretStore(ctx context.Context, u
 	if err := prd.secMgr.CreateUser(ctx, user); err != nil {
 		return fmt.Errorf("create user in secret store failed: %w", err)
 	}
+	prd.newCache.CodeRepo = prd.codeRepo.Name
 
 	repo := SecretInfo{
 		Type: SecretTypeCodeRepo,
@@ -710,11 +711,13 @@ func getEventSourceFromEventSources(name string, eventSources []v1alpha1.EventSo
 }
 
 const (
-	rawTaskFilePath = "/opt/nautes/config/base"
+	rawTaskFilePath = "./config/base"
 )
 
 func getRawTask(vars map[string]interface{}) (string, error) {
-	tmpl, err := template.ParseFiles(rawTaskFilePath)
+	nautesHomePath := os.Getenv(nautesconst.EnvNautesHome)
+	taskFilePath := path.Join(nautesHomePath, rawTaskFilePath)
+	tmpl, err := template.ParseFiles(taskFilePath)
 	if err != nil {
 		return "", err
 	}

@@ -41,6 +41,7 @@ var (
 		v1alpha1.RuntimeTypeDeploymentRuntime: newDeploymentRuntimeDeployer,
 		v1alpha1.RuntimeTypePipelineRuntime:   newPipelineRuntimeDeployer,
 	}
+	NewDatabase = database.NewRuntimeDataSource
 )
 
 var (
@@ -78,7 +79,7 @@ func (s *Syncer) NewTasks(ctx context.Context, runtime v1alpha1.Runtime, cache *
 	}
 
 	productName := runtime.GetProduct()
-	db, err := database.NewRuntimeDataSource(ctx, s.KubernetesClient, productName, cfg.Nautes.Namespace)
+	db, err := NewDatabase(ctx, s.KubernetesClient, productName, cfg.Nautes.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("init nautes database failed: %w", err)
 	}

@@ -38,35 +38,13 @@ type DeploymentRuntimeDeployer struct {
 	usageController UsageController
 	rawCache        *runtime.RawExtension
 	cache           DeploymentRuntimeSyncHistory
-	newCache        deploymentRuntimeHistoryInner
+	newCache        DeploymentRuntimeSyncHistory
 }
 
 type DeploymentRuntimeSyncHistory struct {
-	Cluster  string   `json:"cluster,omitempty"`
-	Spaces   []string `json:"spaces,omitempty"`
-	CodeRepo string   `json:"codeRepo,omitempty"`
-}
-
-func (his *DeploymentRuntimeSyncHistory) convertToInner() deploymentRuntimeHistoryInner {
-	return deploymentRuntimeHistoryInner{
-		Cluster:  his.Cluster,
-		Spaces:   sets.New(his.Spaces...),
-		CodeRepo: his.CodeRepo,
-	}
-}
-
-type deploymentRuntimeHistoryInner struct {
-	Cluster  string
-	Spaces   sets.Set[string]
-	CodeRepo string
-}
-
-func (his *deploymentRuntimeHistoryInner) convertToPublic() DeploymentRuntimeSyncHistory {
-	return DeploymentRuntimeSyncHistory{
-		Cluster:  his.Cluster,
-		Spaces:   his.Spaces.UnsortedList(),
-		CodeRepo: his.CodeRepo,
-	}
+	Cluster  string    `json:"cluster,omitempty"`
+	Spaces   StringSet `json:"spaces,omitempty"`
+	CodeRepo string    `json:"codeRepo,omitempty"`
 }
 
 func newDeploymentRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) {
@@ -98,9 +76,11 @@ func newDeploymentRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) 
 			return nil, fmt.Errorf("unmarshal history failed: %w", err)
 		}
 	}
-
-	newCache := history.convertToInner()
-	newCache.Cluster = initInfo.ClusterName
+	if history.Spaces.Set == nil {
+		history.Spaces = StringSet{
+			Set: sets.New[string](),
+		}
+	}
 
 	usageController := UsageController{
 		nautesNamespace: initInfo.NautesConfig.Nautes.Namespace,
@@ -123,14 +103,14 @@ func newDeploymentRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) 
 		usageController: usageController,
 		rawCache:        initInfo.cache,
 		cache:           *history,
-		newCache:        newCache,
+		newCache:        *history,
 	}, nil
 }
 
 func (drd *DeploymentRuntimeDeployer) Deploy(ctx context.Context) (*runtime.RawExtension, error) {
 	err := drd.deploy(ctx)
 
-	cache, convertErr := json.Marshal(drd.newCache.convertToPublic())
+	cache, convertErr := json.Marshal(drd.newCache)
 	if convertErr != nil {
 		return drd.rawCache, convertErr
 	}
@@ -143,7 +123,7 @@ func (drd *DeploymentRuntimeDeployer) Deploy(ctx context.Context) (*runtime.RawE
 func (drd *DeploymentRuntimeDeployer) deploy(ctx context.Context) error {
 	usage, err := drd.usageController.AddProductUsage(ctx)
 	if err != nil {
-		return fmt.Errorf("add product usage failed")
+		return fmt.Errorf("add product usage failed: %w", err)
 	}
 
 	if err := drd.initEnvironment(ctx, *usage); err != nil {
@@ -165,7 +145,7 @@ func (drd *DeploymentRuntimeDeployer) deploy(ctx context.Context) error {
 
 func (drd *DeploymentRuntimeDeployer) Delete(ctx context.Context) (*runtime.RawExtension, error) {
 	err := drd.delete(ctx)
-	cache, convertErr := json.Marshal(drd.newCache.convertToPublic())
+	cache, convertErr := json.Marshal(drd.newCache)
 	if convertErr != nil {
 		return drd.rawCache, convertErr
 	}
@@ -179,6 +159,9 @@ func (drd *DeploymentRuntimeDeployer) delete(ctx context.Context) error {
 	usage, err := drd.usageController.GetProductUsage(ctx)
 	if err != nil {
 		return err
+	}
+	if usage == nil {
+		return nil
 	}
 
 	usage.Runtimes.Delete(drd.runtime.Name)
@@ -256,7 +239,7 @@ func (drd *DeploymentRuntimeDeployer) cleanUpProduct(ctx context.Context, user *
 	}
 
 	spacesInUsed := drd.getSpaceUsage(usage)
-	for _, ns := range drd.cache.Spaces {
+	for _, ns := range drd.cache.Spaces.UnsortedList() {
 		if spacesInUsed.Has(ns) {
 			continue
 		}
@@ -276,7 +259,7 @@ func (drd *DeploymentRuntimeDeployer) cleanUpProduct(ctx context.Context, user *
 }
 
 func (drd *DeploymentRuntimeDeployer) getSpaceUsage(usage ProductUsage) sets.Set[string] {
-	spaces := sets.New[string]("")
+	spaces := sets.New[string]()
 	for _, dr := range usage.Runtimes.UnsortedList() {
 		dr, err := drd.db.GetRuntime(dr, v1alpha1.RuntimeTypeDeploymentRuntime)
 		if err != nil {
@@ -378,7 +361,7 @@ func (drd *DeploymentRuntimeDeployer) initEnvironment(ctx context.Context, usage
 
 func (drd *DeploymentRuntimeDeployer) getUnusedSpacesInCache() []string {
 	newSpaces := sets.New(drd.runtime.GetNamespaces()...)
-	oldSpaces := sets.New(drd.cache.Spaces...)
+	oldSpaces := drd.cache.Spaces
 	return oldSpaces.Difference(newSpaces).UnsortedList()
 }
 

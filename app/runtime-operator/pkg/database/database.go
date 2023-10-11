@@ -429,44 +429,22 @@ func (db *RuntimeDataBase) ListUsedCodeRepos(opts ...ListOption) ([]v1alpha1.Cod
 
 	repoSet := map[string]v1alpha1.CodeRepo{}
 
-	for _, runtime := range db.DeploymentRuntimes {
-		deployRuntime := runtime.DeepCopy()
-		cluster, err := db.GetClusterByRuntime(deployRuntime)
-		if err != nil {
-			return nil, err
-		}
-
-		if !options.MatchRequest(deployRuntime, cluster.Name) {
-			continue
-		}
-
-		repo, err := db.GetCodeRepo(deployRuntime.Spec.ManifestSource.CodeRepo)
-		if err != nil {
-			return nil, err
-		}
-		repoSet[repo.Name] = *repo
+	deploymentUsedCodeRepos, err := db.listDeploymentRuntimeUsedCodeRepos(*options)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, runtime := range db.PipelineRuntimes {
-		pipelineRuntime := runtime.DeepCopy()
-		cluster, err := db.GetClusterByRuntime(pipelineRuntime)
-		if err != nil {
-			return nil, err
-		}
+	for i, repo := range deploymentUsedCodeRepos {
+		repoSet[repo.Name] = deploymentUsedCodeRepos[i]
+	}
 
-		if !options.MatchRequest(pipelineRuntime, cluster.Name) {
-			continue
-		}
+	pipelineUsedCodeRepos, err := db.listPipelineRuntimeUsedCodeRepos(*options)
+	if err != nil {
+		return nil, err
+	}
 
-		if pipelineRuntime.Spec.AdditionalResources != nil &&
-			pipelineRuntime.Spec.AdditionalResources.Git != nil &&
-			pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo != "" {
-			repo, err := db.GetCodeRepo(pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
-			if err != nil {
-				return nil, err
-			}
-			repoSet[repo.Name] = *repo
-		}
+	for i, repo := range pipelineUsedCodeRepos {
+		repoSet[repo.Name] = pipelineUsedCodeRepos[i]
 	}
 
 	repos := make([]v1alpha1.CodeRepo, 0)
@@ -481,17 +459,53 @@ func (db *RuntimeDataBase) ListUsedCodeRepos(opts ...ListOption) ([]v1alpha1.Cod
 	return repos, nil
 }
 
-func (db *RuntimeDataBase) ListUsedURLs(opts ...ListOption) ([]string, error) {
-	options := db.getListOptions(opts)
+func (db *RuntimeDataBase) listDeploymentRuntimeUsedCodeRepos(options ListOptions) ([]v1alpha1.CodeRepo, error) {
+	repoNameSet := sets.New[string]()
+	var repos []v1alpha1.CodeRepo
+	for _, runtime := range db.DeploymentRuntimes {
+		deployRuntime := runtime.DeepCopy()
+		repoName := deployRuntime.Spec.ManifestSource.CodeRepo
+		if repoNameSet.Has(repoName) {
+			continue
+		}
 
-	repos, err := db.ListUsedCodeRepos(opts...)
-	if err != nil {
-		return nil, err
+		cluster, err := db.GetClusterByRuntime(deployRuntime)
+		if err != nil {
+			return nil, err
+		}
+
+		if !options.MatchRequest(deployRuntime, cluster.Name) {
+			continue
+		}
+
+		repo, err := db.GetCodeRepo(repoName)
+		if err != nil {
+			return nil, err
+		}
+
+		repoNameSet.Insert(repoName)
+		repos = append(repos, *repo)
 	}
+	return repos, nil
+}
 
-	urls := []string{}
+func (db *RuntimeDataBase) listPipelineRuntimeUsedCodeRepos(options ListOptions) ([]v1alpha1.CodeRepo, error) {
+	repoNameSet := sets.New[string]()
+	var repos []v1alpha1.CodeRepo
+
 	for _, runtime := range db.PipelineRuntimes {
 		pipelineRuntime := runtime.DeepCopy()
+		repoName := ""
+
+		if pipelineRuntime.Spec.AdditionalResources != nil &&
+			pipelineRuntime.Spec.AdditionalResources.Git != nil &&
+			pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo != "" {
+			repoName = pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo
+		}
+		if repoName == "" || repoNameSet.Has(repoName) {
+			continue
+		}
+
 		cluster, err := db.GetClusterByRuntime(pipelineRuntime)
 		if err != nil {
 			return nil, err
@@ -501,20 +515,16 @@ func (db *RuntimeDataBase) ListUsedURLs(opts ...ListOption) ([]string, error) {
 			continue
 		}
 
-		if pipelineRuntime.Spec.AdditionalResources == nil ||
-			pipelineRuntime.Spec.AdditionalResources.Git == nil ||
-			pipelineRuntime.Spec.AdditionalResources.Git.URL == "" {
-			continue
+		repo, err := db.GetCodeRepo(pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
+		if err != nil {
+			return nil, err
 		}
 
-		urls = append(urls, pipelineRuntime.Spec.AdditionalResources.Git.URL)
+		repoNameSet.Insert(repoName)
+		repos = append(repos, *repo)
 	}
 
-	for _, repo := range repos {
-		urls = append(urls, repo.Spec.URL)
-	}
-
-	return urls, nil
+	return repos, nil
 }
 
 func NewRuntimeDataSource(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Database, error) {

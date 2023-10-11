@@ -15,9 +15,11 @@
 package database
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NamespaceUsage store namespaces in each cluster. Format: map[cluster]namespaces
@@ -26,6 +28,8 @@ type NamespaceUsage map[string][]string
 func (nu NamespaceUsage) GetNamespacesInCluster(name string) []string {
 	return nu[name]
 }
+
+type NewDatabase func(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Database, error)
 
 // Database store all product resouces in kubernetes.
 type Database interface {
@@ -41,7 +45,6 @@ type Database interface {
 	// ListUsedNamespces should return all namespaces used by product
 	ListUsedNamespaces(opts ...ListOption) (NamespaceUsage, error)
 	ListUsedCodeRepos(opts ...ListOption) ([]v1alpha1.CodeRepo, error)
-	ListUsedURLs(opts ...ListOption) ([]string, error)
 }
 
 type ListOption func(*ListOptions)

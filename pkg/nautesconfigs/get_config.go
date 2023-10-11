@@ -16,9 +16,10 @@ package configs
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
+	"path"
 
+	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 	"github.com/nautes-labs/nautes/pkg/kubeconvert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -127,7 +128,8 @@ func NewConfigInstanceForK8s(namespace, configMap string, kubeconfig string) (*C
 	return NewConfig(cm.Data["config"])
 }
 
-const DefaultNautesConfigPath = "/opt/nautes/config/config"
+const DefaultNautesConfigPath = "./config/config"
+
 const EnvNautesConfigPath = "NAUTESCONFIGPATH"
 
 type configOptions struct {
@@ -155,10 +157,11 @@ func NewNautesConfigFromFile(opts ...configFunction) (*Config, error) {
 	} else if envExist {
 		filePath = filePathFromEnv
 	} else {
-		filePath = DefaultNautesConfigPath
+		homePath := os.Getenv(nautesconst.EnvNautesHome)
+		filePath = path.Join(homePath, DefaultNautesConfigPath)
 	}
 
-	configsByte, err := ioutil.ReadFile(filePath)
+	configsByte, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}

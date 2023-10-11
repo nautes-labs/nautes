@@ -40,6 +40,12 @@ var _ = Describe("Database", func() {
 	var envNames []string
 	var deployRuntimeNames []string
 	var pipelineRuntimeNames []string
+	var product *v1alpha1.Product
+	var codeRepoProvider *v1alpha1.CodeRepoProvider
+	var productCodeRepo *v1alpha1.CodeRepo
+	var codeRepo01 *v1alpha1.CodeRepo
+	var deployRuntime01 *v1alpha1.DeploymentRuntime
+	var pipelineRuntime01 *v1alpha1.ProjectPipelineRuntime
 
 	BeforeEach(func() {
 		seed = RandNum()
@@ -52,7 +58,7 @@ var _ = Describe("Database", func() {
 		deployRuntimeNames = GenerateNames(fmt.Sprintf("dr-%%d-%s", seed), 10)
 		pipelineRuntimeNames = GenerateNames(fmt.Sprintf("pr-%%d-%s", seed), 10)
 
-		codeRepoProvider := v1alpha1.CodeRepoProvider{
+		codeRepoProvider = &v1alpha1.CodeRepoProvider{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("codeprovider-%s", seed),
 				Namespace: nautesNamespaceName,
@@ -64,7 +70,7 @@ var _ = Describe("Database", func() {
 				ProviderType: "gitlab",
 			},
 		}
-		testObjects = append(testObjects, &codeRepoProvider)
+		testObjects = append(testObjects, codeRepoProvider)
 
 		cluster01 := v1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -102,7 +108,7 @@ var _ = Describe("Database", func() {
 		}
 		testObjects = append(testObjects, &cluster02)
 
-		product := v1alpha1.Product{
+		product = &v1alpha1.Product{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      productName,
 				Namespace: nautesNamespaceName,
@@ -112,14 +118,14 @@ var _ = Describe("Database", func() {
 				MetaDataPath: "",
 			},
 		}
-		testObjects = append(testObjects, &product)
+		testObjects = append(testObjects, product)
 		testNamespace = append(testNamespace, corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: product.Name,
 			},
 		})
 
-		productCodeRepo := v1alpha1.CodeRepo{
+		productCodeRepo = &v1alpha1.CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("default-repo-%s", seed),
 				Namespace: nautesNamespaceName,
@@ -135,7 +141,7 @@ var _ = Describe("Database", func() {
 				URL:              "ssh://127.0.0.1/nautes/default.project.git",
 			},
 		}
-		testObjects = append(testObjects, &productCodeRepo)
+		testObjects = append(testObjects, productCodeRepo)
 
 		env01 := v1alpha1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -176,7 +182,7 @@ var _ = Describe("Database", func() {
 		testObjects = append(testObjects, &project01)
 
 		repoName := fmt.Sprintf("repoName-01-%s", seed)
-		codeRepo01 := v1alpha1.CodeRepo{
+		codeRepo01 = &v1alpha1.CodeRepo{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("coderepo-01-%s", seed),
 				Namespace: product.Name,
@@ -188,7 +194,7 @@ var _ = Describe("Database", func() {
 				RepoName:         repoName,
 			},
 		}
-		testObjects = append(testObjects, &codeRepo01)
+		testObjects = append(testObjects, codeRepo01)
 
 		additionalRepoName := fmt.Sprintf("add-repoName-01-%s", seed)
 		additionalCodeRepo01 := v1alpha1.CodeRepo{
@@ -205,7 +211,7 @@ var _ = Describe("Database", func() {
 		}
 		testObjects = append(testObjects, &additionalCodeRepo01)
 
-		deployRuntime01 := v1alpha1.DeploymentRuntime{
+		deployRuntime01 = &v1alpha1.DeploymentRuntime{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deployRuntimeNames[1],
 				Namespace: product.Name,
@@ -226,9 +232,9 @@ var _ = Describe("Database", func() {
 				},
 			},
 		}
-		testObjects = append(testObjects, &deployRuntime01)
+		testObjects = append(testObjects, deployRuntime01)
 
-		pipelineRuntime01 := v1alpha1.ProjectPipelineRuntime{
+		pipelineRuntime01 = &v1alpha1.ProjectPipelineRuntime{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pipelineRuntimeNames[1],
 				Namespace: product.Name,
@@ -266,7 +272,7 @@ var _ = Describe("Database", func() {
 				},
 			},
 		}
-		testObjects = append(testObjects, &pipelineRuntime01)
+		testObjects = append(testObjects, pipelineRuntime01)
 
 		for _, ns := range testNamespace {
 			err := k8sClient.Create(ctx, ns.DeepCopy())
@@ -389,5 +395,86 @@ var _ = Describe("Database", func() {
 		runtimes, _ = db.ListPipelineRuntimes()
 		Expect(len(runtimes[0].Spec.EventSources)).Should(Equal(0))
 		Expect(len(runtimes[0].Spec.PipelineTriggers)).Should(Equal(0))
+	})
+
+	It("can get deploy runtime", func() {
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		Expect(err).Should(BeNil())
+
+		runtime, err := db.GetRuntime(deployRuntime01.Name, v1alpha1.RuntimeTypeDeploymentRuntime)
+		Expect(err).Should(BeNil())
+		dRuntime, ok := runtime.(*v1alpha1.DeploymentRuntime)
+		Expect(ok).Should(BeTrue())
+		Expect(dRuntime.Name == deployRuntime01.Name).Should(BeTrue())
+		Expect(dRuntime.Namespace == deployRuntime01.Namespace).Should(BeTrue())
+		ok = reflect.DeepEqual(dRuntime.Spec, deployRuntime01.Spec)
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("can get pipeline runtime", func() {
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		Expect(err).Should(BeNil())
+
+		runtime, err := db.GetRuntime(pipelineRuntime01.Name, v1alpha1.RuntimeTypePipelineRuntime)
+		Expect(err).Should(BeNil())
+		dRuntime, ok := runtime.(*v1alpha1.ProjectPipelineRuntime)
+		Expect(ok).Should(BeTrue())
+		Expect(dRuntime.Name == pipelineRuntime01.Name).Should(BeTrue())
+		Expect(dRuntime.Namespace == pipelineRuntime01.Namespace).Should(BeTrue())
+		ok = reflect.DeepEqual(dRuntime.Spec, pipelineRuntime01.Spec)
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("can get code repo by url", func() {
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		Expect(err).Should(BeNil())
+
+		repoURL := fmt.Sprintf("%s/%s/%s.git", codeRepoProvider.Spec.SSHAddress, product.Spec.Name, codeRepo01.Spec.RepoName)
+		repo, err := db.GetCodeRepoByURL(repoURL)
+		Expect(err).Should(BeNil())
+		Expect(repo.Name == codeRepo01.Name).Should(BeTrue())
+		Expect(repo.Namespace == "").Should(BeTrue())
+		repo.Spec.URL = ""
+		ok := reflect.DeepEqual(repo.Spec, codeRepo01.Spec)
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("can get code repo provider", func() {
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		Expect(err).Should(BeNil())
+
+		provider, err := db.GetCodeRepoProvider(codeRepoProvider.Name)
+		Expect(err).Should(BeNil())
+
+		Expect(provider.Name == codeRepoProvider.Name).Should(BeTrue())
+		Expect(provider.Name == codeRepoProvider.Name).Should(BeTrue())
+		ok := reflect.DeepEqual(provider.Spec, codeRepoProvider.Spec)
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("can get product", func() {
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		Expect(err).Should(BeNil())
+
+		productFromDB, err := db.GetProduct(product.Name)
+		Expect(err).Should(BeNil())
+
+		Expect(productFromDB.Name == product.Name).Should(BeTrue())
+		Expect(productFromDB.Name == product.Name).Should(BeTrue())
+		ok := reflect.DeepEqual(productFromDB.Spec, product.Spec)
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("can get product code repo", func() {
+		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		Expect(err).Should(BeNil())
+
+		repo, err := db.GetProductCodeRepo(productName)
+		Expect(err).Should(BeNil())
+		Expect(repo.Name == productCodeRepo.Name).Should(BeTrue())
+		Expect(repo.Namespace == "").Should(BeTrue())
+		ok := reflect.DeepEqual(repo.Spec, productCodeRepo.Spec)
+		Expect(ok).Should(BeTrue())
+
 	})
 })

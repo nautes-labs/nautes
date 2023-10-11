@@ -29,39 +29,39 @@ import (
 
 // Environment variable key
 const (
-	LOG_FILENAME          = "LOG_FILENAME"
-	LOG_STORAGE_DIRECTORY = "LOG_STORAGE_DIRECTORY"
-	LOG_STORAGE_POLICY    = "LOG_STORAGE_POLICY"
-	LOG_MAX_SIZE          = "LOG_MAX_SIZE"
-	LOG_MAX_BACKUPS       = "LOG_MAX_BACKUPS"
-	LOG_MAX_AGE           = "LOG_MAX_AGE"
-	LOG_COMPRESS          = "LOG_COMPRESS"
+	LogFilename         = "LOG_FILENAME"
+	LogStorageDirectory = "LOG_STORAGE_DIRECTORY"
+	LogStoragePolicy    = "LOG_STORAGE_POLICY"
+	LogMaxSize          = "LOG_MAX_SIZE"
+	LogMaxBackups       = "LOG_MAX_BACKUPS"
+	LogMaxAge           = "LOG_MAX_AGE"
+	LogCompress         = "LOG_COMPRESS"
 )
 
 var (
 	// Log storage directory. default is current project root directory
-	// if your need set enviroment variable LOG_STORAGE_DIRECTORY value. eg: /var
-	logStorageDirectory = isEnvDefault(LOG_STORAGE_DIRECTORY, ".").(string)
+	// if your need set environment variable LOG_STORAGE_DIRECTORY value. eg: /var
+	logStorageDirectory = isEnvDefault(LogStorageDirectory, ".").(string)
 	// Current log file contains log below error
 	currentFilePath = fmt.Sprintf("%s/log/current.log", logStorageDirectory)
 	// Error log file contains equal to error and more
 	errorFilePath = fmt.Sprintf("%s/log/error.log", logStorageDirectory)
 	// Log storage policy. default append write file
-	// If your need set enviroment LOG_STORAGE_POLICY value. eg: debug
+	// If your need set environment LOG_STORAGE_POLICY value. eg: debug
 	// Current mode has debug and default, when write file will trunc in debug mode
-	logStoragePolicy = isEnvDefault(LOG_STORAGE_POLICY, "default").(string)
+	logStoragePolicy = isEnvDefault(LogStoragePolicy, "default").(string)
 	// Log max size. default size is 10M
-	logMaxSize = isEnvDefault(LOG_MAX_SIZE, 10).(int)
+	logMaxSize = isEnvDefault(LogMaxSize, 10).(int)
 	// Log max backups. default number is 5
-	logMaxBackups = isEnvDefault(LOG_MAX_BACKUPS, 5).(int)
+	logMaxBackups = isEnvDefault(LogMaxBackups, 5).(int)
 	// Log storage max age. default age is 30 days
-	logMaxAge = isEnvDefault(LOG_MAX_AGE, 30).(int)
+	logMaxAge = isEnvDefault(LogMaxAge, 30).(int)
 	// Whether the log is compressed. default is not
-	logCompress = isEnvDefault(LOG_COMPRESS, false).(bool)
+	logCompress = isEnvDefault(LogCompress, false).(bool)
 )
 
 func init() {
-	if val := os.Getenv(LOG_FILENAME); val != "" {
+	if val := os.Getenv(LogFilename); val != "" {
 		currentFilePath = fmt.Sprintf("%s/log/%s.log", logStorageDirectory, val)
 	}
 }
@@ -107,11 +107,11 @@ func NewCore() []zapcore.Core {
 	mode := logStoragePolicy
 	switch mode {
 	case "debug":
-		os.OpenFile(currentFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
-		os.OpenFile(errorFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
+		_, _ = os.OpenFile(currentFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
+		_, _ = os.OpenFile(errorFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
 	default:
-		os.OpenFile(currentFilePath, os.O_WRONLY|os.O_APPEND, 0644)
-		os.OpenFile(errorFilePath, os.O_WRONLY|os.O_APPEND, 0644)
+		_, _ = os.OpenFile(currentFilePath, os.O_WRONLY|os.O_APPEND, 0644)
+		_, _ = os.OpenFile(errorFilePath, os.O_WRONLY|os.O_APPEND, 0644)
 	}
 
 	highPriority := zap.LevelEnablerFunc(func(lev zapcore.Level) bool {
@@ -162,11 +162,11 @@ func isCreateDefault(opts ...string) error {
 
 func isEnvDefault(key string, defaultValue interface{}) interface{} {
 	if val := os.Getenv(key); val != "" {
-		if key == LOG_MAX_AGE || key == LOG_MAX_BACKUPS || key == LOG_MAX_SIZE {
+		if key == LogMaxAge || key == LogMaxBackups || key == LogMaxSize {
 			intValue, _ := strconv.Atoi(val)
 			return intValue
 		}
-		if key == LOG_COMPRESS {
+		if key == LogCompress {
 			boolValue, _ := strconv.ParseBool(val)
 			return boolValue
 		}

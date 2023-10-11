@@ -63,10 +63,23 @@ type StringSet struct {
 	sets.Set[string]
 }
 
+func (ss StringSet) MarshalJson() (interface{}, error) {
+	return ss.UnsortedList(), nil
+}
+
+func (ss *StringSet) UnmarshalJson(unmarshal func(interface{}) error) error {
+	return ss.unmarshal(unmarshal)
+}
+
 func (ss StringSet) MarshalYAML() (interface{}, error) {
 	return ss.UnsortedList(), nil
 }
+
 func (ss *StringSet) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	return ss.unmarshal(unmarshal)
+}
+
+func (ss *StringSet) unmarshal(unmarshal func(interface{}) error) error {
 	var stringArray []string
 	if err := unmarshal(&stringArray); err != nil {
 		return err
@@ -133,7 +146,7 @@ func (cuc *UsageController) AddProductUsage(ctx context.Context) (*ProductUsage,
 		return nil, err
 	}
 
-	return usage, err
+	return usage, nil
 }
 
 func (cuc *UsageController) GetProductUsage(ctx context.Context) (*ProductUsage, error) {
@@ -145,7 +158,7 @@ func (cuc *UsageController) GetProductUsage(ctx context.Context) (*ProductUsage,
 	}
 
 	if err := cuc.k8sClient.Get(ctx, client.ObjectKeyFromObject(cm), cm); err != nil {
-		return nil, err
+		return nil, client.IgnoreNotFound(err)
 	}
 
 	clusterUsage, err := NewClustersUsage(cm.Data[cuc.clusterName])

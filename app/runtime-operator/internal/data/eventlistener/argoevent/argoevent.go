@@ -25,6 +25,7 @@ import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,7 +63,7 @@ type ArgoEvent struct {
 	k8sClient             client.Client
 	user                  syncer.User
 	space                 syncer.Space
-	entryPoint            EntryPoint
+	entryPoint            utils.EntryPoint
 	eventSourceGenerators map[syncer.EventType]eventSourceGenerator
 	sensorGenerator       SensorGenerator
 }
@@ -73,6 +74,9 @@ type EventManager interface {
 	CreateConsumer() error
 	DeleteConsumer() error
 }
+
+//+kubebuilder:rbac:groups=argoproj.io,resources=appprojects,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=get;list;create;update;delete
 
 func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.EventListener, error) {
 	if info.ClusterConnectInfo.Type != v1alpha1.CLUSTER_KIND_KUBERNETES {
@@ -96,7 +100,7 @@ func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (synce
 		}
 	}
 
-	entryPoint, err := GetEntryPointFromCluster(*cluster, hostCluster, "https")
+	entryPoint, err := utils.GetEntryPointFromCluster(*cluster, hostCluster, "https")
 	if err != nil {
 		return nil, err
 	}

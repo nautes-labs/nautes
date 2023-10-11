@@ -56,6 +56,7 @@ type DeploymentRuntimeReconciler struct {
 }
 
 var reconcileFrequency = time.Second * 60
+var errorMsgUpdateStatusFailed = "update status failed"
 
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes/status,verbs=get;update;patch
@@ -100,7 +101,7 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if err != nil {
 			setDeployRuntimeStatus(dr, cache, nil, err)
 			if err := r.Status().Update(ctx, dr); err != nil {
-				logger.Error(err, "update status failed")
+				logger.Error(err, errorMsgUpdateStatusFailed)
 			}
 			return ctrl.Result{}, err
 		}
@@ -124,7 +125,7 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if err != nil {
 		setDeployRuntimeStatus(dr, nil, nil, err)
 		if err := r.Status().Update(ctx, dr); err != nil {
-			logger.Error(err, "update status failed")
+			logger.Error(err, errorMsgUpdateStatusFailed)
 		}
 		return ctrl.Result{}, fmt.Errorf("validate runtime failed: %w", err)
 	}
@@ -132,7 +133,7 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if len(illegalProjectRefs) != 0 && len(illegalProjectRefs) == len(dr.Spec.ProjectsRef) {
 		setDeployRuntimeStatus(dr, nil, illegalProjectRefs, fmt.Errorf("no valid project exists"))
 		if err := r.Status().Update(ctx, dr); err != nil {
-			logger.Error(err, "update status failed")
+			logger.Error(err, errorMsgUpdateStatusFailed)
 		}
 		return ctrl.Result{RequeueAfter: reconcileFrequency}, nil
 	}

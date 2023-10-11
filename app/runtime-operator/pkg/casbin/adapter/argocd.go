@@ -73,6 +73,8 @@ m = g(r.sub, p.sub) && globOrRegexMatch(r.res, p.res) && globOrRegexMatch(r.act,
 `)
 )
 
+var policyFormat = "%s\n%s"
+
 type Adapter struct {
 	K8sClient     client.Client
 	rbacConfigMap *corev1.ConfigMap
@@ -183,7 +185,7 @@ func (ada *Adapter) LoadPolicy(argocdRBACModel model.Model) error {
 		case "g":
 			ada.addGroup(policy, tokens)
 		default:
-			ada.otherPolicies = fmt.Sprintf("%s\n%s", ada.otherPolicies, policy)
+			ada.otherPolicies = fmt.Sprintf(policyFormat, ada.otherPolicies, policy)
 		}
 	}
 	return nil
@@ -209,7 +211,7 @@ func (ada *Adapter) addPolicy(policy string, elements []string) {
 			ada.roles[roleName] = adaRole
 		}
 	} else {
-		ada.otherPolicies = fmt.Sprintf("%s\n%s", ada.otherPolicies, policy)
+		ada.otherPolicies = fmt.Sprintf(policyFormat, ada.otherPolicies, policy)
 	}
 }
 
@@ -227,16 +229,16 @@ func (ada *Adapter) addGroup(policy string, elements []string) {
 			ada.roles[roleName] = adaRole
 		}
 	} else {
-		ada.otherPolicies = fmt.Sprintf("%s\n%s", ada.otherPolicies, policy)
+		ada.otherPolicies = fmt.Sprintf(policyFormat, ada.otherPolicies, policy)
 	}
 }
 
 func (ada *Adapter) ExportPolicies() string {
 	var policy string
 	for roleName, role := range ada.roles {
-		policy = fmt.Sprintf("%s\n%s", policy, role.ExportPolicies(roleName))
+		policy = fmt.Sprintf(policyFormat, policy, role.ExportPolicies(roleName))
 	}
-	policy = fmt.Sprintf("%s\n%s", policy, ada.otherPolicies)
+	policy = fmt.Sprintf(policyFormat, policy, ada.otherPolicies)
 
 	return strings.TrimSpace(policy)
 }
@@ -318,10 +320,10 @@ func (r *role) ExportPolicies(roleName string) string {
 
 	for _, policy := range r.policies {
 		policyStr := fmt.Sprintf("p, role:%s, %s, %s, %s, allow", roleName, policy.res, policy.act, policy.obj)
-		policies = fmt.Sprintf("%s\n%s", policies, policyStr)
+		policies = fmt.Sprintf(policyFormat, policies, policyStr)
 	}
 
 	groupPolicyStr := fmt.Sprintf("g, %s, role:%s\n", r.groupName, roleName)
-	policies = fmt.Sprintf("%s\n%s", policies, groupPolicyStr)
+	policies = fmt.Sprintf(policyFormat, policies, groupPolicyStr)
 	return strings.TrimSpace(policies)
 }
