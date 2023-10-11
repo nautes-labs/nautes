@@ -78,19 +78,17 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 	}
 	// set git config user name
 	localRepositoryPath := fmt.Sprintf("%s/%s", localRepositarySubPath, repoName)
-	intput1 := fmt.Sprintf("config user.name %s", param.User)
-	cmd1 := exec.Command("git", intput1)
-	cmd1.Dir = localRepositoryPath
-	err = cmd1.Run()
+	setUserCMD := exec.Command("git", "config", "user.name", param.User)
+	setUserCMD.Dir = localRepositoryPath
+	err = setUserCMD.Run()
 	if err != nil {
 		return "", fmt.Errorf("failed to set git user user in %s, err: %w", localRepositoryPath, err)
 	}
 
 	// set git config user email
-	input2 := fmt.Sprintf("config user.email %s", param.Email)
-	cmd2 := exec.Command("git", input2)
-	cmd2.Dir = localRepositoryPath
-	err = cmd2.Run()
+	setEmailCMD := exec.Command("git", "config", "user.email", param.Email)
+	setEmailCMD.Dir = localRepositoryPath
+	err = setEmailCMD.Run()
 	if err != nil {
 		return "", fmt.Errorf("failed to set git user email in %s, err: %w", localRepositoryPath, err)
 	}

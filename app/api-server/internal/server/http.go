@@ -49,7 +49,7 @@ type ServiceProductGroup struct {
 	cluster                *service.ClusterService
 }
 
-//nolint:revive
+//nolint:lll
 func NewServiceGroup(projectPipelineRuntime *service.ProjectPipelineRuntimeService, deploymentRuntime *service.DeploymentruntimeService, codeRepo *service.CodeRepoService, codeRepoBinding *service.CodeRepoBindingService, product *service.ProductService, project *service.ProjectService, environment *service.EnvironmentService, cluster *service.ClusterService) *ServiceProductGroup {
 	return &ServiceProductGroup{
 		projectPipelineRuntime: projectPipelineRuntime,
