@@ -27,32 +27,106 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	MockCodeRepoBinding1Name = "codeRepoBinding1"
-)
+func createFakeCodeRepoBindingErrorKindResource(name, project string) *resourcev1alpha1.CodeRepo {
+	crd := &resourcev1alpha1.CodeRepo{
+		ObjectMeta: v1.ObjectMeta{
+			Name: name,
+		},
+		TypeMeta: v1.TypeMeta{
+			Kind: nodestree.CodeRepo,
+		},
+	}
+
+	return crd
+}
+
+func createFakeCodeRepoBindingResource(name, project, authRepo, permission string) *resourcev1alpha1.CodeRepoBinding {
+	crd := &resourcev1alpha1.CodeRepoBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name: name,
+		},
+		TypeMeta: v1.TypeMeta{
+			Kind: nodestree.CodeRepoBinding,
+		},
+		Spec: resourcev1alpha1.CodeRepoBindingSpec{
+			Product:     defaultProductId,
+			CodeRepo:    authRepo,
+			Projects:    []string{},
+			Permissions: permission,
+		},
+	}
+	if project != "" {
+		crd.Spec.Projects = append(crd.Spec.Projects, project)
+	}
+	return crd
+}
+
+func createFakeCodeRepoBindingNode(resource *resourcev1alpha1.CodeRepoBinding) *nodestree.Node {
+	return &nodestree.Node{
+		Name:    resource.Name,
+		Path:    fmt.Sprintf("%s/%s/%s/%s.yaml", localRepositoryPath, CodeReposSubDir, resource.Name, resource.Name),
+		Level:   4,
+		Content: resource,
+		Kind:    nodestree.CodeRepoBinding,
+	}
+}
+
+func createFakeContainingCodeRepoBindingNodes(node *nodestree.Node) nodestree.Node {
+	projectID1 := fmt.Sprintf("%s%d", RepoPrefix, 122)
+	codeRepoNode1 := createFakeCodeRepoNode(createFakeCodeRepoResource(projectID1))
+	projectID2 := fmt.Sprintf("%s%d", RepoPrefix, 123)
+	codeRepoNod2 := createFakeCodeRepoNode(createFakeCodeRepoResource(projectID2))
+	return nodestree.Node{
+		Name:  defaultProjectName,
+		Path:  defaultProjectName,
+		IsDir: true,
+		Level: 1,
+		Children: []*nodestree.Node{
+			{
+				Name:  CodeReposSubDir,
+				Path:  fmt.Sprintf("%v/%v", defaultProjectName, CodeReposSubDir),
+				IsDir: true,
+				Level: 2,
+				Children: []*nodestree.Node{
+					{
+						Name:  node.Name,
+						Path:  fmt.Sprintf("%s/%s/%s", localRepositoryPath, CodeReposSubDir, codeRepoNode1.Name),
+						IsDir: true,
+						Level: 3,
+						Children: []*nodestree.Node{
+							node,
+							codeRepoNode1,
+							codeRepoNod2,
+						},
+					},
+				},
+			},
+		},
+	}
+}
 
 var _ = Describe("Get CodeRepoBinding", func() {
 	var (
-		resourceName          = MockCodeRepoBinding1Name
-		fakeResource          = createFakeCodeRepoBindingResource(resourceName, "project1", MockCodeRepoName, string(ReadOnly))
+		resourceName          = "codeRepoBinding1"
+		fakeResource          = createFakeCodeRepoBindingResource(resourceName, "project1", _TestCodeRepoName, string(ReadOnly))
 		fakeNode              = createFakeCodeRepoBindingNode(fakeResource)
 		fakeNodes             = createFakeContainingCodeRepoBindingNodes(fakeNode)
 		fakeErrorKindResource = createFakeCodeRepoBindingErrorKindResource(resourceName, "project1")
 		fakeErrorKindNode     = createFakeCodeRepoNode(fakeErrorKindResource)
 		fakeErrorKindNodes    = createFakeContainingCodeRepoBindingNodes(fakeErrorKindNode)
 		gid, _                = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
-		project               = &Project{ID: MockProject1ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1")}
+		project               = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1")}
 		projectDeployKey      = &ProjectDeployKey{
-			ID:  MockProject3ID,
+			ID:  2013,
 			Key: "FingerprintData",
 		}
 		cloneRepositoryParam = &CloneRepositoryParam{
 			URL:   project.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		deployKeySecretData = &DeployKeySecretData{
-			ID:          MockProject3ID,
+			ID:          2013,
 			Fingerprint: "Fingerprint",
 		}
 	)
@@ -64,7 +138,7 @@ var _ = Describe("Get CodeRepoBinding", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), defaultGroupName).Return(defaultProductGroup, nil).AnyTimes()
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(project, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 
 		gitRepo := NewMockGitRepo(ctl)
@@ -99,7 +173,7 @@ var _ = Describe("Get CodeRepoBinding", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), defaultGroupName).Return(defaultProductGroup, nil).AnyTimes()
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(project, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 
 		gitRepo := NewMockGitRepo(ctl)
@@ -129,26 +203,26 @@ var _ = Describe("Get CodeRepoBinding", func() {
 
 var _ = Describe("List CodeRepoBinding", func() {
 	var (
-		resourceName          = MockCodeRepoBinding1Name
-		fakeResource          = createFakeCodeRepoBindingResource(resourceName, MockProject, MockCodeRepoName, string(ReadOnly))
+		resourceName          = "codeRepoBinding1"
+		fakeResource          = createFakeCodeRepoBindingResource(resourceName, _TestProject, _TestCodeRepoName, string(ReadOnly))
 		fakeNode              = createFakeCodeRepoBindingNode(fakeResource)
 		fakeNodes             = createFakeContainingCodeRepoBindingNodes(fakeNode)
 		fakeErrorKindResource = createFakeCodeRepoBindingErrorKindResource(resourceName, "project1")
 		fakeErrorKindNode     = createFakeCodeRepoNode(fakeErrorKindResource)
 		fakeErrorKindNodes    = createFakeContainingCodeRepoBindingNodes(fakeErrorKindNode)
 		gid, _                = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
-		project               = &Project{ID: MockProject1ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1")}
+		project               = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1")}
 		projectDeployKey      = &ProjectDeployKey{
-			ID:  MockProject3ID,
+			ID:  2013,
 			Key: "FingerprintData",
 		}
 		cloneRepositoryParam = &CloneRepositoryParam{
 			URL:   project.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		deployKeySecretData = &DeployKeySecretData{
-			ID:          MockProject3ID,
+			ID:          2013,
 			Fingerprint: "Fingerprint",
 		}
 	)
@@ -160,7 +234,7 @@ var _ = Describe("List CodeRepoBinding", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), defaultGroupName).Return(defaultProductGroup, nil).AnyTimes()
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(project, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 
 		gitRepo := NewMockGitRepo(ctl)
@@ -194,7 +268,7 @@ var _ = Describe("List CodeRepoBinding", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), defaultGroupName).Return(defaultProductGroup, nil).AnyTimes()
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(project, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 
 		gitRepo := NewMockGitRepo(ctl)
@@ -224,42 +298,41 @@ var _ = Describe("List CodeRepoBinding", func() {
 
 var _ = Describe("Save CodeRepoBinding", func() {
 	var (
-		resourceName  = MockCodeRepoBinding1Name
-		fakeResource1 = createFakeCodeRepoBindingResource(resourceName, MockProject, MockCodeRepoName, string(ReadOnly))
+		resourceName  = "codeRepoBinding1"
+		fakeResource1 = createFakeCodeRepoBindingResource(resourceName, _TestProject, _TestCodeRepoName, string(ReadOnly))
 		fakeNode1     = createFakeCodeRepoBindingNode(fakeResource1)
 		fakeNodes1    = createFakeContainingCodeRepoBindingNodes(fakeNode1)
-		fakeResource2 = createFakeCodeRepoBindingResource(resourceName, "", MockCodeRepoName, string(ReadOnly))
+		fakeResource2 = createFakeCodeRepoBindingResource(resourceName, "", _TestCodeRepoName, string(ReadOnly))
 		fakeNode2     = createFakeCodeRepoBindingNode(fakeResource2)
 		fakeNodes2    = createFakeContainingCodeRepoBindingNodes(fakeNode2)
-		repoName1     = "codeRepo1"
-		repoName2     = "codeRepo2"
-		fakeResource3 = createFakeCodeRepoResource(repoName2)
+		repoName      = "codeRepo2"
+		fakeResource3 = createFakeCodeRepoResource(repoName)
 		fakeNode3     = createFakeCodeRepoNode(fakeResource3)
 		project1      = &Project{
-			ID:            MockProject1ID,
-			HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", repoName1),
+			ID:            122,
+			HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1"),
 			Namespace: &ProjectNamespace{
-				ID: ProductID,
+				ID: 1233,
 			},
 		}
 		project2 = &Project{
-			ID:            MockProject2ID,
-			HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", repoName2),
+			ID:            123,
+			HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo2"),
 			Namespace: &ProjectNamespace{
-				ID: ProductID,
+				ID: 1233,
 			},
 		}
 		cloneRepositoryParam = &CloneRepositoryParam{
 			URL:   project1.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		projectDeployKey = &ProjectDeployKey{
-			ID:  MockProject3ID,
+			ID:  2013,
 			Key: "FingerprintData",
 		}
 		deployKeySecretData = &DeployKeySecretData{
-			ID:          MockProject3ID,
+			ID:          2013,
 			Fingerprint: "Fingerprint",
 		}
 		listProjectDeployKeys = []*ProjectDeployKey{projectDeployKey}
@@ -275,10 +348,10 @@ var _ = Describe("Save CodeRepoBinding", func() {
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), defaultProjectPath).Return(project1, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), fmt.Sprintf("%s/%s", defaultGroupName, fakeResource1.Spec.CodeRepo)).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject1ID).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject1ID).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject2ID).Return(project2, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 1222).Return(project1, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 122).Return(project1, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 123).Return(project2, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(listProjectDeployKeys, nil).AnyTimes()
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -326,10 +399,10 @@ var _ = Describe("Save CodeRepoBinding", func() {
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), defaultProjectPath).Return(project1, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), fmt.Sprintf("%s/%s", defaultGroupName, fakeResource1.Spec.CodeRepo)).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject1ID).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject1ID).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject2ID).Return(project2, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 1222).Return(project1, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 122).Return(project1, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 123).Return(project2, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(listProjectDeployKeys, nil).AnyTimes()
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -377,10 +450,10 @@ var _ = Describe("Save CodeRepoBinding", func() {
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), defaultProjectPath).Return(project1, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), fmt.Sprintf("%s/%s", defaultGroupName, fakeResource1.Spec.CodeRepo)).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject1ID).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject1ID).Return(project1, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), MockProject2ID).Return(project2, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 1222).Return(project1, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 122).Return(project1, nil).AnyTimes()
+		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), 123).Return(project2, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(listProjectDeployKeys, nil).AnyTimes()
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -397,7 +470,7 @@ var _ = Describe("Save CodeRepoBinding", func() {
 		nodestree.EXPECT().AppendOperators(gomock.Any()).AnyTimes()
 		nodestree.EXPECT().Load(gomock.Eq(localRepositoryPath)).Return(fakeNodes1, nil).AnyTimes()
 		nodestree.EXPECT().Compare(gomock.Any()).Return(nil).AnyTimes()
-		nodestree.EXPECT().GetNode(gomock.Any(), gomock.Eq(CodeRepoBindingKind), gomock.Any()).Return(fakeNode2).AnyTimes()
+		nodestree.EXPECT().GetNode(gomock.Any(), gomock.Eq(CodeRepoBindingKind), gomock.Any()).Return(fakeNode1).AnyTimes()
 		nodestree.EXPECT().GetNode(gomock.Any(), gomock.Eq(codeRepoKind), gomock.Any()).Return(fakeNode3).AnyTimes()
 		nodestree.EXPECT().GetNodes().Return(&fakeNodes2, nil)
 		nodestree.EXPECT().InsertNodes(gomock.Any(), gomock.Any()).Return(&fakeNodes1, nil).AnyTimes()
@@ -406,9 +479,9 @@ var _ = Describe("Save CodeRepoBinding", func() {
 		secretRepo := NewMockSecretrepo(ctl)
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(deployKeySecretData, nil).AnyTimes()
 		resourcesUsecase := NewResourcesUsecase(logger, codeRepo, nil, gitRepo, nodestree, nautesConfigs)
-		k8sClient := kubernetes.NewMockClient(ctl)
+		client := kubernetes.NewMockClient(ctl)
 
-		biz := NewCodeRepoCodeRepoBindingUsecase(logger, codeRepo, secretRepo, nodestree, resourcesUsecase, nautesConfigs, k8sClient)
+		biz := NewCodeRepoCodeRepoBindingUsecase(logger, codeRepo, secretRepo, nodestree, resourcesUsecase, nautesConfigs, client)
 		options := &BizOptions{
 			ProductName: defaultGroupName,
 			ResouceName: resourceName,
@@ -420,36 +493,12 @@ var _ = Describe("Save CodeRepoBinding", func() {
 		err := biz.SaveCodeRepoBinding(ctx, options, data)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
-
-	Describe("check reference by resources", func() {
-		It("failed to find resource referenct project", func() {
-			codeRepo := NewMockCodeRepo(ctl)
-
-			gitRepo := NewMockGitRepo(ctl)
-
-			nodeOperator := nodestree.NewMockNodesTree(ctl)
-			nodeOperator.EXPECT().AppendOperators(gomock.Any()).AnyTimes()
-
-			secretRepo := NewMockSecretrepo(ctl)
-			resourcesUsecase := NewResourcesUsecase(logger, codeRepo, nil, gitRepo, nodeOperator, nautesConfigs)
-			k8sClient := kubernetes.NewMockClient(ctl)
-
-			biz := NewCodeRepoCodeRepoBindingUsecase(logger, codeRepo, secretRepo, nodeOperator, resourcesUsecase, nautesConfigs, k8sClient)
-
-			options := nodestree.CompareOptions{
-				Nodes:       fakeNodes1,
-				ProductName: defaultProductId,
-			}
-			_, err := biz.CheckReference(options, fakeNode1, nil)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-	})
 })
 
 var _ = Describe("Delete CodeRepoBinding", func() {
 	var (
-		resourceName  = MockCodeRepoBinding1Name
-		fakeResource  = createFakeCodeRepoBindingResource(resourceName, MockProject, MockCodeRepoName, string(ReadOnly))
+		resourceName  = "codeRepoBinding1"
+		fakeResource  = createFakeCodeRepoBindingResource(resourceName, _TestProject, _TestCodeRepoName, string(ReadOnly))
 		fakeNode      = createFakeCodeRepoBindingNode(fakeResource)
 		fakeNodes     = createFakeContainingCodeRepoBindingNodes(fakeNode)
 		repoName      = "codeRepo2"
@@ -457,10 +506,10 @@ var _ = Describe("Delete CodeRepoBinding", func() {
 		fakeNodes2    = createFakeCodeRepoNode(fakeResource2)
 		gid, _        = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
 		project       = &Project{
-			ID:            MockProject1ID,
+			ID:            1222,
 			HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", "codeRepo1"),
 			Namespace: &ProjectNamespace{
-				ID: MockProject2ID,
+				ID: 1233,
 			},
 		}
 		project2 = &Project{
@@ -482,11 +531,11 @@ var _ = Describe("Delete CodeRepoBinding", func() {
 		}
 		cloneRepositoryParam = &CloneRepositoryParam{
 			URL:   project.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		deployKeySecretData = &DeployKeySecretData{
-			ID:          MockProject3ID,
+			ID:          2013,
 			Fingerprint: "Fingerprint",
 		}
 		listProjectDeployKeys = []*ProjectDeployKey{projectDeployKey2}
@@ -501,7 +550,7 @@ var _ = Describe("Delete CodeRepoBinding", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), defaultGroupName).Return(defaultProductGroup, nil).AnyTimes()
 
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(project, nil).AnyTimes()
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(projectDeployKey, nil).AnyTimes()
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(listProjectDeployKeys, nil).AnyTimes()
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -538,81 +587,3 @@ var _ = Describe("Delete CodeRepoBinding", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 })
-
-func createFakeCodeRepoBindingErrorKindResource(name, project string) *resourcev1alpha1.CodeRepo {
-	crd := &resourcev1alpha1.CodeRepo{
-		ObjectMeta: v1.ObjectMeta{
-			Name: name,
-		},
-		TypeMeta: v1.TypeMeta{
-			Kind: nodestree.CodeRepo,
-		},
-	}
-
-	return crd
-}
-
-func createFakeCodeRepoBindingResource(name, project, authRepo, permission string) *resourcev1alpha1.CodeRepoBinding {
-	crd := &resourcev1alpha1.CodeRepoBinding{
-		ObjectMeta: v1.ObjectMeta{
-			Name: name,
-		},
-		TypeMeta: v1.TypeMeta{
-			Kind: nodestree.CodeRepoBinding,
-		},
-		Spec: resourcev1alpha1.CodeRepoBindingSpec{
-			Product:     defaultProductId,
-			CodeRepo:    authRepo,
-			Projects:    []string{},
-			Permissions: permission,
-		},
-	}
-	if project != "" {
-		crd.Spec.Projects = append(crd.Spec.Projects, project)
-	}
-	return crd
-}
-
-func createFakeCodeRepoBindingNode(resource *resourcev1alpha1.CodeRepoBinding) *nodestree.Node {
-	return &nodestree.Node{
-		Name:    resource.Name,
-		Path:    fmt.Sprintf("%s/%s/%s/%s.yaml", localRepositoryPath, CodeReposSubDir, resource.Name, resource.Name),
-		Level:   4,
-		Content: resource,
-		Kind:    nodestree.CodeRepoBinding,
-	}
-}
-
-func createFakeContainingCodeRepoBindingNodes(node *nodestree.Node) nodestree.Node {
-	projectID1 := fmt.Sprintf("%s%d", RepoPrefix, MockProject1ID)
-	codeRepoNode1 := createFakeCodeRepoNode(createFakeCodeRepoResource(projectID1))
-	projectID2 := fmt.Sprintf("%s%d", RepoPrefix, MockProject2ID)
-	codeRepoNod2 := createFakeCodeRepoNode(createFakeCodeRepoResource(projectID2))
-	return nodestree.Node{
-		Name:  defaultProjectName,
-		Path:  defaultProjectName,
-		IsDir: true,
-		Level: 1,
-		Children: []*nodestree.Node{
-			{
-				Name:  CodeReposSubDir,
-				Path:  fmt.Sprintf("%v/%v", defaultProjectName, CodeReposSubDir),
-				IsDir: true,
-				Level: 2,
-				Children: []*nodestree.Node{
-					{
-						Name:  node.Name,
-						Path:  fmt.Sprintf("%s/%s/%s", localRepositoryPath, CodeReposSubDir, codeRepoNode1.Name),
-						IsDir: true,
-						Level: 3,
-						Children: []*nodestree.Node{
-							node,
-							codeRepoNode1,
-							codeRepoNod2,
-						},
-					},
-				},
-			},
-		},
-	}
-}

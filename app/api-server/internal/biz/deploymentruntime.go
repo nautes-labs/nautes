@@ -210,7 +210,7 @@ func (d *DeploymentRuntimeUsecase) CheckReference(options nodestree.CompareOptio
 		}
 	}
 
-	ok, err := d.checkDuplicateResource(options.Nodes)
+	ok, err := d.compare(options.Nodes)
 	if ok {
 		return true, err
 	}
@@ -236,7 +236,7 @@ func (d *DeploymentRuntimeUsecase) CheckReference(options nodestree.CompareOptio
 	return true, nil
 }
 
-func (d *DeploymentRuntimeUsecase) checkDuplicateResource(nodes nodestree.Node) (bool, error) {
+func (d *DeploymentRuntimeUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.DeploymentRuntime)
 	for i := 0; i < len(resourceNodes); i++ {
 		for j := i + 1; j < len(resourceNodes); j++ {

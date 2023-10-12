@@ -28,13 +28,13 @@ import (
 var (
 	deploymentRuntimeFilterFieldRules = map[string]map[string]selector.FieldSelector{
 		FieldProjectsRef: {
-			selector.EqualOperator: selector.NewStringSelector(ProjectsRef, selector.In),
+			selector.EqualOperator: selector.NewStringSelector(_ProjectsRef, selector.In),
 		},
 		FeldManifestSourceCodeRepo: {
-			selector.EqualOperator: selector.NewStringSelector(ManifestSource, selector.In),
+			selector.EqualOperator: selector.NewStringSelector(_ManifestSource, selector.In),
 		},
 		FieldDestination: {
-			selector.EqualOperator: selector.NewStringSelector(Destination, selector.In),
+			selector.EqualOperator: selector.NewStringSelector(_Destination, selector.In),
 		},
 	}
 )
@@ -42,11 +42,11 @@ var (
 type DeploymentruntimeService struct {
 	deploymentruntimev1.UnimplementedDeploymentruntimeServer
 	deploymentRuntime *biz.DeploymentRuntimeUsecase
-	codeRepo          biz.CodeRepo
+	resourcesUsecase  *biz.ResourcesUsecase
 }
 
-func NewDeploymentruntimeService(deploymentRuntime *biz.DeploymentRuntimeUsecase, codeRepo biz.CodeRepo) *DeploymentruntimeService {
-	return &DeploymentruntimeService{deploymentRuntime: deploymentRuntime, codeRepo: codeRepo}
+func NewDeploymentruntimeService(deploymentRuntime *biz.DeploymentRuntimeUsecase, resourcesUsecase *biz.ResourcesUsecase) *DeploymentruntimeService {
+	return &DeploymentruntimeService{deploymentRuntime: deploymentRuntime, resourcesUsecase: resourcesUsecase}
 }
 
 func (s *DeploymentruntimeService) CovertDeploymentRuntimeValueToReply(runtime *resourcev1alpha1.DeploymentRuntime) *deploymentruntimev1.GetReply {
@@ -198,7 +198,7 @@ func (s *DeploymentruntimeService) ConvertCodeRepoToRepoName(ctx context.Context
 		return fmt.Errorf("the codeRepo field value of deploymentruntime %s should not be empty", runtime.Name)
 	}
 
-	repoName, err := biz.ConvertCodeRepoToRepoName(ctx, s.codeRepo, runtime.Spec.ManifestSource.CodeRepo)
+	repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, runtime.Spec.ManifestSource.CodeRepo)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (s *DeploymentruntimeService) ConvertProductToGroupName(ctx context.Context
 		return fmt.Errorf("the product field value of deploymentruntime %s should not be empty", runtime.Name)
 	}
 
-	groupName, err := biz.ConvertProductToGroupName(ctx, s.codeRepo, runtime.Spec.Product)
+	groupName, err := s.resourcesUsecase.ConvertProductToGroupName(ctx, runtime.Spec.Product)
 	if err != nil {
 		return err
 	}

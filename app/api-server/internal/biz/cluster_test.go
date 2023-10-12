@@ -16,7 +16,6 @@ package biz
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -167,7 +166,7 @@ var _ = Describe("Get cluster", func() {
 	It("successfully get cluster", func() {
 		codeRepo := NewMockCodeRepo(ctl)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 
 		gitRepo := NewMockGitRepo(ctl)
 		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
@@ -188,7 +187,7 @@ var _ = Describe("Get cluster", func() {
 	It("failed to  get cluster", func() {
 		codeRepo := NewMockCodeRepo(ctl)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 
 		gitRepo := NewMockGitRepo(ctl)
 		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
@@ -233,7 +232,7 @@ var _ = Describe("List cluster", func() {
 	It("successfully list cluster", func() {
 		codeRepo := NewMockCodeRepo(ctl)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 
 		gitRepo := NewMockGitRepo(ctl)
 		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
@@ -254,7 +253,7 @@ var _ = Describe("List cluster", func() {
 	It("failed to list cluster", func() {
 		codeRepo := NewMockCodeRepo(ctl)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(repository, nil)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 
 		gitRepo := NewMockGitRepo(ctl)
 		gitRepo.EXPECT().Clone(gomock.Any(), gomock.Any()).Return(tenantRepositoryLocalPath, nil)
@@ -286,13 +285,13 @@ var _ = Describe("Save cluster", func() {
 		}
 		clusterTemplateCloneParam = &CloneRepositoryParam{
 			URL:   nautesConfigs.Nautes.RuntimeTemplateSource,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		tenantConfigCloneParam = &CloneRepositoryParam{
 			URL:   tenantRepositoryHttpsURL,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		tenant = &Project{
 			ID:                int32(22),
@@ -342,7 +341,7 @@ var _ = Describe("Save cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil)
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -383,40 +382,6 @@ var _ = Describe("Save cluster", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
-	It("successfully refresh host cluster", func() {
-		client := kubernetes.NewMockClient(ctl)
-		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-
-		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
-		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil)
-
-		secretRepo := NewMockSecretrepo(ctl)
-		secretRepo.EXPECT().GetSecret(gomock.Any(), cacertSecretOptions).Return("cacert", nil)
-
-		gitRepo := NewMockGitRepo(ctl)
-		gitRepo.EXPECT().Clone(gomock.Any(), clusterTemplateCloneParam).Return(clusterTemplateLocalPath, nil)
-		gitRepo.EXPECT().Clone(gomock.Any(), tenantConfigCloneParam).Return(tenantRepositoryLocalPath, nil)
-		gitRepo.EXPECT().Fetch(gomock.Any(), gomock.Any(), "origin").Return("any", nil)
-		gitRepo.EXPECT().Diff(gomock.Any(), gomock.Any(), "main", "remotes/origin/main").Return("", nil)
-		gitRepo.EXPECT().SaveConfig(gomock.Any(), tenantRepositoryLocalPath)
-
-		resourceusecase := NewResourcesUsecase(logger, codeRepo, secretRepo, gitRepo, nil, nautesConfigs)
-
-		clusteroperator := clusterregistration.NewMockClusterRegistrationOperator(ctl)
-
-		clusteroperator.EXPECT().SaveCluster(gomock.Any()).Return(nil)
-		clusteroperator.EXPECT().GetClsuter(tenantRepositoryLocalPath, hostCluster.Name).Return(hostCluster, nil)
-
-		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, nautesqueueQueue)
-		body := &Body{
-			Token: "token",
-		}
-		jsonData, _ := json.Marshal(body)
-		err := clusterUsecase.RefreshHostCluster(hostCluster.Name, jsonData)
-		Expect(err).ShouldNot(HaveOccurred())
-	})
-
 	It("failed to saved kubeconfig", func() {
 		client := kubernetes.NewMockClient(ctl)
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -445,7 +410,7 @@ var _ = Describe("Save cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 
 		secretRepo := NewMockSecretrepo(ctl)
 		secretRepo.EXPECT().SaveClusterConfig(gomock.Any(), hostCluster.Name, gomock.Any()).Return(nil)
@@ -470,7 +435,7 @@ var _ = Describe("Save cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil)
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -497,7 +462,7 @@ var _ = Describe("Save cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil)
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -543,7 +508,7 @@ var _ = Describe("Save cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil).AnyTimes()
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -593,7 +558,7 @@ var _ = Describe("Save cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil)
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -655,13 +620,13 @@ var _ = Describe("Delete cluster", func() {
 		clusterFilePath           = fmt.Sprintf("%s/nautes/overlays/production/clusters/%s.yaml", tenantRepositoryLocalPath, cluster.Name)
 		clusterTemplateCloneParam = &CloneRepositoryParam{
 			URL:   nautesConfigs.Nautes.RuntimeTemplateSource,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		tenantConfigCloneParam = &CloneRepositoryParam{
 			URL:   tenantRepositoryHttpsURL,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		tenant = &Project{
 			ID:                int32(22),
@@ -692,7 +657,7 @@ var _ = Describe("Delete cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil)
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -737,7 +702,7 @@ var _ = Describe("Delete cluster", func() {
 		client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		codeRepo := NewMockCodeRepo(ctl)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil).AnyTimes()
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil).AnyTimes()
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Any()).Return(tenant, nil)
 
 		secretRepo := NewMockSecretrepo(ctl)

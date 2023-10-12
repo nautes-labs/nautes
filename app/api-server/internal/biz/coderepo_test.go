@@ -103,7 +103,7 @@ var _ = Describe("Get codeRepo", func() {
 		fakeNodes         = createFakeCcontainingCodeRepoNodes(fakeNode)
 		gid, _            = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
 		group             = &Group{ID: int32(gid), Name: fakeResource.Spec.Product, Path: fakeResource.Spec.Product}
-		project           = &Project{ID: MockProject1ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		project           = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		productPrefixPath = fmt.Sprintf("%s/%s", fakeResource.Spec.Product, resourceName)
 		groupPath         = fmt.Sprintf("%s/%s", defaultGroupName, resourceName)
 	)
@@ -134,7 +134,7 @@ var _ = Describe("Get codeRepo", func() {
 
 var _ = Describe("List coderepos", func() {
 	var (
-		resourceName = MockCodeRepoName
+		resourceName = "repo-1222"
 		fakeResource = createFakeCodeRepoResource(resourceName)
 		fakeNode     = createFakeCodeRepoNode(fakeResource)
 		fakeNodes    = createFakeCcontainingCodeRepoNodes(fakeNode)
@@ -154,13 +154,13 @@ var _ = Describe("List coderepos", func() {
 
 var _ = Describe("Save codeRepo", func() {
 	var (
-		resourceName  = MockCodeRepoName
+		resourceName  = "repo-1222"
 		pid, _        = utilstrings.ExtractNumber(RepoPrefix, resourceName)
 		fakeResource  = createFakeCodeRepoResource(resourceName)
 		fakeNode      = createFakeCodeRepoNode(fakeResource)
 		fakeNodes     = createFakeCcontainingCodeRepoNodes(fakeNode)
 		toSaveProject = &Project{
-			ID:            MockProject1ID,
+			ID:            1222,
 			HttpUrlToRepo: "https://gitlab.com/nautes-labs/test.git",
 			Namespace: &ProjectNamespace{
 				ID:   123,
@@ -168,7 +168,7 @@ var _ = Describe("Save codeRepo", func() {
 			},
 		}
 		toSaveProjectDeployKey = &ProjectDeployKey{
-			ID:  MockProject3ID,
+			ID:  2013,
 			Key: "FingerprintData",
 		}
 		extendKVs         = make(map[string]string)
@@ -200,7 +200,7 @@ var _ = Describe("Save codeRepo", func() {
 		}
 		listDeployKeys = []*ProjectDeployKey{
 			{
-				ID:    MockProject3ID,
+				ID:    2013,
 				Key:   "Key1",
 				Title: "deploykey1",
 			},
@@ -212,7 +212,7 @@ var _ = Describe("Save codeRepo", func() {
 		}
 		sameTitleListDeployKeys = []*ProjectDeployKey{
 			{
-				ID:    MockProject3ID,
+				ID:    2013,
 				Key:   "Key1",
 				Title: "deploykey1",
 			},
@@ -298,8 +298,8 @@ var _ = Describe("Save codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -329,8 +329,8 @@ var _ = Describe("Save codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -363,8 +363,8 @@ var _ = Describe("Save codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -398,8 +398,8 @@ var _ = Describe("Save codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -433,8 +433,8 @@ var _ = Describe("Save codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -466,8 +466,8 @@ var _ = Describe("Save codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -622,11 +622,11 @@ var _ = Describe("Save codeRepo", func() {
 
 var _ = Describe("Delete codeRepo", func() {
 	var (
-		resourceName   = MockCodeRepoName
+		resourceName   = "repo-1222"
 		fakeResource   = createFakeCodeRepoResource(resourceName)
 		fakeNode       = createFakeCodeRepoNode(fakeResource)
 		fakeNodes      = createFakeCcontainingCodeRepoNodes(fakeNode)
-		deletedProject = &Project{ID: MockProject1ID}
+		deletedProject = &Project{ID: 1222}
 		bizOptions     = &BizOptions{
 			ResouceName: resourceName,
 			ProductName: defaultGroupName,
@@ -634,7 +634,7 @@ var _ = Describe("Delete codeRepo", func() {
 		codeRepoKind   = nodestree.CodeRepo
 		listDeployKeys = []*ProjectDeployKey{
 			{
-				ID:  MockProject3ID,
+				ID:  2013,
 				Key: "Key1",
 			},
 			{
@@ -663,8 +663,8 @@ var _ = Describe("Delete codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   deletedProject.HttpUrlToRepo,
-			User:  GitUser,
-			Email: GitEmail,
+			User:  _GitUser,
+			Email: _GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 

@@ -80,7 +80,7 @@ func (p *ProjectPipelineRuntimeUsecase) ListProjectPipelineRuntimes(ctx context.
 }
 
 func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.Context, options *BizOptions, data *ProjectPipelineRuntimeData) error {
-	codeRepoName, err := ConvertRepoNameToCodeRepoName(ctx, p.codeRepo, options.ProductName, data.Spec.PipelineSource)
+	codeRepoName, err := p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.PipelineSource)
 	if err != nil {
 		return fmt.Errorf("failed to get codeRepo name when converting pipeline repository name, err: %v", err)
 	}
@@ -88,7 +88,7 @@ func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.C
 
 	// AdditionalResources is optional
 	if data.Spec.AdditionalResources != nil && data.Spec.AdditionalResources.Git != nil {
-		codeRepoName, err = ConvertRepoNameToCodeRepoName(ctx, p.codeRepo, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
+		codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
 		if err != nil {
 			return fmt.Errorf("failed to get codeRepo name when converting git repository name for additional resources, err: %v", err)
 		}
@@ -97,7 +97,7 @@ func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.C
 
 	for idx, eventSource := range data.Spec.EventSources {
 		if eventSource.Gitlab != nil && eventSource.Gitlab.RepoName != "" {
-			codeRepoName, err = ConvertRepoNameToCodeRepoName(ctx, p.codeRepo, options.ProductName, eventSource.Gitlab.RepoName)
+			codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, eventSource.Gitlab.RepoName)
 			if err != nil {
 				return fmt.Errorf("failed to get codeRepo name when converting git repository name for event source, err: %v", err)
 			}
@@ -267,7 +267,7 @@ func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.Compare
 		}
 	}
 
-	ok, err = p.checkDuplicateResource(options.Nodes)
+	ok, err = p.compare(options.Nodes)
 	if ok && err != nil {
 		return true, err
 	}
@@ -308,7 +308,7 @@ func (p *ProjectPipelineRuntimeUsecase) isRepeatPipelinePath(runtime *resourcev1
 	return false, nil
 }
 
-func (p *ProjectPipelineRuntimeUsecase) checkDuplicateResource(nodes nodestree.Node) (bool, error) {
+func (p *ProjectPipelineRuntimeUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.ProjectPipelineRuntime)
 	for i := 0; i < len(resourceNodes); i++ {
 		runtime1, _ := resourceNodes[i].Content.(*resourcev1alpha1.ProjectPipelineRuntime)

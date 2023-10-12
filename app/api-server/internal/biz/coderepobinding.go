@@ -584,6 +584,15 @@ func (c *CodeRepoBindingUsecase) updateDeployKey(ctx context.Context, pid int, d
 	return nil
 }
 
+func Contains(arr []int, target int) bool {
+	for _, element := range arr {
+		if element == target {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *CodeRepoBindingUsecase) getCodeRepoBindingsInAuthorizedRepo(_ context.Context, nodes nodestree.Node, codeRepoName, permissions string) []*resourcev1alpha1.CodeRepoBinding {
 	codeRepoBindingNodes := nodestree.ListsResourceNodes(nodes, nodestree.CodeRepoBinding, func(node *nodestree.Node) bool {
 		val, ok := node.Content.(*resourcev1alpha1.CodeRepoBinding)
@@ -662,7 +671,7 @@ func findExistingScope(scopes []*ProductAuthorization, productName string) *Prod
 
 // updateAllAuthorization Authorize all Codebase under the specified product.
 func (c *CodeRepoBindingUsecase) updateAllAuthorization(ctx context.Context, nodes nodestree.Node, pid interface{}, permissions string) error {
-	codeRepos, err := nodesToCodeRepos(nodes)
+	codeRepos, err := nodesToCodeRepoists(nodes)
 	if err != nil {
 		return err
 	}
@@ -682,7 +691,7 @@ func (c *CodeRepoBindingUsecase) updateAuthorization(ctx context.Context, projec
 	}
 
 	authorizedCodeRepos := []*resourcev1alpha1.CodeRepo{}
-	codeRepos, err := nodesToCodeRepos(nodes)
+	codeRepos, err := nodesToCodeRepoists(nodes)
 	if err != nil {
 		return fmt.Errorf("failed to convert codeRepo nodes when update authorization")
 	}
@@ -717,7 +726,7 @@ func (c *CodeRepoBindingUsecase) recycleAuthorizationByProjectScopes(ctx context
 	currentProductName := fmt.Sprintf("%s%d", ProductPrefix, authorizedRepository.Namespace.ID)
 	// TODO: Increase cross-product processing
 	if productName == currentProductName {
-		codeRepos, err = nodesToCodeRepos(nodes, func(codeRepo *resourcev1alpha1.CodeRepo) bool {
+		codeRepos, err = nodesToCodeRepoists(nodes, func(codeRepo *resourcev1alpha1.CodeRepo) bool {
 			pid, err := utilstrings.ExtractNumber(RepoPrefix, codeRepo.Name)
 			if err != nil {
 				return false
@@ -784,10 +793,10 @@ func (c *CodeRepoBindingUsecase) clearUnauthorizedDeployKeys(ctx context.Context
 }
 
 // calculateCodeRepoTotalPermission Calculate the total permissions for the current authorization code repository.
-func (c *CodeRepoBindingUsecase) calculateCodeRepoTotalPermission(nodes nodestree.Node, authorizedCodeRepoName string) *CodeRepoTotalPermission {
+func (c *CodeRepoBindingUsecase) calculateCodeRepoTotalPermission(nodes nodestree.Node, authorizationCodeRepoName string) *CodeRepoTotalPermission {
 	// Initialize the totalPermission structure
 	totalPermission := &CodeRepoTotalPermission{
-		CodeRepoName: authorizedCodeRepoName,
+		CodeRepoName: authorizationCodeRepoName,
 		ReadWrite:    &CodeRepoPermission{},
 		ReadOnly:     &CodeRepoPermission{},
 	}
@@ -807,7 +816,7 @@ func (c *CodeRepoBindingUsecase) calculateCodeRepoTotalPermission(nodes nodestre
 	codeRepoBindingNodes := nodestree.ListsResourceNodes(nodes, nodestree.CodeRepoBinding)
 	for _, codeRepoBindingNode := range codeRepoBindingNodes {
 		codeRepoBinding, ok := codeRepoBindingNode.Content.(*resourcev1alpha1.CodeRepoBinding)
-		if !ok || codeRepoBinding.Spec.CodeRepo != authorizedCodeRepoName {
+		if !ok || codeRepoBinding.Spec.CodeRepo != authorizationCodeRepoName {
 			continue
 		}
 
@@ -820,7 +829,7 @@ func (c *CodeRepoBindingUsecase) calculateCodeRepoTotalPermission(nodes nodestre
 	}
 
 	// Update permissions based on the project of the authorization code library
-	node := c.nodeOperator.GetNode(&nodes, nodestree.CodeRepo, authorizedCodeRepoName)
+	node := c.nodeOperator.GetNode(&nodes, nodestree.CodeRepo, authorizationCodeRepoName)
 	if node != nil {
 		codeRepo, ok := node.Content.(*resourcev1alpha1.CodeRepo)
 		if ok && codeRepo.Spec.Project != "" {

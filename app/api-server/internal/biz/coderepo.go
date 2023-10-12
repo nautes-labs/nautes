@@ -323,7 +323,7 @@ func (c *CodeRepoUsecase) convertProductToGroupName(ctx context.Context, codeRep
 		return fmt.Errorf("the product field value of coderepo %s should not be empty", codeRepo.Spec.RepoName)
 	}
 
-	groupName, err := ConvertProductToGroupName(ctx, c.codeRepo, codeRepo.Spec.Product)
+	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, codeRepo.Spec.Product)
 	if err != nil {
 		return err
 	}
@@ -937,10 +937,10 @@ func (c *CodeRepoUsecase) deleteAccessTokenSecret(ctx context.Context, pid int) 
 
 type ListMatchOptions func(*resourcev1alpha1.CodeRepo) bool
 
-func nodesToCodeRepos(nodes nodestree.Node, options ...ListMatchOptions) ([]*resourcev1alpha1.CodeRepo, error) {
+func nodesToCodeRepoists(nodes nodestree.Node, options ...ListMatchOptions) ([]*resourcev1alpha1.CodeRepo, error) {
 	var codeReposDir *nodestree.Node
 	var resources []*resourcev1alpha1.CodeRepo
-	var filteredCodeRepos []*resourcev1alpha1.CodeRepo
+	var filteredRepos []*resourcev1alpha1.CodeRepo
 
 	for _, childNode := range nodes.Children {
 		if childNode.Name == CodeReposSubDir {
@@ -967,7 +967,7 @@ func nodesToCodeRepos(nodes nodestree.Node, options ...ListMatchOptions) ([]*res
 			matching := false
 			for _, fn := range options {
 				if fn(resource) {
-					filteredCodeRepos = append(filteredCodeRepos, resource)
+					filteredRepos = append(filteredRepos, resource)
 					matching = true
 					break
 				}
@@ -979,8 +979,8 @@ func nodesToCodeRepos(nodes nodestree.Node, options ...ListMatchOptions) ([]*res
 		}
 	}
 
-	if len(filteredCodeRepos) > 0 {
-		return filteredCodeRepos, nil
+	if len(filteredRepos) > 0 {
+		return filteredRepos, nil
 	}
 
 	return resources, nil

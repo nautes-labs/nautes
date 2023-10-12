@@ -53,7 +53,7 @@ func (e *EnvironmentUsecase) ConvertProductToGroupName(ctx context.Context, env 
 		return fmt.Errorf("the product field value of environment %s should not be empty", env.Spec.Product)
 	}
 
-	groupName, err := ConvertProductToGroupName(ctx, e.codeRepo, env.Spec.Product)
+	groupName, err := e.resourcesUsecase.ConvertProductToGroupName(ctx, env.Spec.Product)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (e *EnvironmentUsecase) CheckReference(options nodestree.CompareOptions, no
 			nodestree.Environment, env.Name, EnvSubDir)
 	}
 
-	ok, err = e.checkDuplicateResource(options.Nodes)
+	ok, err = e.compare(options.Nodes)
 	if ok {
 		return ok, err
 	}
@@ -255,7 +255,7 @@ func (e *EnvironmentUsecase) DeleteEnvironment(ctx context.Context, options *Biz
 	return nil
 }
 
-func (e *EnvironmentUsecase) checkDuplicateResource(nodes nodestree.Node) (bool, error) {
+func (e *EnvironmentUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.Environment)
 	for i := 0; i < len(resourceNodes); i++ {
 		for j := i + 1; j < len(resourceNodes); j++ {

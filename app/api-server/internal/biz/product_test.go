@@ -149,17 +149,17 @@ var _ = Describe("Save product", func() {
 			},
 		}
 		defaultProjectDeployKey = &ProjectDeployKey{
-			ID:  MockProject3ID,
+			ID:  2013,
 			Key: "Fingerprint",
 		}
 		deployKeySecretData = &DeployKeySecretData{
-			ID:          MockProject3ID,
+			ID:          2013,
 			Fingerprint: "Fingerprint",
 		}
 		extendKVs      = make(map[string]string)
 		listDeployKeys = []*ProjectDeployKey{
 			{
-				ID:  MockProject3ID,
+				ID:  2013,
 				Key: "Key1",
 			},
 			{
@@ -179,7 +179,7 @@ var _ = Describe("Save product", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), productName).Return(nil, ErrorNodetNotFound)
 		codeRepo.EXPECT().CreateGroup(gomock.Any(), gitOptions).Return(defaultProductGroup, nil)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), defaultProjectPath).Return(nil, ErrorProjectNotFound)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 		codeRepo.EXPECT().CreateCodeRepo(gomock.Any(), int(defaultProductGroup.ID), gomock.Any()).Return(defautlProject, nil)
 		codeRepo.EXPECT().SaveDeployKey(gomock.Any(), int(defautlProject.ID), gomock.Any(), gomock.Any(), gomock.Any()).Return(defaultProjectDeployKey, nil)
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), int(defautlProject.ID), gomock.Any()).Return(listDeployKeys, nil).AnyTimes()
@@ -287,7 +287,7 @@ var _ = Describe("Save product", func() {
 		codeRepo.EXPECT().CreateCodeRepo(gomock.Any(), int(defaultProductGroup.ID), gomock.Any()).Return(defautlProject, nil)
 		codeRepo.EXPECT().GetDeployKey(gomock.Any(), int(defautlProject.ID), defaultProjectDeployKey.ID).Return(nil, commonv1.ErrorDeploykeyNotFound("the deploy key is not found"))
 		codeRepo.EXPECT().SaveDeployKey(gomock.Any(), int(defautlProject.ID), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("unable to add deploy key"))
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), int(defautlProject.ID), gomock.Any()).Return(listDeployKeys, nil).AnyTimes()
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -316,7 +316,7 @@ var _ = Describe("Save product", func() {
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), defaultProjectPath).Return(nil, ErrorProjectNotFound)
 		codeRepo.EXPECT().CreateCodeRepo(gomock.Any(), int(defaultProductGroup.ID), gomock.Any()).Return(defautlProject, nil)
 		codeRepo.EXPECT().SaveDeployKey(gomock.Any(), int(defautlProject.ID), gomock.Any(), gomock.Any(), gomock.Any()).Return(defaultProjectDeployKey, nil)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), int(defautlProject.ID), gomock.Any()).Return(listDeployKeys, nil).AnyTimes()
 
 		secretRepo := NewMockSecretrepo(ctl)
@@ -346,7 +346,7 @@ var _ = Describe("Save product", func() {
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), defaultProjectPath).Return(nil, ErrorProjectNotFound)
 		codeRepo.EXPECT().CreateCodeRepo(gomock.Any(), int(defaultProductGroup.ID), gomock.Any()).Return(defautlProject, nil)
 		codeRepo.EXPECT().SaveDeployKey(gomock.Any(), int(defautlProject.ID), gomock.Any(), gomock.Any(), gomock.Any()).Return(defaultProjectDeployKey, nil)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
 		codeRepo.EXPECT().ListDeployKeys(gomock.Any(), int(defautlProject.ID), gomock.Any()).Return(listDeployKeys, nil).AnyTimes()
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), int(defautlProject.ID), gomock.Any()).Return(nil)
 
