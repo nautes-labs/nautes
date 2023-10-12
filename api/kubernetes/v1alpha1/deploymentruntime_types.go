@@ -33,7 +33,7 @@ type DeploymentRuntimeSpec struct {
 	ManifestSource ManifestSource                `json:"manifestSource" yaml:"manifestSource"`
 	Destination    DeploymentRuntimesDestination `json:"destination" yaml:"destination"`
 	// +optional
-	Username string `json:"username,omitempty" yaml:"username"`
+	Account string `json:"account,omitempty" yaml:"account"`
 }
 
 type DeploymentRuntimesDestination struct {

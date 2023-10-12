@@ -44,6 +44,8 @@ spec:
           spec:
             description: DeploymentRuntimeSpec defines the desired state of DeploymentRuntime
             properties:
+              account:
+                type: string
               destination:
                 properties:
                   environment:
@@ -72,8 +74,6 @@ spec:
                 items:
                   type: string
                 type: array
-              username:
-                type: string
             required:
             - destination
             - manifestSource

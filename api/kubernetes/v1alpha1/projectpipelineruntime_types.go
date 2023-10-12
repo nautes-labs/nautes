@@ -95,7 +95,7 @@ type ProjectPipelineRuntimeSpec struct {
 	// optional
 	AdditionalResources *ProjectPipelineRuntimeAdditionalResources `json:"additionalResources,omitempty"`
 	// +optional
-	Username string `json:"username,omitempty" yaml:"username"`
+	Account string `json:"account,omitempty" yaml:"account"`
 }
 
 // ProjectPipelineRuntimeDestination defines where pipeline runtime will run
