@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	_GitUser  = "gittestsuer"
-	_GitEmail = "gittestsuer@nautes.com"
+	GitUser   = "gittestsuer"
+	GitEmail  = "gittestsuer@nautes.com"
+	ProductID = 560
 )
 
 var (
@@ -82,7 +83,7 @@ var (
 	// git platform group
 	defaultGroupName    = "API_SERVER_TEST_GROUP"
 	defaultProductGroup = &Group{
-		ID:       int32(560),
+		ID:       int32(ProductID),
 		Name:     defaultGroupName,
 		Path:     defaultGroupName,
 		WebUrl:   "https://github.com/groups/" + defaultGroupName,

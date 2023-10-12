@@ -37,13 +37,13 @@ import (
 var (
 	clustrFilterFieldRules = map[string]map[string]selector.FieldSelector{
 		FieldClusterType: {
-			selector.EqualOperator: selector.NewStringSelector(_ClusterType, selector.Eq),
+			selector.EqualOperator: selector.NewStringSelector(ClusterType, selector.Eq),
 		},
 		FieldUsage: {
-			selector.EqualOperator: selector.NewStringSelector(_Usage, selector.Eq),
+			selector.EqualOperator: selector.NewStringSelector(Usage, selector.Eq),
 		},
 		FieldWorkType: {
-			selector.EqualOperator: selector.NewStringSelector(_WorkType, selector.Eq),
+			selector.EqualOperator: selector.NewStringSelector(WorkType, selector.Eq),
 		},
 	}
 )

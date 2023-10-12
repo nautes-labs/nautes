@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,7 +79,8 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 	}
 	// set git config user name
 	localRepositoryPath := fmt.Sprintf("%s/%s", localRepositarySubPath, repoName)
-	setUserCMD := exec.Command("git", "config", "user.name", param.User)
+	user := strconv.Quote(param.User)
+	setUserCMD := exec.Command("git", "config", "user.name", user)
 	setUserCMD.Dir = localRepositoryPath
 	err = setUserCMD.Run()
 	if err != nil {
@@ -86,7 +88,8 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 	}
 
 	// set git config user email
-	setEmailCMD := exec.Command("git", "config", "user.email", param.Email)
+	email := strconv.Quote(param.Email)
+	setEmailCMD := exec.Command("git", "config", "user.email", email)
 	setEmailCMD.Dir = localRepositoryPath
 	err = setEmailCMD.Run()
 	if err != nil {

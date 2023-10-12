@@ -219,12 +219,33 @@ var _ = Describe("Save environment", func() {
 				Namespace: nautesConfigs.Nautes.Namespace,
 				Name:      fakeResource.Spec.Cluster,
 			}
-			client := kubernetes.NewMockClient(ctl)
-			client.EXPECT().Get(gomock.Any(), objKey, &resourcev1alpha1.Cluster{}).Return(ErrorResourceNoFound)
+			k8sClient := kubernetes.NewMockClient(ctl)
+			k8sClient.EXPECT().Get(gomock.Any(), objKey, &resourcev1alpha1.Cluster{}).Return(ErrorResourceNoFound)
 
 			biz := NewEnviromentUsecase(logger, nautesConfigs, nil, nodestree, nil)
-			ok, err := biz.CheckReference(options, fakeNode, client)
+			ok, err := biz.CheckReference(options, fakeNode, k8sClient)
 			Expect(err).Should(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		})
+
+		It("will successfully", func() {
+			options := nodestree.CompareOptions{
+				Nodes:       fakeNodes,
+				ProductName: defaultProductId,
+			}
+			nodestree := nodestree.NewMockNodesTree(ctl)
+			nodestree.EXPECT().AppendOperators(gomock.Any())
+
+			objKey := client.ObjectKey{
+				Namespace: nautesConfigs.Nautes.Namespace,
+				Name:      fakeResource.Spec.Cluster,
+			}
+			k8sClient := kubernetes.NewMockClient(ctl)
+			k8sClient.EXPECT().Get(gomock.Any(), objKey, gomock.Any()).Return(nil)
+
+			biz := NewEnviromentUsecase(logger, nautesConfigs, nil, nodestree, nil)
+			ok, err := biz.CheckReference(options, fakeNode, k8sClient)
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 		})
 	})

@@ -32,13 +32,13 @@ import (
 var (
 	codeRepoFilterFieldRules = map[string]map[string]selector.FieldSelector{
 		FieldPilelineRuntime: {
-			selector.EqualOperator: selector.NewBoolSelector(_PilelineRuntime, selector.Eq),
+			selector.EqualOperator: selector.NewBoolSelector(PilelineRuntime, selector.Eq),
 		},
 		FieldDeploymentRuntime: {
-			selector.EqualOperator: selector.NewBoolSelector(_DeploymentRuntime, selector.Eq),
+			selector.EqualOperator: selector.NewBoolSelector(DeploymentRuntime, selector.Eq),
 		},
 		FieldProject: {
-			selector.EqualOperator: selector.NewStringSelector(_Project, selector.In),
+			selector.EqualOperator: selector.NewStringSelector(Project, selector.In),
 		},
 	}
 )

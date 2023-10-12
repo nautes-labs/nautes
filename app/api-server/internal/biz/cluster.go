@@ -216,18 +216,15 @@ func (c *ClusterUsecase) getRepositoriesInfo(ctx context.Context) (*clustermanag
 	httpURLToRepo := GetClusterTemplateHttpsURL(c.configs)
 	clusterTemplateDir, err := c.CloneRepository(ctx, httpURLToRepo)
 	if err != nil {
-		c.log.Errorf("failed to call 'CloneRepository', could not clone cluster template repository, the url %s may be invalid or does not exist, err: %s", httpURLToRepo, err)
-		return nil, fmt.Errorf("failed to clone repository, err: %s", err)
+		return nil, err
 	}
 
 	repository, err := c.GetTenantRepository(ctx)
 	if err != nil {
-		c.log.Errorf("failed to call 'GetTenantRepository', could not get tenant repository, err: %s", err)
 		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
 	}
 	tenantRepoDir, err := c.CloneRepository(ctx, repository.HttpUrlToRepo)
 	if err != nil {
-		c.log.Errorf("failed to call 'CloneRepository', could not clone tenant repository, the url %s may be invalid or does not exist, err: %s", repository.HttpUrlToRepo, err)
 		return nil, fmt.Errorf("failed to get gitlab certificate, err: %s", err)
 	}
 

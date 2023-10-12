@@ -17,6 +17,8 @@ package biz
 import (
 	"context"
 	"fmt"
+
+	utilstrings "github.com/nautes-labs/nautes/app/api-server/util/string"
 )
 
 const (
@@ -140,4 +142,54 @@ func SetResourceContext(ctx context.Context, info *RescourceInformation) context
 
 func getCodeRepoResourceName(id int) string {
 	return fmt.Sprintf("%s%d", RepoPrefix, id)
+}
+
+func ConvertCodeRepoToRepoName(ctx context.Context, codeRepo CodeRepo, codeRepoName string) (string, error) {
+	id, err := utilstrings.ExtractNumber(RepoPrefix, codeRepoName)
+	if err != nil {
+		return "", fmt.Errorf("the codeRepo name %s is illegal and must be in the format 'repo-ID'", codeRepoName)
+	}
+
+	project, err := codeRepo.GetCodeRepo(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert codeRepo name %s to repository name, err: %v", codeRepoName, err)
+	}
+
+	return project.Name, nil
+}
+
+func ConvertGroupToProductName(ctx context.Context, codeRepo CodeRepo, productName string) (string, error) {
+	group, err := codeRepo.GetGroup(ctx, productName)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s%d", ProductPrefix, int(group.ID)), nil
+}
+
+func ConvertProductToGroupName(ctx context.Context, codeRepo CodeRepo, productName string) (string, error) {
+	var err error
+	var id int
+
+	id, err = utilstrings.ExtractNumber(ProductPrefix, productName)
+	if err != nil {
+		return "", err
+	}
+
+	group, err := codeRepo.GetGroup(ctx, id)
+	if err != nil {
+		return "", err
+	}
+
+	return group.Name, nil
+}
+
+func ConvertRepoNameToCodeRepoName(ctx context.Context, codeRepo CodeRepo, productName, codeRepoName string) (string, error) {
+	pid := fmt.Sprintf("%s/%s", productName, codeRepoName)
+	project, err := codeRepo.GetCodeRepo(ctx, pid)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert repository name %s to codeRepo name, err: %v", codeRepoName, err)
+	}
+
+	return fmt.Sprintf("%s%d", RepoPrefix, int(project.ID)), nil
 }

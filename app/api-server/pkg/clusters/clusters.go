@@ -51,7 +51,7 @@ func NewClusterManagement(file FileOperation, nodes nodestree.NodesTree) (Cluste
 }
 
 func (c *ClusterManagement) GetClsuter(tenantLocalPath, clusterName string) (*resourcev1alpha1.Cluster, error) {
-	clusterFilePath := fmt.Sprintf("%s/%s.yaml", concatClustersDir(tenantLocalPath), clusterName)
+	clusterFilePath := returnResourceFilePath(concatClustersDir(tenantLocalPath), clusterName)
 	_, err := os.Stat(clusterFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -337,7 +337,7 @@ func (c *ClusterManagement) createClusterResource(cluster *resourcev1alpha1.Clus
 		return err
 	}
 
-	filePath := fmt.Sprintf("%s/%s.yaml", concatClustersDir(tenantRepoDir), cluster.Name)
+	filePath := returnResourceFilePath(concatClustersDir(tenantRepoDir), cluster.Name)
 	return c.file.WriteFile(filePath, data)
 }
 
@@ -614,7 +614,7 @@ func (c *ClusterManagement) removeDexCallback(parms *ClusterRegistrationParams) 
 
 func (c *ClusterManagement) removeClusterResource(cluster *resourcev1alpha1.Cluster, tenantRepoDir string) error {
 	dir := concatClustersDir(tenantRepoDir)
-	filePath := fmt.Sprintf("%s/%s.yaml", dir, cluster.Name)
+	filePath := returnResourceFilePath(dir, cluster.Name)
 	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {

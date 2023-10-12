@@ -83,7 +83,7 @@ func createFakeDeployRuntimeNodes(node *nodestree.Node) nodestree.Node {
 var _ = Describe("Get deployment runtime", func() {
 	var (
 		resourceName = "runtime1"
-		toGetProject = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject = &Project{ID: MockProject1ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID       = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode     = createFakeDeploymentRuntimeNode(fakeResource)
@@ -107,7 +107,7 @@ var _ = Describe("Get deployment runtime", func() {
 var _ = Describe("List deployment runtimes", func() {
 	var (
 		resourceName = "runtime1"
-		toGetProject = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject = &Project{ID: MockProject1ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID       = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode     = createFakeDeploymentRuntimeNode(fakeResource)
@@ -145,13 +145,13 @@ var _ = Describe("List deployment runtimes", func() {
 var _ = Describe("Save deployment runtime", func() {
 	var (
 		resourceName          = "runtime1"
-		toGetProject          = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject          = &Project{ID: MockProject1ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID                = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource          = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode              = createFakeDeploymentRuntimeNode(fakeResource)
 		fakeNodes             = createFakeDeployRuntimeNodes(fakeNode)
 		pid                   = fmt.Sprintf("%s/%s", defaultGroupName, fakeResource.Spec.ManifestSource.CodeRepo)
-		project               = &Project{ID: 1222}
+		project               = &Project{ID: MockProject1ID}
 		deploymentRuntimeData = &DeploymentRuntimeData{
 			Name: fakeResource.Name,
 			Spec: fakeResource.Spec,
@@ -218,7 +218,7 @@ var _ = Describe("Save deployment runtime", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), gomock.Eq(defaultGroupName)).Return(defaultProductGroup, nil).AnyTimes()
 		first := codeRepo.EXPECT().GetCodeRepo(gomock.Any(), pid).Return(project, nil)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(defaultProjectPath)).Return(defautlProject, nil).After(first)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
 
 		gitRepo := NewMockGitRepo(ctl)
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil)
@@ -334,8 +334,8 @@ var _ = Describe("Save deployment runtime", func() {
 		It("will successed", func() {
 			projectName := fakeResource.Spec.ProjectsRef[0]
 			projectNodes := createProjectNodes(createProjectNode(createProjectResource(projectName)))
-			env := fakeResource.Spec.Destination.Environment
-			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, _TestClusterHostEnvType, _TestDeploymentClusterName)))
+			envName := fakeResource.Spec.Destination.Environment
+			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(envName, _TestClusterHostEnvType, _TestDeploymentClusterName)))
 			fakeNodes.Children = append(fakeNodes.Children, projectNodes.Children...)
 			fakeNodes.Children = append(fakeNodes.Children, envProjects.Children...)
 			codeRepoNodes := createFakeCcontainingCodeRepoNodes(createFakeCodeRepoNode(createFakeCodeRepoResource(repoID)))
@@ -368,7 +368,7 @@ var _ = Describe("Save deployment runtime", func() {
 var _ = Describe("Delete deployment runtime", func() {
 	var (
 		resourceName = "runtime1"
-		toGetProject = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject = &Project{ID: MockProject1ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID       = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode     = createFakeDeploymentRuntimeNode(fakeResource)

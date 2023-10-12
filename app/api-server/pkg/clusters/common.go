@@ -14,6 +14,8 @@
 
 package cluster
 
+import "fmt"
+
 const (
 	_HostClusterPlaceholder = "_HOST_CLUSTER_"
 	_RuntimePlaceholder     = "_RUNTIME_"
@@ -36,3 +38,7 @@ const (
 	HttpNodePort  = "httpNodePort"
 	Host          = "host"
 )
+
+func returnResourceFilePath(dir, name string) string {
+	return fmt.Sprintf("%s/%s.yaml", dir, name)
+}

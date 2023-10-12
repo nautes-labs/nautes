@@ -38,7 +38,7 @@ func createProjectPiepeLineResource(name string) *resourcev1alpha1.ProjectPipeli
 			Name: name,
 		},
 		Spec: resourcev1alpha1.ProjectPipelineRuntimeSpec{
-			Project:        _TestProject,
+			Project:        MockProject,
 			PipelineSource: "pipelineCodeRepo",
 			Destination: resourcev1alpha1.ProjectPipelineDestination{
 				Environment: "env1",
@@ -83,7 +83,7 @@ func createFakeProjectPipelineRuntimeNode(resource *resourcev1alpha1.ProjectPipe
 	return &nodestree.Node{
 		Name:    resource.Name,
 		Kind:    nodestree.ProjectPipelineRuntime,
-		Path:    fmt.Sprintf("%s/%s/%s/%s.yaml", localRepositoryPath, ProjectsDir, _TestProject, resource.Name),
+		Path:    fmt.Sprintf("%s/%s/%s/%s.yaml", localRepositoryPath, ProjectsDir, MockProject, resource.Name),
 		Level:   4,
 		Content: resource,
 	}
@@ -103,8 +103,8 @@ func createFakeProjectPipelineRuntimeNodes(node *nodestree.Node) nodestree.Node 
 				Level: 2,
 				Children: []*nodestree.Node{
 					{
-						Name:  _TestProject,
-						Path:  fmt.Sprintf("%s/%s/%s", defaultProjectName, ProjectsDir, _TestProject),
+						Name:  MockProject,
+						Path:  fmt.Sprintf("%s/%s/%s", defaultProjectName, ProjectsDir, MockProject),
 						IsDir: true,
 						Level: 3,
 						Children: []*nodestree.Node{
@@ -159,9 +159,9 @@ var _ = Describe("List project pipeline runtimes", func() {
 var _ = Describe("Save project pipeline runtime", func() {
 	var (
 		resourceName             = "projectpipelineruntime1"
-		projectForPipeline       = &Project{Name: "pipeline", ID: 1222, HttpUrlToRepo: "ssh://git@gitlab.io/nautes-labs/pipeline.git"}
+		projectForPipeline       = &Project{Name: "pipeline", ID: MockProject1ID, HttpUrlToRepo: "ssh://git@gitlab.io/nautes-labs/pipeline.git"}
 		projectForPipelineRepoID = fmt.Sprintf("%s%d", RepoPrefix, int(projectForPipeline.ID))
-		projectForBase           = &Project{Name: "base", ID: 1223, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		projectForBase           = &Project{Name: "base", ID: MockProject2ID, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		projectForBaseRepoID     = fmt.Sprintf("%s%d", RepoPrefix, int(projectForBase.ID))
 		fakeResource             = createProjectPiepeLineResource(resourceName)
 		fakeNode                 = createFakeProjectPipelineRuntimeNode(fakeResource)
@@ -169,7 +169,7 @@ var _ = Describe("Save project pipeline runtime", func() {
 		data                     = &ProjectPipelineRuntimeData{
 			Name: fakeResource.Name,
 			Spec: resourcev1alpha1.ProjectPipelineRuntimeSpec{
-				Project:        _TestProject,
+				Project:        MockProject,
 				PipelineSource: projectForPipeline.Name,
 				Destination: resourcev1alpha1.ProjectPipelineDestination{
 					Environment: "env1",
@@ -442,8 +442,8 @@ var _ = Describe("Save project pipeline runtime", func() {
 			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, _TestClusterHostEnvType, _TestDeploymentClusterName)))
 			codeRepoNodes := createFakeCcontainingCodeRepoNodes(createFakeCodeRepoNode(createFakeCodeRepoResource(projectForPipelineRepoID)))
 			codeRepoNodes.Children = append(codeRepoNodes.Children, createFakeCodeRepoNode(createFakeCodeRepoResource(projectForBaseRepoID)))
-			codeRepoBinding1 := createFakeCodeRepoBindingResource(_TestCodeRepoName, _TestProject, projectForPipelineRepoID, string(ReadOnly))
-			codeRepoBinding2 := createFakeCodeRepoBindingResource(_TestCodeRepoName, _TestProject, projectForBaseRepoID, string(ReadOnly))
+			codeRepoBinding1 := createFakeCodeRepoBindingResource(MockCodeRepoName, MockProject, projectForPipelineRepoID, string(ReadOnly))
+			codeRepoBinding2 := createFakeCodeRepoBindingResource(MockCodeRepoName, MockProject, projectForBaseRepoID, string(ReadOnly))
 			codeRepoBindingNode1 := createFakeCodeRepoBindingNode(codeRepoBinding1)
 			codeRepoBindingNode2 := createFakeCodeRepoBindingNode(codeRepoBinding2)
 			codeRepoBindingNodes := createFakeContainingCodeRepoBindingNodes(codeRepoBindingNode1)
@@ -466,7 +466,7 @@ var _ = Describe("Save project pipeline runtime", func() {
 			nodestree := nodestree.NewMockNodesTree(ctl)
 			nodestree.EXPECT().AppendOperators(gomock.Any())
 			nodestree.EXPECT().GetNode(gomock.Any(), codeRepoKind, gomock.Any()).Return(createFakeCodeRepoNode(createFakeCodeRepoResource(projectForBaseRepoID))).AnyTimes()
-			nodestree.EXPECT().GetNode(gomock.Any(), environmentKind, gomock.Any()).Return(createEnvironmentNode(createEnvironmentResource(_TestEnvenvironmentName, _TestClusterHostEnvType, _TestPipelineClusterName))).AnyTimes()
+			nodestree.EXPECT().GetNode(gomock.Any(), environmentKind, gomock.Any()).Return(createEnvironmentNode(createEnvironmentResource(MockEnvenvironmentName, _TestClusterHostEnvType, _TestPipelineClusterName))).AnyTimes()
 			nodestree.EXPECT().GetNode(gomock.Any(), projectPipelineRuntimeKind, gomock.Any()).Return(createFakeProjectPipelineRuntimeNode(createProjectPiepeLineResource(resourceName))).AnyTimes()
 
 			newResouce := fakeResource.DeepCopy()

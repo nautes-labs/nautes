@@ -65,6 +65,10 @@ type StaticClients struct {
 	Secret       string   `yaml:"secret"`
 }
 
+const (
+	DexConfigName = "config.yaml"
+)
+
 func (c *ClusterManagement) GetDeploymentRedirectURI(params *ClusterRegistrationParams) (string, error) {
 	deploy, err := NewDeploymentServer(params.Cluster)
 	if err != nil {
@@ -133,7 +137,7 @@ func (c *ClusterManagement) RemoveDexRedirectURIs(url string) error {
 
 func (c *ClusterManagement) UpdateDexConfig(cm *v1.ConfigMap, redirectURIs string, fn DexCallback) error {
 	config := &DexConfig{}
-	if err := yaml.Unmarshal([]byte(cm.Data["config.yaml"]), config); err != nil {
+	if err := yaml.Unmarshal([]byte(cm.Data[DexConfigName]), config); err != nil {
 		return err
 	}
 
@@ -148,7 +152,7 @@ func (c *ClusterManagement) UpdateDexConfig(cm *v1.ConfigMap, redirectURIs strin
 		return err
 	}
 
-	cm.Data["config.yaml"] = string(bytes)
+	cm.Data[DexConfigName] = string(bytes)
 
 	return nil
 }
