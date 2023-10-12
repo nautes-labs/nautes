@@ -46,7 +46,7 @@ spec:
             description: ProjectPipelineRuntimeSpec defines the desired state of ProjectPipelineRuntime
             properties:
               additionalResources:
-                description: Optional
+                description: optional
                 properties:
                   git:
                     description: Optional
@@ -183,6 +183,8 @@ spec:
                   type: object
                 type: array
               project:
+                type: string
+              username:
                 type: string
             required:
             - destination

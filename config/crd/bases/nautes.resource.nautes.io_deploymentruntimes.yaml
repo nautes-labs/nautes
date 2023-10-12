@@ -72,8 +72,11 @@ spec:
                 items:
                   type: string
                 type: array
+              username:
+                type: string
             required:
             - destination
+            - manifestSource
             type: object
           status:
             description: DeploymentRuntimeStatus defines the observed state of DeploymentRuntime

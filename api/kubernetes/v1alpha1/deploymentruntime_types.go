@@ -30,8 +30,10 @@ type DeploymentRuntimeSpec struct {
 	Product string `json:"product,omitempty" yaml:"product"`
 	// +optional
 	ProjectsRef    []string                      `json:"projectsRef,omitempty" yaml:"projectsRef"`
-	ManifestSource ManifestSource                `json:"manifestSource,omitempty" yaml:"manifestSource"`
+	ManifestSource ManifestSource                `json:"manifestSource" yaml:"manifestSource"`
 	Destination    DeploymentRuntimesDestination `json:"destination" yaml:"destination"`
+	// +optional
+	Username string `json:"username,omitempty" yaml:"username"`
 }
 
 type DeploymentRuntimesDestination struct {

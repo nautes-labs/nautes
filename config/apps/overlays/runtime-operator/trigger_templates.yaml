@@ -94,7 +94,7 @@ data:
                   {{- end }}
                   EOF
                   cat ./kustomization.yaml
-                  kubectl kustomize . | kubectl -n {{ .runtimeName }} create -f -
+                  kubectl kustomize . | kubectl -n {{ .runtimeNamespace }} create -f -
             workspaces:
               - name: manifest-dir
                 workspace: source-volume
