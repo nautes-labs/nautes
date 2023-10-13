@@ -116,7 +116,7 @@ func (s *ProjectPipelineRuntimeService) ListProjectPipelineRuntimes(ctx context.
 }
 
 func (s *ProjectPipelineRuntimeService) SaveProjectPipelineRuntime(ctx context.Context, req *projectpipelineruntimev1.SaveRequest) (*projectpipelineruntimev1.SaveReply, error) {
-	err := s.Validate(req)
+	err := s.validate(req)
 	if err != nil {
 		return nil, err
 	}
@@ -146,30 +146,6 @@ func (s *ProjectPipelineRuntimeService) SaveProjectPipelineRuntime(ctx context.C
 	}, nil
 }
 
-func (s *ProjectPipelineRuntimeService) constructData(req *projectpipelineruntimev1.SaveRequest) *biz.ProjectPipelineRuntimeData {
-	eventSources := convertEventsToEventSource(req.Body.EventSources)
-	pipelines := convertPipelines(req.Body.Pipelines)
-	pipelineTriggers := convertTriggersToPipelineTriggers(req.Body.PipelineTriggers)
-	additionalResources := convertAdditionalResources(req.Body.AdditionalResources).(*resourcev1alpha1.ProjectPipelineRuntimeAdditionalResources)
-
-	return &biz.ProjectPipelineRuntimeData{
-		Name: req.ProjectPipelineRuntimeName,
-		Spec: resourcev1alpha1.ProjectPipelineRuntimeSpec{
-			Project:          req.Body.Project,
-			PipelineSource:   req.Body.PipelineSource,
-			EventSources:     eventSources,
-			Pipelines:        pipelines,
-			PipelineTriggers: pipelineTriggers,
-			Destination: resourcev1alpha1.ProjectPipelineDestination{
-				Environment: req.Body.Destination.Environment,
-				Namespace:   req.Body.Destination.Namespace,
-			},
-			Isolation:           req.Body.Isolation,
-			AdditionalResources: additionalResources,
-		},
-	}
-}
-
 func (s *ProjectPipelineRuntimeService) DeleteProjectPipelineRuntime(ctx context.Context, req *projectpipelineruntimev1.DeleteRequest) (*projectpipelineruntimev1.DeleteReply, error) {
 	options := &biz.BizOptions{
 		ResouceName:       req.ProjectPipelineRuntimeName,
@@ -191,6 +167,31 @@ func (s *ProjectPipelineRuntimeService) DeleteProjectPipelineRuntime(ctx context
 	return &projectpipelineruntimev1.DeleteReply{
 		Msg: fmt.Sprintf("Successfully deleted %s configuration", req.ProjectPipelineRuntimeName),
 	}, nil
+}
+
+func (s *ProjectPipelineRuntimeService) constructData(req *projectpipelineruntimev1.SaveRequest) *biz.ProjectPipelineRuntimeData {
+	eventSources := convertEventsToEventSource(req.Body.EventSources)
+	pipelines := convertPipelines(req.Body.Pipelines)
+	pipelineTriggers := convertTriggersToPipelineTriggers(req.Body.PipelineTriggers)
+	additionalResources := convertAdditionalResources(req.Body.AdditionalResources).(*resourcev1alpha1.ProjectPipelineRuntimeAdditionalResources)
+
+	return &biz.ProjectPipelineRuntimeData{
+		Name: req.ProjectPipelineRuntimeName,
+		Spec: resourcev1alpha1.ProjectPipelineRuntimeSpec{
+			Project:          req.Body.Project,
+			PipelineSource:   req.Body.PipelineSource,
+			EventSources:     eventSources,
+			Pipelines:        pipelines,
+			PipelineTriggers: pipelineTriggers,
+			Destination: resourcev1alpha1.ProjectPipelineDestination{
+				Environment: req.Body.Destination.Environment,
+				Namespace:   req.Body.Destination.Namespace,
+			},
+			Isolation:           req.Body.Isolation,
+			AdditionalResources: additionalResources,
+			Account:             req.Body.Account,
+		},
+	}
 }
 
 func convertAdditionalResources(additionalResources interface{}) interface{} {
@@ -248,6 +249,7 @@ func covertProjectPipelineRuntime(projectPipelineRuntime *resourcev1alpha1.Proje
 		},
 		Isolation:           projectPipelineRuntime.Spec.Isolation,
 		AdditionalResources: additionalResources,
+		Account:             projectPipelineRuntime.Spec.Account,
 	}, nil
 }
 
@@ -285,7 +287,7 @@ func (s *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx contex
 	return nil
 }
 
-func (s *ProjectPipelineRuntimeService) Validate(req *projectpipelineruntimev1.SaveRequest) error {
+func (s *ProjectPipelineRuntimeService) validate(req *projectpipelineruntimev1.SaveRequest) error {
 	err := checkPipelineTriggers(req)
 	if err != nil {
 		return err

@@ -144,6 +144,8 @@ message GetReply {
   string isolation = 8 [json_name = "isolation"];
   // ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
   ProjectPipelineRuntimeAdditionalResources additional_resources = 9 [json_name = "additional_resources"];
+  // Account specify the runtime account.
+  string account = 10 [json_name = "account"];
 }
 
 // Request message format for listing pipelines.
@@ -185,6 +187,8 @@ message SaveRequest {
     string isolation = 7 [json_name = "isolation", (validate.rules).string = {in: ["shared", "exclusive"]}];
     // ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
     ProjectPipelineRuntimeAdditionalResources additional_resources = 8 [json_name = "additional_resources"];
+    // Account specify the runtime account.
+    string account = 9 [json_name = "account"];
   }
   // Name of the product associated with the pipeline.
   string product_name = 1 [json_name = "product_name"];
