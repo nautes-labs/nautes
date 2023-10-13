@@ -323,7 +323,7 @@ func (c *CodeRepoUsecase) convertProductToGroupName(ctx context.Context, codeRep
 		return fmt.Errorf("the product field value of coderepo %s should not be empty", codeRepo.Spec.RepoName)
 	}
 
-	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, codeRepo.Spec.Product)
+	groupName, err := ConvertProductToGroupName(ctx, c.codeRepo, codeRepo.Spec.Product)
 	if err != nil {
 		return err
 	}

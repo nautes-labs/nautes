@@ -42,11 +42,11 @@ var (
 type DeploymentruntimeService struct {
 	deploymentruntimev1.UnimplementedDeploymentruntimeServer
 	deploymentRuntime *biz.DeploymentRuntimeUsecase
-	resourcesUsecase  *biz.ResourcesUsecase
+	codeRepo          biz.CodeRepo
 }
 
-func NewDeploymentruntimeService(deploymentRuntime *biz.DeploymentRuntimeUsecase, resourcesUsecase *biz.ResourcesUsecase) *DeploymentruntimeService {
-	return &DeploymentruntimeService{deploymentRuntime: deploymentRuntime, resourcesUsecase: resourcesUsecase}
+func NewDeploymentruntimeService(deploymentRuntime *biz.DeploymentRuntimeUsecase, codeRepo biz.CodeRepo) *DeploymentruntimeService {
+	return &DeploymentruntimeService{deploymentRuntime: deploymentRuntime, codeRepo: codeRepo}
 }
 
 func (s *DeploymentruntimeService) CovertDeploymentRuntimeValueToReply(runtime *resourcev1alpha1.DeploymentRuntime) *deploymentruntimev1.GetReply {
@@ -198,7 +198,7 @@ func (s *DeploymentruntimeService) ConvertCodeRepoToRepoName(ctx context.Context
 		return fmt.Errorf("the codeRepo field value of deploymentruntime %s should not be empty", runtime.Name)
 	}
 
-	repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, runtime.Spec.ManifestSource.CodeRepo)
+	repoName, err := biz.ConvertCodeRepoToRepoName(ctx, s.codeRepo, runtime.Spec.ManifestSource.CodeRepo)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (s *DeploymentruntimeService) ConvertProductToGroupName(ctx context.Context
 		return fmt.Errorf("the product field value of deploymentruntime %s should not be empty", runtime.Name)
 	}
 
-	groupName, err := s.resourcesUsecase.ConvertProductToGroupName(ctx, runtime.Spec.Product)
+	groupName, err := biz.ConvertProductToGroupName(ctx, s.codeRepo, runtime.Spec.Product)
 	if err != nil {
 		return err
 	}

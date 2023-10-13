@@ -45,13 +45,13 @@ var (
 type ProjectPipelineRuntimeService struct {
 	projectpipelineruntimev1.UnimplementedProjectPipelineRuntimeServer
 	projectPipelineRuntime *biz.ProjectPipelineRuntimeUsecase
-	resourcesUsecase       *biz.ResourcesUsecase
+	codeRepo               biz.CodeRepo
 }
 
-func NewProjectPipelineRuntimeService(projectPipelineRuntime *biz.ProjectPipelineRuntimeUsecase, resourcesUsecase *biz.ResourcesUsecase) *ProjectPipelineRuntimeService {
+func NewProjectPipelineRuntimeService(projectPipelineRuntime *biz.ProjectPipelineRuntimeUsecase, codeRepo biz.CodeRepo) *ProjectPipelineRuntimeService {
 	return &ProjectPipelineRuntimeService{
 		projectPipelineRuntime: projectPipelineRuntime,
-		resourcesUsecase:       resourcesUsecase,
+		codeRepo:               codeRepo,
 	}
 }
 
@@ -257,7 +257,7 @@ func (s *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx contex
 	}
 
 	if projectPipelineRuntime.Spec.PipelineSource != "" {
-		repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, projectPipelineRuntime.Spec.PipelineSource)
+		repoName, err := biz.ConvertCodeRepoToRepoName(ctx, s.codeRepo, projectPipelineRuntime.Spec.PipelineSource)
 		if err != nil {
 			return err
 		}
@@ -265,7 +265,7 @@ func (s *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx contex
 	}
 
 	if projectPipelineRuntime.Spec.AdditionalResources != nil && projectPipelineRuntime.Spec.AdditionalResources.Git != nil && projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo != "" {
-		repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
+		repoName, err := biz.ConvertCodeRepoToRepoName(ctx, s.codeRepo, projectPipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
 		if err != nil {
 			return err
 		}
@@ -274,7 +274,7 @@ func (s *ProjectPipelineRuntimeService) convertCodeRepoNameToRepoName(ctx contex
 
 	for _, event := range projectPipelineRuntime.Spec.EventSources {
 		if event.Gitlab != nil {
-			repoName, err := s.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, event.Gitlab.RepoName)
+			repoName, err := biz.ConvertCodeRepoToRepoName(ctx, s.codeRepo, event.Gitlab.RepoName)
 			if err != nil {
 				return err
 			}

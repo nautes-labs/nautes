@@ -53,7 +53,7 @@ func (e *EnvironmentUsecase) ConvertProductToGroupName(ctx context.Context, env 
 		return fmt.Errorf("the product field value of environment %s should not be empty", env.Spec.Product)
 	}
 
-	groupName, err := e.resourcesUsecase.ConvertProductToGroupName(ctx, env.Spec.Product)
+	groupName, err := ConvertProductToGroupName(ctx, e.codeRepo, env.Spec.Product)
 	if err != nil {
 		return err
 	}
