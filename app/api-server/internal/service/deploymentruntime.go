@@ -63,7 +63,6 @@ func (s *DeploymentruntimeService) CovertDeploymentRuntimeValueToReply(runtime *
 			TargetRevision: runtime.Spec.ManifestSource.TargetRevision,
 			Path:           runtime.Spec.ManifestSource.Path,
 		},
-		Account: runtime.Spec.Account,
 	}
 }
 
@@ -73,7 +72,7 @@ func (s *DeploymentruntimeService) GetDeploymentRuntime(ctx context.Context, req
 		return nil, err
 	}
 
-	err = s.convertProductAndRepoName(ctx, runtime)
+	err = s.ConvertProductAndRepoName(ctx, runtime)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func (s *DeploymentruntimeService) ListDeploymentRuntimes(ctx context.Context, r
 			continue
 		}
 
-		err := s.convertProductAndRepoName(ctx, runtime)
+		err := s.ConvertProductAndRepoName(ctx, runtime)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +138,6 @@ func (s *DeploymentruntimeService) SaveDeploymentRuntime(ctx context.Context, re
 				TargetRevision: req.Body.ManifestSource.TargetRevision,
 				Path:           req.Body.ManifestSource.Path,
 			},
-			Account: req.Body.Account,
 		},
 	}
 	options := &biz.BizOptions{
@@ -181,13 +179,13 @@ func (s *DeploymentruntimeService) DeleteDeploymentRuntime(ctx context.Context, 
 	}, nil
 }
 
-func (s *DeploymentruntimeService) convertProductAndRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
-	err := s.convertCodeRepoToRepoName(ctx, runtime)
+func (s *DeploymentruntimeService) ConvertProductAndRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
+	err := s.ConvertCodeRepoToRepoName(ctx, runtime)
 	if err != nil {
 		return err
 	}
 
-	err = s.convertProductToGroupName(ctx, runtime)
+	err = s.ConvertProductToGroupName(ctx, runtime)
 	if err != nil {
 		return err
 	}
@@ -195,7 +193,7 @@ func (s *DeploymentruntimeService) convertProductAndRepoName(ctx context.Context
 	return nil
 }
 
-func (s *DeploymentruntimeService) convertCodeRepoToRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
+func (s *DeploymentruntimeService) ConvertCodeRepoToRepoName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
 	if runtime.Spec.ManifestSource.CodeRepo == "" {
 		return fmt.Errorf("the codeRepo field value of deploymentruntime %s should not be empty", runtime.Name)
 	}
@@ -209,7 +207,7 @@ func (s *DeploymentruntimeService) convertCodeRepoToRepoName(ctx context.Context
 	return nil
 }
 
-func (s *DeploymentruntimeService) convertProductToGroupName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
+func (s *DeploymentruntimeService) ConvertProductToGroupName(ctx context.Context, runtime *resourcev1alpha1.DeploymentRuntime) error {
 	if runtime.Spec.Product == "" {
 		return fmt.Errorf("the product field value of deploymentruntime %s should not be empty", runtime.Name)
 	}

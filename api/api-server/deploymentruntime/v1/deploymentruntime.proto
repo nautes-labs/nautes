@@ -76,8 +76,6 @@ message GetReply {
   ManifestSource manifestSource = 4 [json_name = "manifest_source"];
   // Destination is the destination and custom namespaces for the deployment.
   DeploymentRuntimesDestination destination = 5 [json_name = "destination"];
-  // Account specify the runtime account.
-  string account = 6 [json_name = "account"];
 }
 
 // ListsRequest is a message for retrieving a list of Deployment Runtimes.
@@ -109,8 +107,6 @@ message SaveRequest {
      ManifestSource manifestSource = 2 [json_name = "manifest_source", (validate.rules).message.required = true];
      // Destination is the destination and custom namespaces for the deployment.
      DeploymentRuntimesDestination destination = 3 [json_name = "destination"];
-     // Account specify the runtime account.
-     string account = 4 [json_name = "account"];
   }
   // ProductName is the name of the product.
   string productName = 1 [json_name = "product_name"];
