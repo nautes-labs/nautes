@@ -531,28 +531,29 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 	var name = field.Elem().FieldByName("Name")
 	var namespace = field.Elem().FieldByName("Namespace")
 	var additions = field.Elem().FieldByName("Additions")
+	var component *clusterv1.Component
+	var err error
 
 	if name.String() == "" {
-		defaultComponent, err := s.getDefaultComponent(componentType, req)
+		component, err = s.getDefaultComponent(componentType, req)
 		if err != nil {
 			return fmt.Errorf("failed to get default component for the component type '%s'", componentType)
 		}
 
-		name.SetString(defaultComponent.Name)
-		namespace.SetString(defaultComponent.Namespace)
-
-		return nil
-	}
-
-	component, err := s.setComponentDefaults(componentType, name.String(), req)
-	if err != nil {
-		return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
-	}
-
-	if namespace.String() == "" {
+		name.SetString(component.Name)
 		namespace.SetString(component.Namespace)
+	} else {
+		component, err = s.setComponentDefaults(componentType, name.String(), req)
+		if err != nil {
+			return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
+		}
+
+		if namespace.String() == "" {
+			namespace.SetString(component.Namespace)
+		}
 	}
 
+	// set additions
 	if additions.Len() == 0 {
 		newAdditions := reflect.ValueOf(component.Additions)
 		additions.Set(newAdditions)
@@ -562,7 +563,7 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 			valReflect := reflect.ValueOf(val)
 
 			result := additions.MapIndex(keyReflect)
-			fmt.Println("result: " + result.String())
+
 			if !result.IsValid() {
 				additions.SetMapIndex(keyReflect, valReflect)
 			}
