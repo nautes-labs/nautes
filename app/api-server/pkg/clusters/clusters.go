@@ -23,12 +23,17 @@ import (
 
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	kubernetes "github.com/nautes-labs/nautes/app/api-server/pkg/kubernetes"
 	clusterconfig "github.com/nautes-labs/nautes/pkg/config/cluster"
 
 	utilstring "github.com/nautes-labs/nautes/app/api-server/util/string"
+)
+
+const (
+	Dex = "dex"
 )
 
 func NewClusterManagement(file FileOperation, nodes nodestree.NodesTree) (ClusterRegistrationOperator, error) {
@@ -148,13 +153,13 @@ func (c *ClusterManagement) SaveCluster(params *ClusterRegistrationParams) error
 		return err
 	}
 
-	if err := c.createClusterResource(cluster, tenantRepoDir); err != nil {
+	defer c.cleanExcessFiles(clusters, cluster, tenantRepoDir)
+
+	if err := c.createDexCallback(params, tenantRepoDir); err != nil {
 		return err
 	}
 
-	defer c.cleanExcessFiles(clusters, cluster, tenantRepoDir)
-
-	err = c.createDexCallback(params)
+	err = c.createClusterResource(cluster, tenantRepoDir)
 
 	return err
 }
@@ -337,8 +342,8 @@ func (c *ClusterManagement) createClusterResource(cluster *resourcev1alpha1.Clus
 		return err
 	}
 
-	filePath := fmt.Sprintf("%s/%s.yaml", concatClustersDir(tenantRepoDir), cluster.Name)
-	return c.file.WriteFile(filePath, data)
+	clusterResourcePath := fmt.Sprintf("%s/%s.yaml", concatClustersDir(tenantRepoDir), cluster.Name)
+	return c.file.WriteFile(clusterResourcePath, data)
 }
 
 // getComponentInstallPaths is a method that retrieves the installation paths of components in a cluster.
@@ -552,64 +557,100 @@ func (c *ClusterManagement) getClusters(tenantRepoDir string) ([]resourcev1alpha
 }
 
 // createDexCallback Default to use dex as OAuth authentication service.
-func (c *ClusterManagement) createDexCallback(parms *ClusterRegistrationParams) error {
-	var cluster = parms.Cluster
+func (c *ClusterManagement) createDexCallback(params *ClusterRegistrationParams, tenantRepoDir string) error {
+	var cluster = params.Cluster
+
+	cm, err := c.k8sClient.GetConfigMap(client.ObjectKey{Namespace: Dex, Name: Dex})
+	if err != nil {
+		return err
+	}
 
 	if !IsHostCluser(cluster) {
-		url, err := c.GetDeploymentRedirectURI(parms)
+		deployAddress, err := c.getDeploymentRedirectURI(params)
 		if err != nil {
 			return err
 		}
 
-		err = c.AppendDexRedirectURIs(url)
+		err = c.appendDexRedirectURIs(cm, deployAddress)
 		if err != nil {
 			return err
+		}
+
+		oldDeployAddress, err := c.getExistDeploymentRedirectURI(params, tenantRepoDir, cluster.Name)
+		if err != nil {
+			return err
+		}
+
+		if oldDeployAddress != "" && deployAddress != oldDeployAddress {
+			if err := c.removeDexRedirectURIs(cm, oldDeployAddress); err != nil {
+				return err
+			}
 		}
 	}
 
 	if IsPhysical(cluster) {
-		url, err := c.GetOAuthProxyRedirectURI(parms)
+		oauthProxyAdress, err := c.getOAuthProxyRedirectURI(params)
 		if err != nil {
 			return err
 		}
 
-		err = c.AppendDexRedirectURIs(url)
+		err = c.appendDexRedirectURIs(cm, oauthProxyAdress)
 		if err != nil {
 			return err
+		}
+
+		oldOauthProxyAddress, err := c.getExistOAuthProxyRedirectURI(params, tenantRepoDir, cluster.Name)
+		if err != nil {
+			return err
+		}
+
+		if oldOauthProxyAddress != "" && oauthProxyAdress != oldOauthProxyAddress {
+			if err = c.removeDexRedirectURIs(cm, oldOauthProxyAddress); err != nil {
+				return err
+			}
 		}
 	}
 
-	return nil
+	err = c.k8sClient.UpdateConfigMap(cm)
+
+	return err
 }
 
-func (c *ClusterManagement) removeDexCallback(parms *ClusterRegistrationParams) error {
-	var cluster = parms.Cluster
+func (c *ClusterManagement) removeDexCallback(params *ClusterRegistrationParams) error {
+	var cluster = params.Cluster
+
+	cm, err := c.k8sClient.GetConfigMap(client.ObjectKey{Namespace: Dex, Name: Dex})
+	if err != nil {
+		return err
+	}
 
 	if !IsHostCluser(cluster) {
-		url, err := c.GetDeploymentRedirectURI(parms)
+		url, err := c.getDeploymentRedirectURI(params)
 		if err != nil {
 			return err
 		}
 
-		err = c.RemoveDexRedirectURIs(url)
+		err = c.removeDexRedirectURIs(cm, url)
 		if err != nil {
 			return err
 		}
 	}
 
 	if IsPhysical(cluster) {
-		url, err := c.GetOAuthProxyRedirectURI(parms)
+		oauthProxyURL, err := c.getOAuthProxyRedirectURI(params)
 		if err != nil {
 			return err
 		}
 
-		err = c.RemoveDexRedirectURIs(url)
+		err = c.removeDexRedirectURIs(cm, oauthProxyURL)
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
+	err = c.k8sClient.UpdateConfigMap(cm)
+
+	return err
 }
 
 func (c *ClusterManagement) removeClusterResource(cluster *resourcev1alpha1.Cluster, tenantRepoDir string) error {

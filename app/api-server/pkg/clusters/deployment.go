@@ -58,13 +58,13 @@ func (a *Argocd) GetDefaultValue(_ string, opt *DefaultValueOptions) (string, er
 	return generateNipHost("argocd", opt.Cluster.Name, ip), nil
 }
 
-func (a *Argocd) GetDeploymentServer(param *ClusterRegistrationParams) *DeploymentServer {
-	if param == nil {
+func (a *Argocd) GetDeploymentServer(params *ClusterRegistrationParams) *DeploymentServer {
+	if params == nil {
 		return &DeploymentServer{}
 	}
 
-	host := a.getHost(param.Cluster)
-	url := a.getURL(param)
+	host := a.getHost(params.Cluster)
+	url := a.getURL(params)
 
 	return &DeploymentServer{Argocd: &Argocd{
 		Host: host,
@@ -72,12 +72,12 @@ func (a *Argocd) GetDeploymentServer(param *ClusterRegistrationParams) *Deployme
 	}}
 }
 
-func (a *Argocd) GetOauthURL(param *ClusterRegistrationParams) (string, error) {
-	if param == nil {
+func (a *Argocd) GetOauthURL(params *ClusterRegistrationParams) (string, error) {
+	if params == nil {
 		return "", fmt.Errorf("failed to get argocd oauth url")
 	}
 
-	url := a.getURL(param)
+	url := a.getURL(params)
 	oauth := fmt.Sprintf("%s/%s", url, _ArgocdOAuthSuffix)
 
 	return oauth, nil
@@ -93,10 +93,10 @@ func (a *Argocd) getHost(cluster *resourcev1alpha1.Cluster) string {
 	return host
 }
 
-func (a *Argocd) getURL(param *ClusterRegistrationParams) string {
-	var cluster = param.Cluster
+func (a *Argocd) getURL(params *ClusterRegistrationParams) string {
+	var cluster = params.Cluster
 	var httpsNodePort string
-	var hostCluster = param.HostCluster
+	var hostCluster = params.HostCluster
 
 	host := a.getHost(cluster)
 	if IsPhysical(cluster) {

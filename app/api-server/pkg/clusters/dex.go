@@ -15,12 +15,15 @@
 package cluster
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
+	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	utilstring "github.com/nautes-labs/nautes/app/api-server/util/string"
-	"gopkg.in/yaml.v2"
+
 	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 type DexConfig struct {
@@ -65,7 +68,22 @@ type StaticClients struct {
 	Secret       string   `yaml:"secret"`
 }
 
-func (c *ClusterManagement) GetDeploymentRedirectURI(params *ClusterRegistrationParams) (string, error) {
+func (c *ClusterManagement) getExistDeploymentRedirectURI(params *ClusterRegistrationParams, tenantRepoDir, clusterName string) (string, error) {
+	cluster, err := c.getExistCluster(tenantRepoDir, clusterName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	copyParams := *params
+	copyParams.Cluster = cluster
+
+	return c.getDeploymentRedirectURI(&copyParams)
+}
+
+func (c *ClusterManagement) getDeploymentRedirectURI(params *ClusterRegistrationParams) (string, error) {
 	deploy, err := NewDeploymentServer(params.Cluster)
 	if err != nil {
 		return "", err
@@ -79,7 +97,22 @@ func (c *ClusterManagement) GetDeploymentRedirectURI(params *ClusterRegistration
 	return url, nil
 }
 
-func (c *ClusterManagement) GetOAuthProxyRedirectURI(params *ClusterRegistrationParams) (string, error) {
+func (c *ClusterManagement) getExistOAuthProxyRedirectURI(params *ClusterRegistrationParams, tenantRepoDir, clusterName string) (string, error) {
+	cluster, err := c.getExistCluster(tenantRepoDir, clusterName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	copyParams := *params
+	copyParams.Cluster = cluster
+
+	return c.getOAuthProxyRedirectURI(&copyParams)
+}
+
+func (c *ClusterManagement) getOAuthProxyRedirectURI(params *ClusterRegistrationParams) (string, error) {
 	oauth, err := NewOAuthProxyServer(params.Cluster)
 	if err != nil {
 		return "", err
@@ -93,54 +126,40 @@ func (c *ClusterManagement) GetOAuthProxyRedirectURI(params *ClusterRegistration
 	return url, nil
 }
 
-func (c *ClusterManagement) AppendDexRedirectURIs(url string) error {
-	cm, err := c.k8sClient.GetConfigMap(client.ObjectKey{Namespace: "dex", Name: "dex"})
-	if err != nil {
-		return err
-	}
-
-	err = c.UpdateDexConfig(cm, url, appendDexRedirectURI)
+func (c *ClusterManagement) appendDexRedirectURIs(cm *v1.ConfigMap, url string) error {
+	err := c.updateDexConfig(cm, url, appendDexRedirectURI)
 	if err != nil {
 		return fmt.Errorf("failed to update configmap dex in namespace dex, err: %w", err)
-	}
-
-	err = c.k8sClient.UpdateConfigMap(cm)
-	if err != nil {
-		return err
 	}
 
 	return nil
 }
 
-func (c *ClusterManagement) RemoveDexRedirectURIs(url string) error {
-	cm, err := c.k8sClient.GetConfigMap(client.ObjectKey{Namespace: "dex", Name: "dex"})
-	if err != nil {
-		return err
-	}
-
-	err = c.UpdateDexConfig(cm, url, removeDexRedirectURI)
+func (c *ClusterManagement) removeDexRedirectURIs(cm *v1.ConfigMap, url string) error {
+	err := c.updateDexConfig(cm, url, removeDexRedirectURI)
 	if err != nil {
 		return fmt.Errorf("failed to update configmap dex in namespace dex, err: %w", err)
-	}
-
-	err = c.k8sClient.UpdateConfigMap(cm)
-	if err != nil {
-		return err
 	}
 
 	return nil
 }
 
-func (c *ClusterManagement) UpdateDexConfig(cm *v1.ConfigMap, redirectURIs string, fn DexCallback) error {
+func (c *ClusterManagement) updateDexConfig(cm *v1.ConfigMap, redirectURIs string, fn DexCallback) error {
 	config := &DexConfig{}
 	if err := yaml.Unmarshal([]byte(cm.Data["config.yaml"]), config); err != nil {
 		return err
 	}
 
-	if len(config.StaticClients) > 0 {
-		if err := fn(config, redirectURIs); err != nil {
-			return err
+	if len(config.StaticClients) == 0 {
+		config.StaticClients = []StaticClients{
+			{
+				RedirectURIs: make([]string, 0),
+			},
 		}
+	}
+
+	if err := fn(config, redirectURIs); err != nil {
+		return err
 	}
 
 	bytes, err := yaml.Marshal(config)
@@ -173,4 +192,30 @@ func removeDexRedirectURI(dex *DexConfig, url string) error {
 	dex.StaticClients[0].RedirectURIs = utilstring.RemoveStringFromSlice(dex.StaticClients[0].RedirectURIs, url)
 
 	return nil
+}
+
+func (c *ClusterManagement) getExistCluster(tenantRepoDir string, clusterName string) (*resourcev1alpha1.Cluster, error) {
+	clusterResourcePath := fmt.Sprintf("%s/%s.yaml", concatClustersDir(tenantRepoDir), clusterName)
+	yamlData, err := c.file.ReadFile(clusterResourcePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var data interface{}
+	var oldCluster = resourcev1alpha1.Cluster{}
+	if err := yaml.Unmarshal(yamlData, &data); err != nil {
+		return nil, err
+	}
+
+	jsonBytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(jsonBytes, &oldCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return &oldCluster, nil
 }
