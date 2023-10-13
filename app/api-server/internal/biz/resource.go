@@ -512,56 +512,6 @@ func (r *ResourcesUsecase) PushToGit(ctx context.Context, path string) error {
 	return nil
 }
 
-// func (r *ResourcesUsecase) ConvertCodeRepoToRepoName(ctx context.Context, codeRepoName string) (string, error) {
-// 	id, err := utilstrings.ExtractNumber(RepoPrefix, codeRepoName)
-// 	if err != nil {
-// 		return "", fmt.Errorf("the codeRepo name %s is illegal and must be in the format 'repo-ID'", codeRepoName)
-// 	}
-
-// 	project, err := r.codeRepo.GetCodeRepo(ctx, id)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to convert codeRepo name %s to repository name, err: %v", codeRepoName, err)
-// 	}
-
-// 	return project.Name, nil
-// }
-
-// func (r *ResourcesUsecase) ConvertRepoNameToCodeRepoName(ctx context.Context, productName, codeRepoName string) (string, error) {
-// 	pid := fmt.Sprintf("%s/%s", productName, codeRepoName)
-// 	project, err := r.codeRepo.GetCodeRepo(ctx, pid)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to convert repository name %s to codeRepo name, err: %v", codeRepoName, err)
-// 	}
-
-// 	return fmt.Sprintf("%s%d", RepoPrefix, int(project.ID)), nil
-// }
-
-// func (r *ResourcesUsecase) ConvertProductToGroupName(ctx context.Context, productName string) (string, error) {
-// 	var err error
-// 	var id int
-
-// 	id, err = utilstrings.ExtractNumber(ProductPrefix, productName)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	group, err := r.codeRepo.GetGroup(ctx, id)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	return group.Name, nil
-// }
-
-// func (r *ResourcesUsecase) ConvertGroupToProductName(ctx context.Context, productName string) (string, error) {
-// 	group, err := r.codeRepo.GetGroup(ctx, productName)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	return fmt.Sprintf("%s%d", ProductPrefix, int(group.ID)), nil
-// }
-
 func (r *ResourcesUsecase) retryAutoMerge(ctx context.Context, path string) error {
 	_, err := r.gitRepo.Fetch(ctx, path)
 	if err != nil {

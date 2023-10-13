@@ -1333,6 +1333,8 @@ func (m *GetReply) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for Account
+
 	if len(errors) > 0 {
 		return GetReplyMultiError(errors)
 	}
@@ -2335,6 +2337,8 @@ func (m *SaveRequest_Body) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for Account
 
 	if len(errors) > 0 {
 		return SaveRequest_BodyMultiError(errors)
