@@ -327,11 +327,11 @@ var _ = Describe("Save CodeRepoBinding", func() {
 			Email: GitEmail,
 		}
 		projectDeployKey = &ProjectDeployKey{
-			ID:  2012,
+			ID:  MockID1,
 			Key: "FingerprintData",
 		}
 		deployKeySecretData = &DeployKeySecretData{
-			ID:          2013,
+			ID:          MockID2,
 			Fingerprint: "Fingerprint",
 		}
 		listProjectDeployKeys = []*ProjectDeployKey{projectDeployKey}
@@ -539,6 +539,34 @@ var _ = Describe("Save CodeRepoBinding", func() {
 		}
 		err := biz.SaveCodeRepoBinding(ctx, options, data)
 		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	Describe("check reference by resources", func() {
+		It("failed to find resource referenct project", func() {
+			codeRepo := NewMockCodeRepo(ctl)
+
+			gitRepo := NewMockGitRepo(ctl)
+
+			nodeOperator := nodestree.NewMockNodesTree(ctl)
+			nodeOperator.EXPECT().AppendOperators(gomock.Any()).AnyTimes()
+
+			secretRepo := NewMockSecretrepo(ctl)
+			resourcesUsecase := NewResourcesUsecase(logger, codeRepo, nil, gitRepo, nodeOperator, nautesConfigs)
+			k8sClient := kubernetes.NewMockClient(ctl)
+
+			biz := NewCodeRepoCodeRepoBindingUsecase(logger, codeRepo, secretRepo, nodeOperator, resourcesUsecase, nautesConfigs, k8sClient)
+			fakeProjectResource := createProjectResource(MockProject1Name)
+			fakeProjectNode := createProjectNode(fakeProjectResource)
+			fakeProjectNodes := createProjectNodes(fakeProjectNode)
+			fakeNodes1.Children = append(fakeNodes1.Children, fakeProjectNodes.Children...)
+
+			options := nodestree.CompareOptions{
+				Nodes:       fakeNodes1,
+				ProductName: defaultProductId,
+			}
+			_, err := biz.CheckReference(options, fakeNode1, nil)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
 	})
 })
 
