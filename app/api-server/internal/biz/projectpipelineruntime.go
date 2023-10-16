@@ -24,7 +24,6 @@ import (
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/nautes-labs/nautes/app/api-server/pkg/validate"
@@ -151,38 +150,6 @@ func (p *ProjectPipelineRuntimeUsecase) IsRepositoryExist(ctx context.Context, p
 	return project, nil
 }
 
-func (p *ProjectPipelineRuntimeUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	var resourceNode *nodestree.Node
-
-	val, ok := data.(*ProjectPipelineRuntimeData)
-	if !ok {
-		return nil, fmt.Errorf("failed to save project when create specify node path: %s", path)
-	}
-
-	runtime := &resourcev1alpha1.ProjectPipelineRuntime{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-			Kind:       nodestree.ProjectPipelineRuntime,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: val.Name,
-		},
-		Spec: val.Spec,
-	}
-
-	storageResourceDirectory := fmt.Sprintf("%s/%s", path, ProjectsDir)
-	resourceParentDir := fmt.Sprintf("%s/%s", storageResourceDirectory, val.Spec.Project)
-	resourceFile := fmt.Sprintf("%s/%s.yaml", resourceParentDir, val.Name)
-	resourceNode = &nodestree.Node{
-		Name:    val.Name,
-		Path:    resourceFile,
-		Content: runtime,
-		Kind:    nodestree.ProjectPipelineRuntime,
-		Level:   4,
-	}
-
-	return resourceNode, nil
-}
 func (p *ProjectPipelineRuntimeUsecase) UpdateNode(node *nodestree.Node, data interface{}) (*nodestree.Node, error) {
 	val, ok := data.(*ProjectPipelineRuntimeData)
 	if !ok {

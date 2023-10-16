@@ -565,7 +565,45 @@ func (c *ClusterManagement) createDexCallback(params *ClusterRegistrationParams,
 		return err
 	}
 
-	if !IsHostCluser(cluster) {
+	// Trying to fix runtime authorization.
+	if IsHostCluser(cluster) {
+		subClusters, err := c.getSubClusterByHostCluster(tenantRepoDir, cluster.Name)
+		if err != nil {
+			return err
+		}
+
+		for _, cluster := range subClusters {
+			copyParams := *params
+			copyParams.Cluster = cluster
+			copyParams.HostCluster = params.Cluster
+
+			deployAddress, err := c.getDeploymentRedirectURI(&copyParams)
+			if err != nil {
+				return err
+			}
+
+			err = c.appendDexRedirectURIs(cm, deployAddress)
+			if err != nil {
+				return err
+			}
+
+			hostCluster, err := c.getExistCluster(tenantRepoDir, params.Cluster.Name)
+			if err != nil {
+				return err
+			}
+			copyParams.HostCluster = hostCluster
+			oldDeployAddress, err := c.getExistDeploymentRedirectURI(&copyParams, tenantRepoDir, cluster.Name)
+			if err != nil {
+				return err
+			}
+
+			if oldDeployAddress != "" && deployAddress != oldDeployAddress {
+				if err := c.removeDexRedirectURIs(cm, oldDeployAddress); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
 		deployAddress, err := c.getDeploymentRedirectURI(params)
 		if err != nil {
 			return err

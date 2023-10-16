@@ -22,7 +22,6 @@ import (
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -142,46 +141,6 @@ func (p *ProjectUsecase) listProjects(nodes nodestree.Node, productName string) 
 	}
 
 	return projects, nil
-}
-
-func (p *ProjectUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	var resourceNode *nodestree.Node
-
-	val, ok := data.(*ProjectData)
-	if !ok {
-		return nil, fmt.Errorf("failed to save project when create specify node path: %s", path)
-	}
-
-	projectName := val.ProjectName
-	productName := val.ProductName
-	language := val.Language
-	project := &resourcev1alpha1.Project{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-			Kind:       nodestree.Project,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: projectName,
-		},
-		Spec: resourcev1alpha1.ProjectSpec{
-			Product:  productName,
-			Language: language,
-		},
-	}
-
-	storageResourceDirectory := fmt.Sprintf("%v/%v", path, ProjectsDir)
-	resourceParentDir := fmt.Sprintf("%v/%v", storageResourceDirectory, projectName)
-	resourceFile := fmt.Sprintf("%v/%v.yaml", resourceParentDir, projectName)
-	resourceNode = &nodestree.Node{
-		Name:    projectName,
-		Path:    resourceFile,
-		Content: project,
-		Kind:    nodestree.Project,
-		Level:   4,
-		IsDir:   false,
-	}
-
-	return resourceNode, nil
 }
 
 func (p *ProjectUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {

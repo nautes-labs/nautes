@@ -207,7 +207,7 @@ func hasCodeRepoPermission(ctx context.Context, validateClient ValidateClient, p
 		}
 	}
 
-	return fmt.Errorf("not permitted to use code repo %s", getCodeRepoName(codeRepo))
+	return fmt.Errorf("not permitted to use repository %s", getCodeRepoName(codeRepo))
 }
 
 func GetClusterByRuntime(ctx context.Context, client ValidateClient, runtime Runtime) (*Cluster, error) {

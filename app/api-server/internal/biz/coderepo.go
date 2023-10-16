@@ -27,7 +27,6 @@ import (
 	utilkey "github.com/nautes-labs/nautes/app/api-server/util/key"
 	utilstring "github.com/nautes-labs/nautes/app/api-server/util/string"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -758,48 +757,6 @@ func (c *CodeRepoUsecase) createAccessTokenToGitAndSecretRepo(ctx context.Contex
 	}
 
 	return projectToken, nil
-}
-
-func (c *CodeRepoUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	val, ok := data.(*CodeRepoData)
-	if !ok {
-		return nil, fmt.Errorf("failed to creating specify node, the path: %s", path)
-	}
-
-	if val.Spec.Webhook != nil && val.Spec.Webhook.Events == nil {
-		val.Spec.Webhook.Events = make([]string, 0)
-	}
-
-	codeRepo := &resourcev1alpha1.CodeRepo{
-		TypeMeta: v1.TypeMeta{
-			Kind:       nodestree.CodeRepo,
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: val.Name,
-		},
-		Spec: val.Spec,
-	}
-
-	resourceDirectory := fmt.Sprintf("%s/%s", path, "code-repos")
-	resourcePath := fmt.Sprintf("%s/%s/%s.yaml", resourceDirectory, val.Name, val.Name)
-
-	codeRepoProvider, err := getCodeRepoProvider(c.client, c.config.Nautes.Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the information of the codeRepoProvider list when creating node")
-	}
-
-	if codeRepoProvider != nil {
-		codeRepo.Spec.CodeRepoProvider = codeRepoProvider.Name
-	}
-
-	return &nodestree.Node{
-		Name:    val.Name,
-		Path:    resourcePath,
-		Content: codeRepo,
-		Kind:    nodestree.CodeRepo,
-		Level:   4,
-	}, nil
 }
 
 func (c *CodeRepoUsecase) UpdateNode(node *nodestree.Node, data interface{}) (*nodestree.Node, error) {

@@ -219,3 +219,32 @@ func (c *ClusterManagement) getExistCluster(tenantRepoDir string, clusterName st
 
 	return &oldCluster, nil
 }
+
+func (c *ClusterManagement) getSubClusterByHostCluster(tenantRepoDir string, hostClusterName string) ([]*resourcev1alpha1.Cluster, error) {
+	clusterDir := concatClustersDir(tenantRepoDir)
+	files, err := c.file.ListFilesInDirectory(clusterDir)
+	if err != nil {
+		return nil, err
+	}
+
+	clusters := make([]*resourcev1alpha1.Cluster, 0)
+
+	for _, filePath := range files {
+		data, err := c.file.ReadFile(filePath)
+		if err != nil {
+			return nil, err
+		}
+		c := resourcev1alpha1.Cluster{}
+		err = yaml.Unmarshal(data, &c)
+		if err != nil {
+			return nil, err
+		}
+		if c.Name != "" &&
+			c.Namespace != "" &&
+			c.Spec.HostCluster == hostClusterName {
+			clusters = append(clusters, &c)
+		}
+	}
+
+	return clusters, nil
+}

@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	_GitUser  = "gittestsuer"
-	_GitEmail = "gittestsuer@nautes.com"
+	GitUser  = "gittestsuer"
+	GitEmail = "gittestsuer@nautes.com"
 )
 
 var (

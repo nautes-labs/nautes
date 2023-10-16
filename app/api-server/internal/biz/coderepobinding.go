@@ -31,7 +31,6 @@ import (
 	utilstrings "github.com/nautes-labs/nautes/app/api-server/util/string"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	"golang.org/x/sync/singleflight"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -445,61 +444,50 @@ func (*CodeRepoBindingUsecase) getCodeRepos(nodes nodestree.Node) []*resourcev1a
 
 func (c *CodeRepoBindingUsecase) authorizeRepositories(ctx context.Context, repo1, repo2 *resourcev1alpha1.CodeRepo, errChan chan interface{}) {
 	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	tmpSecretDeploykeyMap := make(map[string]*DeployKeySecretData, 0)
 
-	roDeployKey1Info, err := c.getDeployKey(ctx, repo1, tmpSecretDeploykeyMap, ReadOnly)
-	if err != nil {
-		c.lock.Unlock()
+	// Define a function to handle the common error case
+	handleError := func(err error) {
 		if commonv1.IsDeploykeyNotFound(err) {
 			return
 		}
 		errChan <- err
+	}
+
+	roDeployKey1Info, err := c.getDeployKey(ctx, repo1, tmpSecretDeploykeyMap, ReadOnly)
+	if err != nil {
+		handleError(err)
 		return
 	}
 
 	rwDeployKey1Info, err := c.getDeployKey(ctx, repo1, tmpSecretDeploykeyMap, ReadWrite)
 	if err != nil {
-		c.lock.Unlock()
-		if commonv1.IsDeploykeyNotFound(err) {
-			return
-		}
-		errChan <- err
+		handleError(err)
 		return
 	}
 
 	roDeployKey2Info, err := c.getDeployKey(ctx, repo2, tmpSecretDeploykeyMap, ReadOnly)
 	if err != nil {
-		c.lock.Unlock()
-		if commonv1.IsDeploykeyNotFound(err) {
-			return
-		}
-		errChan <- err
+		handleError(err)
 		return
 	}
 
 	rwDeployKey2Info, err := c.getDeployKey(ctx, repo2, tmpSecretDeploykeyMap, ReadWrite)
 	if err != nil {
-		c.lock.Unlock()
-		if commonv1.IsDeploykeyNotFound(err) {
-			return
-		}
+		handleError(err)
+		return
+	}
+
+	// Enable project deploy keys
+	if err := c.enableProjectDeployKey(ctx, repo1, roDeployKey2Info, rwDeployKey2Info); err != nil {
 		errChan <- err
 		return
 	}
 
-	c.lock.Unlock()
-
-	err = c.enableProjectDeployKey(ctx, repo1, roDeployKey2Info, rwDeployKey2Info)
-	if err != nil {
+	if err := c.enableProjectDeployKey(ctx, repo2, roDeployKey1Info, rwDeployKey1Info); err != nil {
 		errChan <- err
-		return
-	}
-
-	err = c.enableProjectDeployKey(ctx, repo2, roDeployKey1Info, rwDeployKey1Info)
-	if err != nil {
-		errChan <- err
-		return
 	}
 }
 
@@ -582,15 +570,6 @@ func (c *CodeRepoBindingUsecase) updateDeployKey(ctx context.Context, pid int, d
 		return err
 	}
 	return nil
-}
-
-func Contains(arr []int, target int) bool {
-	for _, element := range arr {
-		if element == target {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *CodeRepoBindingUsecase) getCodeRepoBindingsInAuthorizedRepo(_ context.Context, nodes nodestree.Node, codeRepoName, permissions string) []*resourcev1alpha1.CodeRepoBinding {
@@ -748,7 +727,7 @@ func (c *CodeRepoBindingUsecase) recycleAuthorizationByProjectScopes(ctx context
 		}
 	}
 
-	err = c.RevokeDeployKey(ctx, codeRepos, authorizationpid, permissions)
+	err = c.revokeDeployKey(ctx, codeRepos, authorizationpid, permissions)
 
 	return err
 }
@@ -1068,7 +1047,7 @@ func (c *CodeRepoBindingUsecase) checkDeployKeyExistence(ctx context.Context, pi
 	return false, nil
 }
 
-func (c *CodeRepoBindingUsecase) RevokeDeployKey(ctx context.Context, codeRepos []*resourcev1alpha1.CodeRepo, authorizationpid interface{}, permissions string) error {
+func (c *CodeRepoBindingUsecase) revokeDeployKey(ctx context.Context, codeRepos []*resourcev1alpha1.CodeRepo, authorizationpid interface{}, permissions string) error {
 	for _, codeRepo := range codeRepos {
 		pid, err := utilstrings.ExtractNumber(RepoPrefix, codeRepo.Name)
 		if err != nil {
@@ -1155,39 +1134,6 @@ func (c *CodeRepoBindingUsecase) CheckReference(options nodestree.CompareOptions
 	}
 
 	return true, nil
-}
-
-func (c *CodeRepoBindingUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	val, ok := data.(*CodeRepoBindingData)
-	if !ok {
-		return nil, fmt.Errorf("failed to creating specify node, the path: %s", path)
-	}
-
-	if len(val.Spec.Projects) == 0 {
-		val.Spec.Projects = make([]string, 0)
-	}
-
-	codeRepo := &resourcev1alpha1.CodeRepoBinding{
-		TypeMeta: v1.TypeMeta{
-			Kind:       nodestree.CodeRepoBinding,
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: val.Name,
-		},
-		Spec: val.Spec,
-	}
-
-	resourceDirectory := fmt.Sprintf("%s/%s", path, CodeReposSubDir)
-	resourcePath := fmt.Sprintf("%s/%s/%s.yaml", resourceDirectory, val.Spec.CodeRepo, val.Name)
-
-	return &nodestree.Node{
-		Name:    val.Name,
-		Path:    resourcePath,
-		Content: codeRepo,
-		Kind:    nodestree.CodeRepoBinding,
-		Level:   4,
-	}, nil
 }
 
 func (c *CodeRepoBindingUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {

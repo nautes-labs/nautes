@@ -25,7 +25,6 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/validate"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -124,35 +123,6 @@ func (e *EnvironmentUsecase) SaveEnvironment(ctx context.Context, options *BizOp
 	}
 
 	return nil
-}
-
-func (e *EnvironmentUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	val, ok := data.(*EnviromentData)
-	if !ok {
-		return nil, errors.New(503, enviromentv1.ErrorReason_ASSERT_ERROR.String(), fmt.Sprintf("failed to assert EnviromentData when create node, data: %v", val))
-	}
-
-	env := &resourcev1alpha1.Environment{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-			Kind:       nodestree.Environment,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: val.Name,
-		},
-		Spec: val.Spec,
-	}
-
-	resourceDirectory := fmt.Sprintf("%s/%s", path, EnvSubDir)
-	resourceFile := fmt.Sprintf("%s/%s.yaml", resourceDirectory, val.Name)
-
-	return &nodestree.Node{
-		Name:    val.Name,
-		Path:    resourceFile,
-		Content: env,
-		Kind:    nodestree.Environment,
-		Level:   3,
-	}, nil
 }
 
 func (e *EnvironmentUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {

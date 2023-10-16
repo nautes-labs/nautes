@@ -24,7 +24,6 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/validate"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -110,35 +109,6 @@ func (d *DeploymentRuntimeUsecase) SaveDeploymentRuntime(ctx context.Context, op
 	}
 
 	return nil
-}
-
-func (d *DeploymentRuntimeUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	val, ok := data.(*DeploymentRuntimeData)
-	if !ok {
-		return nil, fmt.Errorf("failed to create node, the path is %s", path)
-	}
-
-	resource := &resourcev1alpha1.DeploymentRuntime{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-			Kind:       nodestree.DeploymentRuntime,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: val.Name,
-		},
-		Spec: val.Spec,
-	}
-
-	resourceDirectory := fmt.Sprintf("%s/%s", path, RuntimesDir)
-	resourceFile := fmt.Sprintf("%s/%s.yaml", resourceDirectory, val.Name)
-
-	return &nodestree.Node{
-		Name:    val.Name,
-		Path:    resourceFile,
-		Kind:    nodestree.DeploymentRuntime,
-		Content: resource,
-		Level:   3,
-	}, nil
 }
 
 func (d *DeploymentRuntimeUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {
