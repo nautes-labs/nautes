@@ -60,3 +60,10 @@ func (r *ProjectPipelineRuntime) GetPipeline(name string) (*Pipeline, error) {
 func (r *ProjectPipelineRuntime) GetRuntimeType() RuntimeType {
 	return RuntimeTypePipelineRuntime
 }
+
+func (r *ProjectPipelineRuntime) GetAccount() string {
+	if r.Spec.Account == "" {
+		return r.GetName()
+	}
+	return r.Spec.Account
+}

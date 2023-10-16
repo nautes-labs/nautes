@@ -25,6 +25,7 @@ import (
 	"text/template"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 	pkgruntime "k8s.io/apimachinery/pkg/runtime"
@@ -112,8 +113,6 @@ func newPipelineRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) {
 		nautesNamespace: initInfo.NautesConfig.Nautes.Namespace,
 		k8sClient:       initInfo.tenantK8sClient,
 		clusterName:     initInfo.ClusterName,
-		runtime:         initInfo.runtime,
-		productID:       productID,
 	}
 
 	return &PipelineRuntimeDeployer{
@@ -137,33 +136,65 @@ func newPipelineRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) {
 
 func (prd *PipelineRuntimeDeployer) Deploy(ctx context.Context) (*pkgruntime.RawExtension, error) {
 	err := prd.deploy(ctx)
-	cache, convertErr := json.Marshal(prd.newCache)
+	runtimeCache, convertErr := json.Marshal(prd.newCache)
 	if convertErr != nil {
 		return prd.rawCache, convertErr
 	}
 
 	return &pkgruntime.RawExtension{
-		Raw: cache,
+		Raw: runtimeCache,
 	}, err
 }
 
 func (prd *PipelineRuntimeDeployer) deploy(ctx context.Context) error {
-	_, err := prd.usageController.AddProductUsage(ctx)
+	productUsage, err := prd.usageController.GetProductUsage(ctx, prd.productID)
 	if err != nil {
 		return fmt.Errorf("add product usage failed")
+	}
+	if productUsage == nil {
+		tmp := cache.NewEmptyProductUsage()
+		productUsage = &tmp
+	}
+	defer func() {
+		_ = prd.usageController.UpdateProductUsage(context.TODO(), prd.productID, *productUsage)
+	}()
+
+	productUsage.Runtimes.Insert(prd.runtime.Name)
+
+	userName := prd.runtime.GetAccount()
+	if userName != prd.cache.User.Name {
+		oldUserName := prd.cache.User.Name
+
+		oldUser, err := prd.productMgr.GetUser(ctx, prd.productID, oldUserName)
+		listOpt := cache.ExcludedRuntimeNames([]string{prd.runtime.GetName()})
+		accountUsage := productUsage.Account.Accounts[oldUserName]
+		if err != nil && !IsUserNotFound(err) {
+			return fmt.Errorf("get user %s's info failed: %w", oldUserName, err)
+		}
+
+		if oldUser != nil {
+			if err := prd.cleanUpUserInSecretManagement(ctx, *oldUser, accountUsage, listOpt); err != nil {
+				return fmt.Errorf("clean up user in secret management failed: %w", err)
+			}
+
+			if err := prd.cleanUpUserInMultiTenant(ctx, *oldUser, accountUsage, listOpt); err != nil {
+				return fmt.Errorf("clean up user in multi tenant failed: %w", err)
+			}
+
+			productUsage.Account.DeleteRuntime(oldUserName, prd.runtime)
+		}
 	}
 
 	if err := prd.initEnvironment(ctx); err != nil {
 		return fmt.Errorf("init environment failed: %w", err)
 	}
 
-	user, err := prd.productMgr.GetUser(ctx, prd.productID, prd.runtime.Name)
+	user, err := prd.productMgr.GetUser(ctx, prd.productID, userName)
 	if err != nil {
 		return fmt.Errorf("get user info failed: %w", err)
 	}
 
 	prd.newCache.User = *user
-
 	if err := prd.syncListenEvents(ctx, *user); err != nil {
 		return fmt.Errorf("sync listen events failed: %w", err)
 	}
@@ -174,6 +205,10 @@ func (prd *PipelineRuntimeDeployer) deploy(ctx context.Context) error {
 
 	if err := prd.deployApp(ctx); err != nil {
 		return fmt.Errorf("deploy app failed: %w", err)
+	}
+
+	if err := productUsage.Account.AddOrUpdateRuntime(prd.runtime.GetAccount(), prd.runtime); err != nil {
+		return fmt.Errorf("add account usage failed: %w", err)
 	}
 
 	return nil
@@ -280,7 +315,7 @@ func (prd *PipelineRuntimeDeployer) initEnvironment(ctx context.Context) error {
 	}
 	prd.newCache.Space = ns
 
-	userName := prd.runtime.Name
+	userName := prd.runtime.GetAccount()
 	if err := prd.productMgr.CreateUser(ctx, prd.productID, userName); err != nil {
 		return err
 	}
@@ -299,25 +334,35 @@ func (prd *PipelineRuntimeDeployer) initEnvironment(ctx context.Context) error {
 
 func (prd *PipelineRuntimeDeployer) Delete(ctx context.Context) (*pkgruntime.RawExtension, error) {
 	err := prd.delete(ctx)
-	cache, convertErr := json.Marshal(prd.newCache)
+	runtimeCache, convertErr := json.Marshal(prd.newCache)
 	if convertErr != nil {
 		return prd.rawCache, convertErr
 	}
 
 	return &pkgruntime.RawExtension{
-		Raw: cache,
+		Raw: runtimeCache,
 	}, err
 }
 
 func (prd *PipelineRuntimeDeployer) delete(ctx context.Context) error {
-	usage, err := prd.usageController.GetProductUsage(ctx)
+	productUsage, err := prd.usageController.GetProductUsage(ctx, prd.productID)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if productUsage == nil {
+			return
+		}
+		_ = prd.usageController.UpdateProductUsage(context.TODO(), prd.productID, *productUsage)
+	}()
+	if productUsage == nil {
+		return nil
+	}
 
-	usage.Runtimes.Delete(prd.runtime.Name)
+	productUsage.Runtimes.Delete(prd.runtime.Name)
 
-	user, err := prd.productMgr.GetUser(ctx, prd.productID, prd.runtime.GetName())
+	userName := prd.runtime.GetAccount()
+	user, err := prd.productMgr.GetUser(ctx, prd.productID, userName)
 	if err != nil {
 		if !IsUserNotFound(err) {
 			return fmt.Errorf("get user %s's info failed: %w", prd.runtime.GetName(), err)
@@ -328,23 +373,26 @@ func (prd *PipelineRuntimeDeployer) delete(ctx context.Context) error {
 		return err
 	}
 
-	if err := prd.deleteDeploymentApps(ctx, *usage); err != nil {
+	if err := prd.deleteDeploymentApps(ctx, *productUsage); err != nil {
 		return err
 	}
 
 	if user != nil {
-		if err := prd.deleteUserInSecretDatabase(ctx, *user); err != nil {
+		if err := prd.deleteUserInSecretDatabase(ctx, *user, *productUsage); err != nil {
 			return err
 		}
 	}
 
-	if err := prd.cleanUpProduct(ctx, user, *usage); err != nil {
+	if err := prd.cleanUpProduct(ctx, user, *productUsage); err != nil {
 		return err
 	}
-	return prd.usageController.DeleteProductUsage(ctx)
+
+	productUsage.Account.DeleteRuntime(userName, prd.runtime)
+
+	return nil
 }
 
-func (prd *PipelineRuntimeDeployer) deleteUserInSecretDatabase(ctx context.Context, user User) error {
+func (prd *PipelineRuntimeDeployer) deleteUserInSecretDatabase(ctx context.Context, user User, usage cache.ProductUsage) error {
 	if prd.cache.CodeRepo != "" {
 		if err := prd.secMgr.RevokePermission(ctx, buildSecretInfoCodeRepo(prd.repoProvider.Spec.ProviderType, prd.cache.CodeRepo), user); err != nil {
 			return fmt.Errorf("revoke code repo %s readonly permission from user %s failed: %w", prd.cache.CodeRepo, user.Name, err)
@@ -352,13 +400,15 @@ func (prd *PipelineRuntimeDeployer) deleteUserInSecretDatabase(ctx context.Conte
 		prd.newCache.CodeRepo = ""
 	}
 
-	if err := prd.secMgr.DeleteUser(ctx, user); err != nil {
+	listOpt := cache.ExcludedRuntimeNames([]string{prd.runtime.GetName()})
+	accountUsage := usage.Account.Accounts[prd.cache.User.Name]
+	if err := prd.cleanUpUserInSecretManagement(ctx, user, accountUsage, listOpt); err != nil {
 		return fmt.Errorf("delete user %s in secret database failed: %w", user.Name, err)
 	}
 	return nil
 }
 
-func (prd *PipelineRuntimeDeployer) deleteDeploymentApps(ctx context.Context, usage ProductUsage) error {
+func (prd *PipelineRuntimeDeployer) deleteDeploymentApps(ctx context.Context, usage cache.ProductUsage) error {
 	if prd.cache.App != nil {
 		if err := prd.deployer.DeleteApp(ctx, *prd.cache.App); err != nil {
 			return err
@@ -387,9 +437,11 @@ func (prd *PipelineRuntimeDeployer) deleteDeploymentApps(ctx context.Context, us
 	return nil
 }
 
-func (prd *PipelineRuntimeDeployer) cleanUpProduct(ctx context.Context, user *User, usage ProductUsage) error {
+func (prd *PipelineRuntimeDeployer) cleanUpProduct(ctx context.Context, user *User, usage cache.ProductUsage) error {
 	if user != nil {
-		if err := prd.productMgr.DeleteUser(ctx, prd.productID, user.Name); err != nil {
+		listOpt := cache.ExcludedRuntimeNames([]string{prd.runtime.GetName()})
+		accountUsage := usage.Account.Accounts[prd.cache.User.Name]
+		if err := prd.cleanUpUserInMultiTenant(ctx, *user, accountUsage, listOpt); err != nil {
 			return fmt.Errorf("delete user %s in product %s failed: %w", user.Name, prd.productID, err)
 		}
 	}
@@ -406,6 +458,56 @@ func (prd *PipelineRuntimeDeployer) cleanUpProduct(ctx context.Context, user *Us
 	if usage.Runtimes.Len() == 0 {
 		if err := prd.productMgr.DeleteProduct(ctx, prd.productID); err != nil {
 			return fmt.Errorf("delete product %s failed: %w", prd.productID, err)
+		}
+	}
+	return nil
+}
+
+func (prd *PipelineRuntimeDeployer) cleanUpUserInSecretManagement(ctx context.Context,
+	user User,
+	account cache.AccountResource,
+	listOpt cache.ListOption) error {
+
+	codeRepoInUsed := account.ListAccountCodeRepos(listOpt)
+	if codeRepoInUsed.Len() == 0 {
+		err := prd.secMgr.DeleteUser(ctx, user)
+		if err != nil {
+			return fmt.Errorf("delete user in secret management failed: %w", err)
+		}
+	} else if !codeRepoInUsed.Has(prd.cache.CodeRepo) {
+		err := prd.secMgr.RevokePermission(ctx,
+			buildSecretInfoCodeRepo(prd.repoProvider.Spec.ProviderType, prd.codeRepo.Name),
+			user)
+		if err != nil {
+			return fmt.Errorf("revoke unused code repo failed: %w", err)
+		}
+	}
+	return nil
+}
+
+func (prd *PipelineRuntimeDeployer) cleanUpUserInMultiTenant(ctx context.Context,
+	user User,
+	account cache.AccountResource,
+	listOpt cache.ListOption) error {
+	spacesInUsed := account.ListAccountSpaces(listOpt)
+
+	if spacesInUsed.Len() == 0 {
+		err := prd.productMgr.DeleteUser(ctx, prd.productID, user.Name)
+		if err != nil {
+			return fmt.Errorf("delete user failed: %w", err)
+		}
+	} else if !spacesInUsed.Has(prd.cache.Space) {
+		err := prd.productMgr.DeleteSpaceUser(ctx, PermissionRequest{
+			RequestScope: RequestScopeUser,
+			Resource: Resource{
+				Product: prd.productID,
+				Name:    prd.cache.Space,
+			},
+			User:       user.Name,
+			Permission: Permission{},
+		})
+		if err != nil {
+			return fmt.Errorf("delete user %s in space %s failed: %w", user.Name, prd.cache.Space, err)
 		}
 	}
 	return nil

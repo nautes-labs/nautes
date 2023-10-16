@@ -84,7 +84,7 @@ data:
                     nautes-pipeline-selector: {{ .pipelineLabel }}
                   {{ end }}
                   {{- if eq .isCodeRepoTrigger "true" }}
-                  patchesStrategicMerge:
+                  patches:
                   - patch: |-
                       - op: replace
                         path: /spec/params/0/value

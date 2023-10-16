@@ -234,8 +234,8 @@ func (ae *ArgoEvent) DeleteConsumer(ctx context.Context, productName, name strin
 }
 
 type Cache struct {
-	Gitlab   syncer.StringSet `yaml:"gitlab"`
-	Calendar syncer.StringSet `yaml:"calendar"`
+	Gitlab   utils.StringSet `yaml:"gitlab"`
+	Calendar utils.StringSet `yaml:"calendar"`
 }
 
 func (c *Cache) GetMissingEventTypes(pairCache Cache) []syncer.EventType {
@@ -311,12 +311,8 @@ func (ae *ArgoEvent) createCacheFromEventSource(es syncer.EventSource) Cache {
 
 func newCache() Cache {
 	return Cache{
-		Gitlab: syncer.StringSet{
-			Set: sets.New[string](),
-		},
-		Calendar: syncer.StringSet{
-			Set: sets.New[string](),
-		},
+		Gitlab:   utils.NewStringSet(),
+		Calendar: utils.NewStringSet(),
 	}
 }
 

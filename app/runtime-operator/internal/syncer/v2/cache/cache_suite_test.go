@@ -12,31 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha1
+package cache_test
 
-func (r *DeploymentRuntime) GetProduct() string {
-	return r.Spec.Product
-}
+import (
+	"testing"
 
-func (r *DeploymentRuntime) GetDestination() string {
-	return r.Spec.Destination.Environment
-}
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func (r *DeploymentRuntime) GetNamespaces() []string {
-	namespaces := r.Spec.Destination.Namespaces
-	if len(namespaces) == 0 {
-		namespaces = []string{r.Name}
-	}
-	return namespaces
-}
-
-func (r *DeploymentRuntime) GetRuntimeType() RuntimeType {
-	return RuntimeTypeDeploymentRuntime
-}
-
-func (r *DeploymentRuntime) GetAccount() string {
-	if r.Spec.Account == "" {
-		return r.GetName()
-	}
-	return r.Spec.Account
+func TestCache(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cache Suite")
 }

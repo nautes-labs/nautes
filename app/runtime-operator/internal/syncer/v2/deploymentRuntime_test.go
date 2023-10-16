@@ -1,3 +1,17 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package syncer_test
 
 import (
@@ -9,6 +23,7 @@ import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,9 +49,9 @@ var _ = Describe("Deploy runtime deployer", func() {
 		ctx = context.Background()
 		result = &deployResult{}
 
-		productIDs = GenerateNames(fmt.Sprintf("product-%s-%%d", seed), 3)
-		namespaceNames = GenerateNames(fmt.Sprintf("ns-%s-%%d", seed), 3)
-		runtimeNames = GenerateNames(fmt.Sprintf("runtime-%s-%%d", seed), 3)
+		productIDs = GenerateNames(fmt.Sprintf("product-%s-%%d", seed), 5)
+		namespaceNames = GenerateNames(fmt.Sprintf("ns-%s-%%d", seed), 5)
+		runtimeNames = GenerateNames(fmt.Sprintf("runtime-%s-%%d", seed), 5)
 
 		cluster = &v1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -163,6 +178,16 @@ var _ = Describe("Deploy runtime deployer", func() {
 		err = json.Unmarshal(rawCache.Raw, cache)
 		Expect(err).Should(BeNil())
 
+		destCache := &syncer.DeploymentRuntimeSyncHistory{
+			Cluster:  "",
+			Spaces:   utils.NewStringSet(runtime.GetNamespaces()...),
+			CodeRepo: runtime.Spec.ManifestSource.CodeRepo,
+			Account:  runtime.GetName(),
+		}
+
+		ok := reflect.DeepEqual(destCache, cache)
+		Expect(ok).Should(BeTrue())
+
 		destResult := &deployResult{
 			product: &deployResultProduct{
 				name: productIDs[0],
@@ -207,7 +232,7 @@ var _ = Describe("Deploy runtime deployer", func() {
 				},
 			},
 		}
-		ok := reflect.DeepEqual(destResult, result)
+		ok = reflect.DeepEqual(destResult, result)
 		Expect(ok).Should(BeTrue())
 	})
 
@@ -382,5 +407,150 @@ var _ = Describe("Deploy runtime deployer", func() {
 		cache, err := task.Delete(ctx)
 		Expect(err).Should(BeNil())
 		_ = cache
+	})
+
+	It("can specify account", func() {
+		accountName := fmt.Sprintf("account-%s", seed)
+		runtime.Spec.Account = accountName
+		task, err := testSyncer.NewTasks(ctx, runtime, nil)
+		Expect(err).Should(BeNil())
+
+		rawCache, err := task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		cache := &syncer.DeploymentRuntimeSyncHistory{}
+		err = json.Unmarshal(rawCache.Raw, cache)
+		Expect(err).Should(BeNil())
+
+		destResult := &deployResult{
+			product: &deployResultProduct{
+				name: productIDs[0],
+				spaces: []deployResultSpace{
+					{
+						name:  runtime.Spec.Destination.Namespaces[0],
+						users: []string{accountName},
+					},
+				},
+				users: []string{accountName},
+			},
+			deployment: &deployResultDeployment{
+				product: deployResultDeploymentProduct{
+					name:  runtime.GetProduct(),
+					users: []string{product.Spec.Name},
+				},
+				apps: []syncer.Application{
+					{
+						Resource: syncer.Resource{
+							Product: runtime.GetProduct(),
+							Name:    runtime.Name,
+						},
+						Git: &syncer.ApplicationGit{
+							URL:      codeRepo.Spec.URL,
+							Revision: runtime.Spec.ManifestSource.TargetRevision,
+							Path:     runtime.Spec.ManifestSource.Path,
+							CodeRepo: codeRepo.Name,
+						},
+						Destinations: []syncer.Space{
+							{
+								Resource: syncer.Resource{
+									Product: runtime.GetProduct(),
+									Name:    runtime.Spec.Destination.Namespaces[0],
+								},
+								SpaceType: syncer.SpaceTypeKubernetes,
+								Kubernetes: syncer.SpaceKubernetes{
+									Namespace: runtime.Spec.Destination.Namespaces[0],
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		ok := reflect.DeepEqual(destResult, result)
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("if account is used by other runtime, user will not be deleted", func() {
+		accountName := fmt.Sprintf("account-%s", seed)
+		runtime.Spec.Account = accountName
+		task, err := testSyncer.NewTasks(ctx, runtime, nil)
+		Expect(err).Should(BeNil())
+
+		rawCache, err := task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		runtime2 := runtime.DeepCopy()
+		runtime2.Name = runtimeNames[1]
+		runtime2.Spec.Destination.Namespaces = []string{namespaceNames[3]}
+		db.runtimes[runtime2.Name] = runtime2
+		task2, err := testSyncer.NewTasks(ctx, runtime2, nil)
+		Expect(err).Should(BeNil())
+
+		_, err = task2.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		task, err = testSyncer.NewTasks(ctx, runtime, rawCache)
+		Expect(err).Should(BeNil())
+		rawCache, err = task.Delete(ctx)
+		Expect(err).Should(BeNil())
+
+		cache := &syncer.DeploymentRuntimeSyncHistory{}
+		err = json.Unmarshal(rawCache.Raw, cache)
+		Expect(err).Should(BeNil())
+
+		destResult := &deployResultProduct{
+			name: productIDs[0],
+			spaces: []deployResultSpace{
+				{
+					name:  namespaceNames[3],
+					users: []string{accountName},
+				},
+			},
+			users: []string{accountName},
+		}
+		ok := reflect.DeepEqual(destResult, result.product)
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("if account is changed, user will update", func() {
+		task, err := testSyncer.NewTasks(ctx, runtime, nil)
+		Expect(err).Should(BeNil())
+
+		rawCache, err := task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		accountName := fmt.Sprintf("account-%s", seed)
+		runtime.Spec.Account = accountName
+		task, err = testSyncer.NewTasks(ctx, runtime, rawCache)
+		Expect(err).Should(BeNil())
+		rawCache, err = task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		cache := &syncer.DeploymentRuntimeSyncHistory{}
+		err = json.Unmarshal(rawCache.Raw, cache)
+		Expect(err).Should(BeNil())
+
+		destCache := &syncer.DeploymentRuntimeSyncHistory{
+			Cluster:  "",
+			Spaces:   utils.NewStringSet(runtime.GetNamespaces()...),
+			CodeRepo: runtime.Spec.ManifestSource.CodeRepo,
+			Account:  accountName,
+		}
+
+		ok := reflect.DeepEqual(destCache, cache)
+		Expect(ok).Should(BeTrue())
+
+		destResult := &deployResultProduct{
+			name: productIDs[0],
+			spaces: []deployResultSpace{
+				{
+					name:  namespaceNames[0],
+					users: []string{accountName},
+				},
+			},
+			users: []string{accountName},
+		}
+		ok = reflect.DeepEqual(destResult, result.product)
+		Expect(ok).Should(BeTrue())
 	})
 })
