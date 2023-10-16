@@ -40,8 +40,8 @@ const (
 )
 
 const (
-	keyProductUserList = "ProductUsers"
-	keySpaceUserList   = "SpaceUsers"
+	keyProductUserList = "productUsers"
+	keySpaceUserList   = "spaceUsers"
 )
 
 var _ = Describe("HNC", func() {

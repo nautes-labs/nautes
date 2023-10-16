@@ -467,7 +467,6 @@ func (prd *PipelineRuntimeDeployer) cleanUpUserInSecretManagement(ctx context.Co
 	user User,
 	account cache.AccountResource,
 	listOpt cache.ListOption) error {
-
 	codeRepoInUsed := account.ListAccountCodeRepos(listOpt)
 	if codeRepoInUsed.Len() == 0 {
 		err := prd.secMgr.DeleteUser(ctx, user)
@@ -475,8 +474,17 @@ func (prd *PipelineRuntimeDeployer) cleanUpUserInSecretManagement(ctx context.Co
 			return fmt.Errorf("delete user in secret management failed: %w", err)
 		}
 	} else if !codeRepoInUsed.Has(prd.cache.CodeRepo) {
+		secretInfo := buildSecretInfoCodeRepo(prd.repoProvider.Spec.ProviderType, prd.codeRepo.Name)
 		err := prd.secMgr.RevokePermission(ctx,
-			buildSecretInfoCodeRepo(prd.repoProvider.Spec.ProviderType, prd.codeRepo.Name),
+			secretInfo,
+			user)
+		if err != nil {
+			return fmt.Errorf("revoke unused code repo failed: %w", err)
+		}
+
+		secretInfo.CodeRepo.Permission = CodeRepoPermissionReadWrite
+		err = prd.secMgr.RevokePermission(ctx,
+			secretInfo,
 			user)
 		if err != nil {
 			return fmt.Errorf("revoke unused code repo failed: %w", err)
@@ -852,8 +860,8 @@ func (prd *PipelineRuntimeDeployer) getVars(pipelineRevision, codeRepoName strin
 		"isCodeRepoTrigger":        isCodeRepoTrigger,
 		"runtimeNamespace":         prd.runtime.GetNamespaces()[0],
 		"pipelinePath":             pipeline.Path,
-		"serviceAccountName":       user.AuthInfo.Kubernetes[0].ServiceAccount,
-		"runtimeName":              user.AuthInfo.Kubernetes[0].ServiceAccount,
+		"serviceAccountName":       user.Name,
+		"userName":                 user.Name,
 		"pipelineRepoProviderType": provider.Spec.ProviderType,
 		"pipelineRepoID":           codeRepo.Name,
 		"pipelineRepoURL":          codeRepo.Spec.URL,

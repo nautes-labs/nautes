@@ -29,7 +29,7 @@ data:
               vault.hashicorp.com/tls-secret: "ca"
               vault.hashicorp.com/ca-cert: "/vault/tls/ca.crt"
               vault.hashicorp.com/agent-pre-populate-only: "true"
-              vault.hashicorp.com/role: '{{ .runtimeName }}'
+              vault.hashicorp.com/role: '{{ .userName }}'
               vault.hashicorp.com/agent-run-as-user: '0'
               vault.hashicorp.com/agent-run-as-group: '0'
               vault.hashicorp.com/agent-inject-secret-id_ecdsa: "git/data/{{ .pipelineRepoProviderType }}/{{ .pipelineRepoID }}/default/readonly"

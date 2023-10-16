@@ -371,8 +371,8 @@ func (h hnc) deleteRoleBindingServiceAccount(ctx context.Context, name, namespac
 }
 
 const (
-	keyProductUserList = "ProductUsers"
-	keySpaceUserList   = "SpaceUsers"
+	keyProductUserList = "productUsers"
+	keySpaceUserList   = "spaceUsers"
 )
 
 func (h hnc) addSpaceUsers(ctx context.Context, productName string, spaceName string, users []string) error {
