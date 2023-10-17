@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +43,7 @@ const (
 
 type GitlabEventSourceGenerator struct {
 	Components     *syncer.ComponentList
-	HostEntrypoint EntryPoint
+	HostEntrypoint utils.EntryPoint
 	Namespace      string
 	K8sClient      client.Client
 	DB             database.Database

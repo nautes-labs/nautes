@@ -40,16 +40,13 @@ type Deployment interface {
 }
 
 type Gateway interface {
-	DefaultValueProvider
 	GetGatewayServer(param *ClusterRegistrationParams) *GatewayServer
 }
 
 type OAuthProxy interface {
-	DefaultValueProvider
 	GetOauthProxyServer(param *ClusterRegistrationParams) *OAuthProxyServer
 	GenerateOAuthProxyRedirect(cluster *resourcev1alpha1.Cluster) string
 }
 
 type SecretManagement interface {
-	DefaultValueProvider
 }

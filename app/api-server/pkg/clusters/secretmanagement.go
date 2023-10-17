@@ -20,13 +20,3 @@ type Vault struct {
 func NewVault() SecretManagement {
 	return &Vault{}
 }
-
-func (v *Vault) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
-	return "", nil
-}
-
-func (v *Vault) GetSecretManagementServer(param *ClusterRegistrationParams) *SecretManagementServer {
-	return &SecretManagementServer{
-		Vault: &Vault{},
-	}
-}

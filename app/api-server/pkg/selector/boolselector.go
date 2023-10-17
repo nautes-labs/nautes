@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 )
 
 type BoolSelector struct {
@@ -76,7 +75,7 @@ func (s *BoolSelector) NotEq(value reflect.Value, matchValue string) (bool, erro
 func (s *BoolSelector) checkBoolType(value reflect.Value) error {
 	t := reflect.TypeOf(value.Interface())
 	if t.Kind() != reflect.Bool {
-		return fmt.Errorf("inconsistent data type, expected is 'Bool', but now is '%v'", strings.Title(t.Kind().String()))
+		return fmt.Errorf("inconsistent data type, expected is 'Bool', but now is '%s'", t.Kind().String())
 	}
 
 	return nil

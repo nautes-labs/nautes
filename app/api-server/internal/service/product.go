@@ -73,7 +73,7 @@ func (s *ProductService) GetProduct(ctx context.Context, req *productv1.GetProdu
 	return s.CovertCodeRepoValueToReply(product.Group), nil
 }
 
-func (s *ProductService) ListProducts(ctx context.Context, req *productv1.ListProductsRequest) (*productv1.ListProductsReply, error) {
+func (s *ProductService) ListProducts(ctx context.Context, _ *productv1.ListProductsRequest) (*productv1.ListProductsReply, error) {
 	products, err := s.product.ListProducts(ctx)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,12 @@ func (s *ProductService) ListProducts(ctx context.Context, req *productv1.ListPr
 }
 
 func (s *ProductService) SaveProduct(ctx context.Context, req *productv1.SaveProductRequest) (*productv1.SaveProductReply, error) {
-	ctx = biz.SetResourceContext(ctx, "", biz.SaveMethod, "", "", nodestree.Product, req.ProductName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.SaveMethod,
+		ResourceKind: nodestree.Product,
+		ResourceName: req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	git := &biz.GitGroupOptions{}
 	if req.Git == nil {
@@ -144,7 +149,12 @@ func (s *ProductService) SaveProduct(ctx context.Context, req *productv1.SavePro
 }
 
 func (s *ProductService) DeleteProduct(ctx context.Context, req *productv1.DeleteProductRequest) (*productv1.DeleteProductReply, error) {
-	ctx = biz.SetResourceContext(ctx, "", biz.DeleteMethod, "", "", nodestree.Product, req.ProductName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.Product,
+		ResourceName: req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	err := s.product.DeleteProduct(ctx, req.ProductName)
 	if err != nil {

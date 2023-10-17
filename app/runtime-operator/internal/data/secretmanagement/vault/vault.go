@@ -60,13 +60,13 @@ type newOptions struct {
 	newVaultProxyClient NewVaultProxy
 }
 
-type newOption func(*newOptions)
+type NewOption func(*newOptions)
 
-func SetNewVaultProxyClientFunction(fn NewVaultProxy) newOption {
+func SetNewVaultProxyClientFunction(fn NewVaultProxy) NewOption {
 	return func(no *newOptions) { no.newVaultProxyClient = fn }
 }
 
-func NewVaultClient(_ v1alpha1.Component, info *syncer.ComponentInitInfo, opts ...newOption) (syncer.SecretManagement, error) {
+func NewVaultClient(_ v1alpha1.Component, info *syncer.ComponentInitInfo, opts ...NewOption) (syncer.SecretManagement, error) {
 	options := &newOptions{
 		newVaultProxyClient: newVaultProxyClient,
 	}

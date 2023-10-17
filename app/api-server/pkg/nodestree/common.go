@@ -23,15 +23,17 @@ type configInfo struct {
 	Level    int
 }
 
+const Any = "any"
+
 // listConfigInfos Get resource info list according to index
 func listConfigInfos(configs []Config) (infos []configInfo) {
 	idx := len(configs) - 1
 	for _, config := range configs[idx].Sub {
-		if config.Kind == "" && config.Name != "any" {
+		if config.Kind == "" && config.Name != Any {
 			configs = append(configs, config)
 
 			infos = append(infos, listConfigInfos(configs)...)
-		} else if config.Kind == "" && config.Name == "any" {
+		} else if config.Kind == "" && config.Name == Any {
 			infos = append(infos, recurrenceConfig(config, configs[idx].Name)...)
 		} else {
 			infos = append(infos, configInfo{

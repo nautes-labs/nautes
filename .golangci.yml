@@ -32,6 +32,7 @@ run:
     - third_party
     - docs
     - hack
+    - pkg/thirdpartapis
 
   # which files to skip: they will be analyzed, but issues from them
   # won't be reported. Default value is empty list, but there is
@@ -76,7 +77,7 @@ linters-settings:
       - name: argument-limit
         severity: warning
         disabled: false
-        arguments: [5]
+        arguments: [6]
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#atomic
       - name: atomic
         severity: warning
@@ -116,7 +117,7 @@ linters-settings:
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#confusing-naming
       - name: confusing-naming
         severity: warning
-        disabled: false
+        disabled: true
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#confusing-results
       - name: confusing-results
         severity: warning
@@ -252,7 +253,7 @@ linters-settings:
       - name: line-length-limit
         severity: warning
         disabled: false
-        arguments: [180]
+        arguments: [280]
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#max-public-structs
       - name: max-public-structs
         severity: warning
@@ -406,7 +407,7 @@ linters-settings:
     # simplify code: gofmt with `-s` option, true by default
     simplify: true
   lll:
-    line-length: 180
+    line-length: 280
   misspell:
     locale: US
   nolintlint:

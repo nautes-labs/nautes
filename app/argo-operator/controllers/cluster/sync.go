@@ -23,15 +23,15 @@ import (
 	"k8s.io/kops/pkg/kubeconfig"
 )
 
-func (r *ClusterReconciler) saveChangesCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, kubeconfig *kubeconfig.KubectlConfig, preClusterServer string) error {
+func (r *ClusterReconciler) saveChangesCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, cfg *kubeconfig.KubectlConfig, preClusterServer string) error {
 	clusterInfo, err := r.getClusterInfo(cluster.Spec.ApiServer)
 	if err != nil {
-		err = r.createCluster(ctx, cluster, kubeconfig)
+		err = r.createCluster(ctx, cluster, cfg)
 		if err != nil {
 			return err
 		}
 	} else if err == nil && !clusterInfo.valid {
-		err = r.updateCluster(ctx, cluster, kubeconfig)
+		err = r.updateCluster(ctx, cluster, cfg)
 		if err != nil {
 			return err
 		}
@@ -45,16 +45,15 @@ func (r *ClusterReconciler) saveChangesCluster(ctx context.Context, cluster *res
 	return nil
 }
 
-func (r *ClusterReconciler) saveClusterFromSecretChange(ctx context.Context, cluster *resourcev1alpha1.Cluster, kubeconfig *kubeconfig.KubectlConfig) error {
+func (r *ClusterReconciler) saveClusterFromSecretChange(ctx context.Context, cluster *resourcev1alpha1.Cluster, cfg *kubeconfig.KubectlConfig) error {
 	_, err := r.getClusterInfo(cluster.Spec.ApiServer)
 	if err != nil {
-		err := r.createCluster(ctx, cluster, kubeconfig)
+		err := r.createCluster(ctx, cluster, cfg)
 		if err != nil {
 			return err
 		}
-
 	} else {
-		err = r.updateCluster(ctx, cluster, kubeconfig)
+		err = r.updateCluster(ctx, cluster, cfg)
 		if err != nil {
 			return err
 		}
@@ -63,16 +62,16 @@ func (r *ClusterReconciler) saveClusterFromSecretChange(ctx context.Context, clu
 	return nil
 }
 
-func (r *ClusterReconciler) regularSaveCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, kubeconfig *kubeconfig.KubectlConfig) (bool, error) {
+func (r *ClusterReconciler) regularSaveCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster, cfg *kubeconfig.KubectlConfig) (bool, error) {
 	clusterInfo, err := r.getClusterInfo(cluster.Spec.ApiServer)
 	if err != nil {
-		err := r.createCluster(ctx, cluster, kubeconfig)
+		err := r.createCluster(ctx, cluster, cfg)
 		if err != nil {
 			return false, err
 		}
 		return true, nil
 	} else if err == nil && !clusterInfo.valid {
-		err = r.updateCluster(ctx, cluster, kubeconfig)
+		err = r.updateCluster(ctx, cluster, cfg)
 		if err != nil {
 			return false, err
 		}
@@ -82,44 +81,44 @@ func (r *ClusterReconciler) regularSaveCluster(ctx context.Context, cluster *res
 	return false, nil
 }
 
-func (r *ClusterReconciler) syncCluster2Argocd(ctx context.Context, cluster *resourcev1alpha1.Cluster, kubeconfig *kubeconfig.KubectlConfig, secretID string) (bool, error) {
-	var tune = true
-	var sync = false
+func (r *ClusterReconciler) syncCluster2Argocd(ctx context.Context, cluster *resourcev1alpha1.Cluster, cfg *kubeconfig.KubectlConfig, secretID string) (bool, error) {
+	var isTune = true
+	var isSync bool
 
 	preClusterServer, clusterChange := r.isClusterChange(cluster)
 	if clusterChange {
-		err := r.saveChangesCluster(ctx, cluster, kubeconfig, preClusterServer)
+		err := r.saveChangesCluster(ctx, cluster, cfg, preClusterServer)
 		if err != nil {
-			return !tune, err
+			return !isTune, err
 		}
-		sync = true
+		isSync = true
 	} else {
 		secretChange := r.isSecretChange(cluster, secretID)
 		if secretChange {
-			if err := r.saveClusterFromSecretChange(ctx, cluster, kubeconfig); err != nil {
-				return !tune, err
+			if err := r.saveClusterFromSecretChange(ctx, cluster, cfg); err != nil {
+				return !isTune, err
 			}
-			sync = true
+			isSync = true
 		} else {
-			save, err := r.regularSaveCluster(ctx, cluster, kubeconfig)
+			save, err := r.regularSaveCluster(ctx, cluster, cfg)
 			if err != nil {
-				return !tune, err
+				return !isTune, err
 			}
-			sync = save
+			isSync = save
 		}
 	}
 
-	if sync {
+	if isSync {
 		if err := r.updateSync2ArgoStatus(ctx, cluster.Spec, secretID); err != nil {
-			return tune, err
+			return isTune, err
 		}
 
 		message := fmt.Sprintf("successfully saved cluster %s to argocd", cluster.Name)
 		condition = metav1.Condition{Type: ClusterConditionType, Message: message, Reason: RegularUpdate, Status: metav1.ConditionTrue}
 		if err := r.setConditionAndUpdateStatus(ctx, condition); err != nil {
-			return tune, err
+			return isTune, err
 		}
 	}
 
-	return tune, nil
+	return isTune, nil
 }

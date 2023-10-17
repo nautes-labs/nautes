@@ -41,10 +41,6 @@ import (
 	//+kubebuilder:scaffold:imports
 )
 
-const (
-	secretPath = "/base-operator/secret/certification-info"
-)
-
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")

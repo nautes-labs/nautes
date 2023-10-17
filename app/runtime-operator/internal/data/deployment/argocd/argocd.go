@@ -18,13 +18,13 @@ import (
 	"context"
 	"fmt"
 
+	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	argocdrbac "github.com/nautes-labs/nautes/app/runtime-operator/pkg/casbin/adapter"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	argov1alpha1 "github.com/nautes-labs/nautes/pkg/thirdpartapis/argocd/application/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,7 +32,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func init() {
@@ -155,7 +154,7 @@ func (a *argocd) CreateProduct(ctx context.Context, name string) error {
 		return fmt.Errorf("list spaces failed: %w", err)
 	}
 
-	_, err = controllerutil.CreateOrUpdate(ctx, a.k8sClient, appProject, func() error {
+	_, err = CreateOrUpdate(ctx, a.k8sClient, appProject, func() error {
 		if err := utils.CheckResourceOperability(appProject, name); err != nil {
 			return err
 		}
@@ -276,7 +275,7 @@ func (a *argocd) CreateApp(ctx context.Context, app syncer.Application) error {
 	a.projectsNeedUpdateSource.Insert(app.Product)
 
 	if app.Git != nil && app.Git.CodeRepo != "" {
-		return a.createOrUpdateCodeRepo(ctx, app.Git.CodeRepo, []string{a.secretUser.Name}, nil)
+		return a.createOrUpdateCodeRepo(ctx, app.Git.CodeRepo, []string{app.Name}, nil)
 	}
 
 	return nil
@@ -284,7 +283,7 @@ func (a *argocd) CreateApp(ctx context.Context, app syncer.Application) error {
 
 func (a *argocd) DeleteApp(ctx context.Context, app syncer.Application) error {
 	if app.Git != nil && app.Git.CodeRepo != "" {
-		if err := a.createOrUpdateCodeRepo(ctx, app.Git.CodeRepo, nil, []string{a.secretUser.Name}); err != nil {
+		if err := a.createOrUpdateCodeRepo(ctx, app.Git.CodeRepo, nil, []string{app.Name}); err != nil {
 			return err
 		}
 	}
@@ -338,7 +337,7 @@ func (a *argocd) createOrUpdateArgoCDApp(ctx context.Context, app syncer.Applica
 		},
 	}
 
-	_, err := controllerutil.CreateOrUpdate(ctx, a.k8sClient, argoApp, func() error {
+	_, err := CreateOrUpdate(ctx, a.k8sClient, argoApp, func() error {
 		if err := utils.CheckResourceOperability(argoApp, app.Product); err != nil {
 			return err
 		}
@@ -401,28 +400,12 @@ func (a *argocd) createOrUpdateCodeRepo(ctx context.Context, name string, newUse
 		return err
 	}
 
-	provider, err := a.db.GetCodeRepoProvider(repo.Spec.CodeRepoProvider)
-	if err != nil {
-		return err
-	}
-
-	if len(newUsers) != 0 {
-		repoPermissionReq := syncer.SecretInfo{
-			Type: syncer.SecretTypeCodeRepo,
-			CodeRepo: &syncer.CodeRepo{
-				ProviderType: provider.Spec.ProviderType,
-				ID:           repo.Name,
-				User:         "default",
-				Permission:   syncer.CodeRepoPermissionReadOnly,
-			},
-		}
-		if err := a.components.SecretManagement.GrantPermission(ctx, repoPermissionReq, a.secretUser); err != nil {
-			return fmt.Errorf("grant code repo %s permission to argo operator failed: %w", repo.Name, err)
-		}
+	if err := a.grantReadOnlyPermissionToSecretUser(ctx, *repo); err != nil {
+		return fmt.Errorf("grant read only permission to argo operator user failed: %w", err)
 	}
 
 	repo.Namespace = a.nautesNamespace
-	_, err = controllerutil.CreateOrUpdate(ctx, a.k8sClient, repo, func() error {
+	_, err = CreateOrUpdate(ctx, a.k8sClient, repo, func() error {
 		if repo.Annotations == nil {
 			repo.Annotations = map[string]string{}
 		}
@@ -436,6 +419,28 @@ func (a *argocd) createOrUpdateCodeRepo(ctx context.Context, name string, newUse
 		return nil
 	})
 	return err
+}
+
+func (a *argocd) grantReadOnlyPermissionToSecretUser(ctx context.Context, codeRepo v1alpha1.CodeRepo) error {
+	provider, err := a.db.GetCodeRepoProvider(codeRepo.Spec.CodeRepoProvider)
+	if err != nil {
+		return err
+	}
+
+	repoPermissionReq := syncer.SecretInfo{
+		Type: syncer.SecretTypeCodeRepo,
+		CodeRepo: &syncer.CodeRepo{
+			ProviderType: provider.Spec.ProviderType,
+			ID:           codeRepo.Name,
+			User:         "default",
+			Permission:   syncer.CodeRepoPermissionReadOnly,
+		},
+	}
+	if err := a.components.SecretManagement.GrantPermission(ctx, repoPermissionReq, a.secretUser); err != nil {
+		return fmt.Errorf("grant code repo %s permission to argo operator failed: %w", codeRepo.Name, err)
+	}
+
+	return nil
 }
 
 func (a *argocd) deleteCodeRepo(ctx context.Context, codeRepo *v1alpha1.CodeRepo) error {

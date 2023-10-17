@@ -36,7 +36,7 @@ func createDeploymentRuntimeResource(name, repoID string) *resourcev1alpha1.Depl
 		},
 		Spec: resourcev1alpha1.DeploymentRuntimeSpec{
 			Product:     defaultProductId,
-			ProjectsRef: []string{"project1"},
+			ProjectsRef: []string{MockProject1Name},
 			Destination: resourcev1alpha1.DeploymentRuntimesDestination{
 				Environment: "env1",
 				Namespaces:  []string{},
@@ -83,7 +83,7 @@ func createFakeDeployRuntimeNodes(node *nodestree.Node) nodestree.Node {
 var _ = Describe("Get deployment runtime", func() {
 	var (
 		resourceName = "runtime1"
-		toGetProject = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject = &Project{ID: MockID1, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID       = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode     = createFakeDeploymentRuntimeNode(fakeResource)
@@ -107,7 +107,7 @@ var _ = Describe("Get deployment runtime", func() {
 var _ = Describe("List deployment runtimes", func() {
 	var (
 		resourceName = "runtime1"
-		toGetProject = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject = &Project{ID: MockID1, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID       = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode     = createFakeDeploymentRuntimeNode(fakeResource)
@@ -145,13 +145,13 @@ var _ = Describe("List deployment runtimes", func() {
 var _ = Describe("Save deployment runtime", func() {
 	var (
 		resourceName          = "runtime1"
-		toGetProject          = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject          = &Project{ID: MockID1, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID                = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource          = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode              = createFakeDeploymentRuntimeNode(fakeResource)
 		fakeNodes             = createFakeDeployRuntimeNodes(fakeNode)
 		pid                   = fmt.Sprintf("%s/%s", defaultGroupName, fakeResource.Spec.ManifestSource.CodeRepo)
-		project               = &Project{ID: 1222}
+		project               = &Project{ID: MockID1}
 		deploymentRuntimeData = &DeploymentRuntimeData{
 			Name: fakeResource.Name,
 			Spec: fakeResource.Spec,
@@ -218,7 +218,7 @@ var _ = Describe("Save deployment runtime", func() {
 		codeRepo.EXPECT().GetGroup(gomock.Any(), gomock.Eq(defaultGroupName)).Return(defaultProductGroup, nil).AnyTimes()
 		first := codeRepo.EXPECT().GetCodeRepo(gomock.Any(), pid).Return(project, nil)
 		codeRepo.EXPECT().GetCodeRepo(gomock.Any(), gomock.Eq(defaultProjectPath)).Return(defautlProject, nil).After(first)
-		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(_GitUser, _GitEmail, nil)
+		codeRepo.EXPECT().GetCurrentUser(gomock.Any()).Return(GitUser, GitEmail, nil)
 
 		gitRepo := NewMockGitRepo(ctl)
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil)
@@ -267,7 +267,7 @@ var _ = Describe("Save deployment runtime", func() {
 
 	Describe("check reference by resources", func() {
 		var (
-			projectForBase       = &Project{Name: "base", ID: 1223, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+			projectForBase       = &Project{Name: "base", ID: MockID2, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 			projectForBaseRepoID = fmt.Sprintf("%s%d", RepoPrefix, int(projectForBase.ID))
 			environmentName      = "env1"
 		)
@@ -314,7 +314,7 @@ var _ = Describe("Save deployment runtime", func() {
 			projectName := fakeResource.Spec.ProjectsRef[0]
 			projectNodes := createProjectNodes(createProjectNode(createProjectResource(projectName)))
 			env := fakeResource.Spec.Destination.Environment
-			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, _TestClusterHostEnvType, _TestDeploymentClusterName)))
+			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, TestClusterHostEnvType, TestDeploymentClusterName)))
 			fakeNodes.Children = append(fakeNodes.Children, projectNodes.Children...)
 			fakeNodes.Children = append(fakeNodes.Children, envProjects.Children...)
 
@@ -335,7 +335,7 @@ var _ = Describe("Save deployment runtime", func() {
 			projectName := fakeResource.Spec.ProjectsRef[0]
 			projectNodes := createProjectNodes(createProjectNode(createProjectResource(projectName)))
 			env := fakeResource.Spec.Destination.Environment
-			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, _TestClusterHostEnvType, _TestDeploymentClusterName)))
+			envProjects := createContainEnvironmentNodes(createEnvironmentNode(createEnvironmentResource(env, TestClusterHostEnvType, TestDeploymentClusterName)))
 			fakeNodes.Children = append(fakeNodes.Children, projectNodes.Children...)
 			fakeNodes.Children = append(fakeNodes.Children, envProjects.Children...)
 			codeRepoNodes := createFakeCcontainingCodeRepoNodes(createFakeCodeRepoNode(createFakeCodeRepoResource(repoID)))
@@ -351,7 +351,7 @@ var _ = Describe("Save deployment runtime", func() {
 			nodestree := nodestree.NewMockNodesTree(ctl)
 			nodestree.EXPECT().AppendOperators(gomock.Any())
 			nodestree.EXPECT().GetNode(gomock.Any(), codeRepoKind, gomock.Any()).Return(createFakeCodeRepoNode(createFakeCodeRepoResource(projectForBaseRepoID))).AnyTimes()
-			nodestree.EXPECT().GetNode(gomock.Any(), environmentKind, gomock.Any()).Return(createEnvironmentNode(createEnvironmentResource(environmentName, _TestClusterHostEnvType, _TestDeploymentClusterName))).AnyTimes()
+			nodestree.EXPECT().GetNode(gomock.Any(), environmentKind, gomock.Any()).Return(createEnvironmentNode(createEnvironmentResource(environmentName, TestClusterHostEnvType, TestDeploymentClusterName))).AnyTimes()
 
 			client := kubernetes.NewMockClient(ctl)
 			client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -368,7 +368,7 @@ var _ = Describe("Save deployment runtime", func() {
 var _ = Describe("Delete deployment runtime", func() {
 	var (
 		resourceName = "runtime1"
-		toGetProject = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		toGetProject = &Project{ID: MockID1, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		repoID       = fmt.Sprintf("%s%d", RepoPrefix, int(toGetProject.ID))
 		fakeResource = createDeploymentRuntimeResource(resourceName, repoID)
 		fakeNode     = createFakeDeploymentRuntimeNode(fakeResource)

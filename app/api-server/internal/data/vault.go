@@ -56,15 +56,15 @@ type vaultRepo struct {
 }
 
 func NewVaultClient(config *nautesconfigs.Config) (biz.Secretrepo, error) {
-	http, err := NewHttpClientForVault(config.Secret.Vault.ProxyAddr, config.Secret.Vault.CABundle)
+	httpClient, err := NewHttpClientForVault(config.Secret.Vault.ProxyAddr, config.Secret.Vault.CABundle)
 	if err != nil {
 		return nil, err
 	}
 
-	secret := vaultproxyv1.NewSecretHTTPClient(http)
-	auth := vaultproxyv1.NewAuthGrantHTTPClient(http)
+	secretClient := vaultproxyv1.NewSecretHTTPClient(httpClient)
+	authClient := vaultproxyv1.NewAuthGrantHTTPClient(httpClient)
 
-	return &vaultRepo{secret: secret, auth: auth, config: config}, nil
+	return &vaultRepo{secret: secretClient, auth: authClient, config: config}, nil
 }
 
 func NewHttpClient(ca string) (*http.Client, error) {
@@ -77,7 +77,8 @@ func NewHttpClient(ca string) (*http.Client, error) {
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs: caCertPool,
+				RootCAs:    caCertPool,
+				MinVersion: tls.VersionTLS12,
 			},
 		},
 	}, nil
@@ -157,7 +158,7 @@ func NewKubernetesAuth(config *nautesconfigs.Config) (*auth.KubernetesAuth, erro
 	return k8sAuth, nil
 }
 
-func (v *vaultRepo) NewVaultClient(ctx context.Context) (*vault.Client, error) {
+func (v *vaultRepo) NewVaultClient(_ context.Context) (*vault.Client, error) {
 	httpClient, err := NewHttpClient(v.config.Secret.Vault.CABundle)
 	if err != nil {
 		return nil, err
@@ -203,12 +204,8 @@ func (v *vaultRepo) GetDeployKey(ctx context.Context, secretOptions *biz.SecretO
 		return nil, err
 	}
 
-	defer func() error {
-		err = client.Auth().Token().RevokeSelf("")
-		if err != nil {
-			return err
-		}
-		return nil
+	defer func() {
+		_ = client.Auth().Token().RevokeSelf("")
 	}()
 
 	secret, err := client.KVv2(secretOptions.SecretEngine).Get(context.Background(), secretOptions.SecretPath)
@@ -254,12 +251,8 @@ func (v *vaultRepo) GetSecret(ctx context.Context, secretOptions *biz.SecretOpti
 		return "", err
 	}
 
-	defer func() error {
-		err = client.Auth().Token().RevokeSelf("")
-		if err != nil {
-			return err
-		}
-		return nil
+	defer func() {
+		_ = client.Auth().Token().RevokeSelf("")
 	}()
 
 	secret, err := client.KVv2(secretOptions.SecretEngine).Get(context.Background(), secretOptions.SecretPath)
@@ -283,16 +276,16 @@ func (v *vaultRepo) GetSecret(ctx context.Context, secretOptions *biz.SecretOpti
 	return val.(string), nil
 }
 
-func (v *vaultRepo) SaveDeployKey(ctx context.Context, id, key, user, permission string, extendKVs map[string]string) error {
+func (v *vaultRepo) SaveDeployKey(_ context.Context, data *biz.SecretData, extendKVs map[string]string) error {
 	opt := &vaultproxyv1.GitRequest{
 		Meta: &vaultproxyv1.GitMeta{
 			ProviderType: string(v.config.Git.GitType),
-			Id:           id,
-			Username:     user,
-			Permission:   permission,
+			Id:           data.Name,
+			Username:     data.User,
+			Permission:   data.Permission,
 		},
 		Kvs: &vaultproxyv1.GitKVs{
-			DeployKey:   string(key),
+			DeployKey:   data.Key,
 			Additionals: extendKVs,
 		},
 	}
@@ -310,18 +303,14 @@ func (v *vaultRepo) GetProjectAccessToken(ctx context.Context, secretOptions *bi
 		return nil, err
 	}
 
-	defer func() error {
-		err = client.Auth().Token().RevokeSelf("")
-		if err != nil {
-			return err
-		}
-		return nil
+	defer func() {
+		_ = client.Auth().Token().RevokeSelf("")
 	}()
 
 	secret, err := client.KVv2(secretOptions.SecretEngine).Get(context.Background(), secretOptions.SecretPath)
 	if err != nil {
-		err = errors.Unwrap(err)
-		if err == vault.ErrSecretNotFound {
+		wrapErr := errors.Unwrap(err)
+		if wrapErr == vault.ErrSecretNotFound {
 			return nil, commonv1.ErrorAccesstokenNotFound("unable to read secret, err: %s", err)
 		}
 
@@ -353,7 +342,7 @@ func (v *vaultRepo) GetProjectAccessToken(ctx context.Context, secretOptions *bi
 	}, nil
 }
 
-func (v *vaultRepo) SaveProjectAccessToken(ctx context.Context, id, key, user, permission string, extendKVs map[string]string) error {
+func (v *vaultRepo) SaveProjectAccessToken(_ context.Context, id, key, user, permission string, extendKVs map[string]string) error {
 	opt := &vaultproxyv1.GitRequest{
 		Meta: &vaultproxyv1.GitMeta{
 			ProviderType: string(v.config.Git.GitType),
@@ -362,7 +351,7 @@ func (v *vaultRepo) SaveProjectAccessToken(ctx context.Context, id, key, user, p
 			Permission:   permission,
 		},
 		Kvs: &vaultproxyv1.GitKVs{
-			AccessToken: string(key),
+			AccessToken: key,
 			Additionals: extendKVs,
 		},
 	}
@@ -374,7 +363,7 @@ func (v *vaultRepo) SaveProjectAccessToken(ctx context.Context, id, key, user, p
 	return nil
 }
 
-func (v *vaultRepo) SaveClusterConfig(ctx context.Context, id, config string) error {
+func (v *vaultRepo) SaveClusterConfig(_ context.Context, id, config string) error {
 	var clustertype = "kubernetes"
 	var permission = "admin"
 	opt := &vaultproxyv1.ClusterRequest{
@@ -396,7 +385,7 @@ func (v *vaultRepo) SaveClusterConfig(ctx context.Context, id, config string) er
 	return nil
 }
 
-func (v *vaultRepo) DeleteSecret(ctx context.Context, id int, user, permission string) error {
+func (v *vaultRepo) DeleteSecret(_ context.Context, id int, user, permission string) error {
 	repoID := fmt.Sprintf("%s%d", biz.RepoPrefix, id)
 	opt := &vaultproxyv1.GitRequest{
 		Meta: &vaultproxyv1.GitMeta{
@@ -418,7 +407,7 @@ func (v *vaultRepo) DeleteSecret(ctx context.Context, id int, user, permission s
 	return nil
 }
 
-func (v *vaultRepo) AuthorizationSecret(ctx context.Context, id int, destUser, gitType, mountPath string) error {
+func (v *vaultRepo) AuthorizationSecret(_ context.Context, id int, destUser, gitType, mountPath string) error {
 	if id == 0 || destUser == "" {
 		return fmt.Errorf("authorization failed. please check the parameters")
 	}
@@ -472,6 +461,7 @@ func NewHttpClientForVault(serverAddress, vaultCABundle string) (*kratoshttp.Cli
 		ServerName:   host,
 		RootCAs:      cp,
 		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	conn, err := kratoshttp.NewClient(context.Background(), kratoshttp.WithEndpoint(serverAddress), kratoshttp.WithTLSConfig(tlsConf), kratoshttp.WithTimeout(3*time.Second))

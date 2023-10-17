@@ -92,8 +92,10 @@ type ProjectPipelineRuntimeSpec struct {
 	// Isolation definition of pipeline runtime related resources: shared(default) or exclusive
 	Isolation        string            `json:"isolation"`
 	PipelineTriggers []PipelineTrigger `json:"pipelineTriggers"`
-	// Optional
+	// optional
 	AdditionalResources *ProjectPipelineRuntimeAdditionalResources `json:"additionalResources,omitempty"`
+	// +optional
+	Account string `json:"account,omitempty" yaml:"account"`
 }
 
 // ProjectPipelineRuntimeDestination defines where pipeline runtime will run

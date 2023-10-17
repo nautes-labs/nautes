@@ -25,7 +25,6 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/validate"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,18 +41,18 @@ type EnviromentData struct {
 	Spec resourcev1alpha1.EnvironmentSpec
 }
 
-func NewEnviromentUsecase(logger log.Logger, config *nautesconfigs.Config, codeRepo CodeRepo, nodestree nodestree.NodesTree, resourcesUsecase *ResourcesUsecase) *EnvironmentUsecase {
-	env := &EnvironmentUsecase{log: log.NewHelper(log.With(logger)), config: config, codeRepo: codeRepo, nodestree: nodestree, resourcesUsecase: resourcesUsecase}
-	nodestree.AppendOperators(env)
+func NewEnviromentUsecase(logger log.Logger, config *nautesconfigs.Config, codeRepo CodeRepo, nodeOperator nodestree.NodesTree, resourcesUsecase *ResourcesUsecase) *EnvironmentUsecase {
+	env := &EnvironmentUsecase{log: log.NewHelper(log.With(logger)), config: config, codeRepo: codeRepo, nodestree: nodeOperator, resourcesUsecase: resourcesUsecase}
+	nodeOperator.AppendOperators(env)
 	return env
 }
 
-func (c *EnvironmentUsecase) ConvertProductToGroupName(ctx context.Context, env *resourcev1alpha1.Environment) error {
+func (e *EnvironmentUsecase) ConvertProductToGroupName(ctx context.Context, env *resourcev1alpha1.Environment) error {
 	if env.Spec.Product == "" {
-		return fmt.Errorf("the product field value of enviroment %s should not be empty", env.Spec.Product)
+		return fmt.Errorf("the product field value of environment %s should not be empty", env.Spec.Product)
 	}
 
-	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, env.Spec.Product)
+	groupName, err := ConvertProductToGroupName(ctx, e.codeRepo, env.Spec.Product)
 	if err != nil {
 		return err
 	}
@@ -95,33 +94,6 @@ func (e *EnvironmentUsecase) ListEnvironments(ctx context.Context, productName s
 	return nodes, nil
 }
 
-func (e *EnvironmentUsecase) nodesToLists(nodes nodestree.Node) ([]*resourcev1alpha1.Environment, error) {
-	var resourcesSubDir *nodestree.Node
-	var resources []*resourcev1alpha1.Environment
-
-	for _, child := range nodes.Children {
-		if child.Name == EnvSubDir {
-			resourcesSubDir = child
-			break
-		}
-	}
-
-	if resourcesSubDir == nil {
-		return nil, ErrorNodetNotFound
-	}
-
-	for _, node := range resourcesSubDir.Children {
-		env, err := e.nodeToResource(node)
-		if err != nil {
-			return nil, err
-		}
-
-		resources = append(resources, env)
-	}
-
-	return resources, nil
-}
-
 func (e *EnvironmentUsecase) nodeToResource(node *nodestree.Node) (*resourcev1alpha1.Environment, error) {
 	env, ok := node.Content.(*resourcev1alpha1.Environment)
 	if !ok {
@@ -151,35 +123,6 @@ func (e *EnvironmentUsecase) SaveEnvironment(ctx context.Context, options *BizOp
 	}
 
 	return nil
-}
-
-func (e *EnvironmentUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	val, ok := data.(*EnviromentData)
-	if !ok {
-		return nil, errors.New(503, enviromentv1.ErrorReason_ASSERT_ERROR.String(), fmt.Sprintf("failed to assert EnviromentData when create node, data: %v", val))
-	}
-
-	env := &resourcev1alpha1.Environment{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-			Kind:       nodestree.Environment,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: val.Name,
-		},
-		Spec: val.Spec,
-	}
-
-	resourceDirectory := fmt.Sprintf("%s/%s", path, EnvSubDir)
-	resourceFile := fmt.Sprintf("%s/%s.yaml", resourceDirectory, val.Name)
-
-	return &nodestree.Node{
-		Name:    val.Name,
-		Path:    resourceFile,
-		Content: env,
-		Kind:    nodestree.Environment,
-		Level:   3,
-	}, nil
 }
 
 func (e *EnvironmentUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {
@@ -286,9 +229,9 @@ func (e *EnvironmentUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.Environment)
 	for i := 0; i < len(resourceNodes); i++ {
 		for j := i + 1; j < len(resourceNodes); j++ {
-			if v1, ok := resourceNodes[i].Content.(*resourcev1alpha1.Environment); ok {
-				if v2, ok := resourceNodes[j].Content.(*resourcev1alpha1.Environment); ok {
-					ok, err := v1.Compare(v2)
+			if runtime1, ok := resourceNodes[i].Content.(*resourcev1alpha1.Environment); ok {
+				if runtime2, ok := resourceNodes[j].Content.(*resourcev1alpha1.Environment); ok {
+					ok, err := runtime1.Compare(runtime2)
 					if err != nil {
 						return false, err
 					}

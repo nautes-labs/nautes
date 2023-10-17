@@ -46,18 +46,17 @@ func NewProductProviderCodeRepo() *ProductProviderCodeRepo {
 	}
 }
 
-func (p *ProductProviderCodeRepo) GetProvider(ctx context.Context, codeRepoProviderName string, k8sClient client.Client, cfg nautescfg.Config) (baseinterface.ProductProvider, error) {
+func (p *ProductProviderCodeRepo) GetProvider(ctx context.Context, providerName string, k8sClient client.Client, cfg nautescfg.Config) (baseinterface.ProductProvider, error) {
 	provider := &nautescrd.CodeRepoProvider{}
 	key := types.NamespacedName{
 		Namespace: cfg.Nautes.Namespace,
-		Name:      codeRepoProviderName,
+		Name:      providerName,
 	}
 	err := k8sClient.Get(ctx, key, provider)
 	if err != nil {
 		return nil, fmt.Errorf("get code repo provider failed: %w", err)
-
 	}
-	NewProvider, ok := p.ProviderFactory[provider.Spec.ProviderType]
+	newProvider, ok := p.ProviderFactory[provider.Spec.ProviderType]
 	if !ok {
 		return nil, fmt.Errorf("unknow code repo provider type")
 	}
@@ -73,7 +72,7 @@ func (p *ProductProviderCodeRepo) GetProvider(ctx context.Context, codeRepoProvi
 		return nil, fmt.Errorf("get root token failed: %w", err)
 	}
 
-	productProvider, err := NewProvider(token, *provider, cfg)
+	productProvider, err := newProvider(token, *provider, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("get %s failed: %w", provider.Spec.ProviderType, err)
 	}

@@ -21,22 +21,22 @@ import (
 	argocd "github.com/nautes-labs/nautes/app/argo-operator/pkg/argocd"
 )
 
-type codeRepoParams struct {
+type CodeRepoParams struct {
 	url                      string
 	repoName                 string
 	secret                   *SecretContent
 	skipRepositoryValidCheck bool
 }
 
-func NewCodeRepoParams(url, repoName string, secret *SecretContent) *codeRepoParams {
-	return &codeRepoParams{
+func NewCodeRepoParams(url, repoName string, secret *SecretContent) *CodeRepoParams {
+	return &CodeRepoParams{
 		url:      url,
 		repoName: repoName,
 		secret:   secret,
 	}
 }
 
-func (r *CodeRepoReconciler) saveCodeRepo(params *codeRepoParams) (bool, error) {
+func (r *CodeRepoReconciler) saveCodeRepo(params *CodeRepoParams) (bool, error) {
 	codeRepoInfo, err := r.getRepository(params.url)
 	if err != nil {
 		_, ok := err.(*argocd.ErrorNotFound)

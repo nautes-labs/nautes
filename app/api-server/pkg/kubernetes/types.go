@@ -32,12 +32,12 @@ func NewKubernetesOperator() (KubernetesOperation, error) {
 		return nil, err
 	}
 
-	client, err := client.New(cfg, client.Options{})
+	k8sClient, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return nil, err
 	}
 
-	return &Kubernetes{client: client}, nil
+	return &Kubernetes{client: k8sClient}, nil
 }
 
 func (k *Kubernetes) GetConfigMap(object client.ObjectKey) (*corev1.ConfigMap, error) {

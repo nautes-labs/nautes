@@ -62,10 +62,7 @@ func (s *CodeRepoService) GetCodeRepo(ctx context.Context, req *coderepov1.GetRe
 		return nil, err
 	}
 
-	reply, err := s.covertCodeRepoValueToReply(ctx, projectCodeRepo.CodeRepo, projectCodeRepo.Project)
-	if err != nil {
-		return nil, err
-	}
+	reply := s.covertCodeRepoValueToReply(ctx, projectCodeRepo.CodeRepo, projectCodeRepo.Project)
 
 	return reply, nil
 }
@@ -87,10 +84,7 @@ func (s *CodeRepoService) ListCodeRepos(ctx context.Context, req *coderepov1.Lis
 			continue
 		}
 
-		item, err := s.covertCodeRepoValueToReply(ctx, projectCodeRepo.CodeRepo, projectCodeRepo.Project)
-		if err != nil {
-			return nil, err
-		}
+		item := s.covertCodeRepoValueToReply(ctx, projectCodeRepo.CodeRepo, projectCodeRepo.Project)
 		items = append(items, item)
 	}
 
@@ -100,7 +94,13 @@ func (s *CodeRepoService) ListCodeRepos(ctx context.Context, req *coderepov1.Lis
 }
 
 func (s *CodeRepoService) SaveCodeRepo(ctx context.Context, req *coderepov1.SaveRequest) (*coderepov1.SaveReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.SaveMethod, "", "", nodestree.CodeRepo, req.CoderepoName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.SaveMethod,
+		ResourceKind: nodestree.CodeRepo,
+		ResourceName: req.CoderepoName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	gitOptions := &biz.GitCodeRepoOptions{
 		Gitlab: &biz.GitlabCodeRepoOptions{},
@@ -174,7 +174,13 @@ func (s *CodeRepoService) SaveCodeRepo(ctx context.Context, req *coderepov1.Save
 }
 
 func (s *CodeRepoService) DeleteCodeRepo(ctx context.Context, req *coderepov1.DeleteRequest) (*coderepov1.DeleteReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.DeleteMethod, "", "", nodestree.CodeRepo, req.CoderepoName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.Cluster,
+		ResourceName: req.CoderepoName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ResouceName:       req.CoderepoName,
@@ -191,7 +197,7 @@ func (s *CodeRepoService) DeleteCodeRepo(ctx context.Context, req *coderepov1.De
 	}, nil
 }
 
-func (s *CodeRepoService) covertCodeRepoValueToReply(ctx context.Context, codeRepo *resourcev1alpha1.CodeRepo, project *biz.Project) (*coderepov1.GetReply, error) {
+func (s *CodeRepoService) covertCodeRepoValueToReply(_ context.Context, codeRepo *resourcev1alpha1.CodeRepo, project *biz.Project) *coderepov1.GetReply {
 	git := s.contructGit(project)
 
 	webhook := s.setWebhook(codeRepo)
@@ -204,7 +210,7 @@ func (s *CodeRepoService) covertCodeRepoValueToReply(ctx context.Context, codeRe
 		PipelineRuntime:   codeRepo.Spec.PipelineRuntime,
 		DeploymentRuntime: codeRepo.Spec.DeploymentRuntime,
 		Git:               git,
-	}, nil
+	}
 }
 
 func (*CodeRepoService) setWebhook(codeRepo *resourcev1alpha1.CodeRepo) *coderepov1.Webhook {

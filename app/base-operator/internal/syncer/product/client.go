@@ -39,19 +39,14 @@ import (
 )
 
 const (
-	CONTEXT_KEY_NAUTES_CONFIG nautesctx.ContextKey = "product.nautes.config"
-	RESOURCE_NAME_CODE_REPO   string               = "repo-%s"
+	ContextKeyNautesConfig     nautesctx.ContextKey = "product.nautes.config"
+	resourceNameFormatCodeRepo string               = "repo-%s"
 )
 
 var (
 	nautesProject            = "nautes"
 	kubernetesDefaultService = "https://kubernetes.default.svc"
 )
-
-type appInfo struct {
-	Name   string
-	Health string
-}
 
 type ProductSyncer struct {
 	client       client.Client
@@ -60,7 +55,6 @@ type ProductSyncer struct {
 }
 
 func (s *ProductSyncer) Setup() error {
-
 	err := nautescrd.AddToScheme(scheme.Scheme)
 	if err != nil {
 		return err
@@ -107,7 +101,7 @@ func (s *ProductSyncer) Sync(ctx context.Context, product nautescrd.Product) err
 		return fmt.Errorf("sync namespace failed: %w", err)
 	}
 
-	productProvider, err := productprovider.GetProvider(ctx, CONTEXT_KEY_NAUTES_CONFIG, s.client)
+	productProvider, err := productprovider.GetProvider(ctx, ContextKeyNautesConfig, s.client)
 	if err != nil {
 		return fmt.Errorf("get product provider failed: %w", err)
 	}
@@ -119,7 +113,7 @@ func (s *ProductSyncer) Sync(ctx context.Context, product nautescrd.Product) err
 	if err != nil {
 		return err
 	}
-	coderepoName := fmt.Sprintf(RESOURCE_NAME_CODE_REPO, productMeta.MetaID)
+	coderepoName := fmt.Sprintf(resourceNameFormatCodeRepo, productMeta.MetaID)
 	err = s.syncCoderepo(ctx, coderepoName, product, codeRepoProvider, label)
 	if err != nil {
 		return fmt.Errorf("sync coderepo failed: %w", err)
@@ -297,9 +291,9 @@ func (s *ProductSyncer) deleteArgoApp(ctx context.Context, label map[string]stri
 	}
 
 	errList := []error{}
-	for _, app := range appList.Items {
-		log.FromContext(ctx).V(1).Info("delete argocd app", "AppName", app.Name)
-		err := s.client.Delete(ctx, &app)
+	for i := range appList.Items {
+		log.FromContext(ctx).V(1).Info("delete argocd app", "AppName", appList.Items[i].Name)
+		err := s.client.Delete(ctx, &appList.Items[i])
 		if err != nil {
 			errList = append(errList, err)
 		}
@@ -395,9 +389,9 @@ func (s *ProductSyncer) deleteNamespace(ctx context.Context, label map[string]st
 	}
 
 	errList := []error{}
-	for _, ns := range nsList.Items {
-		log.FromContext(ctx).V(1).Info("delete namespace", "NamespaceName", ns.Name)
-		err := s.client.Delete(ctx, &ns)
+	for i := range nsList.Items {
+		log.FromContext(ctx).V(1).Info("delete namespace", "NamespaceName", nsList.Items[i].Name)
+		err := s.client.Delete(ctx, &nsList.Items[i])
 		if err != nil {
 			errList = append(errList, err)
 		}
@@ -430,11 +424,11 @@ func getProductID(name string) (string, error) {
 }
 
 func NewConfigContext(ctx context.Context, cfg nautescfg.Config) context.Context {
-	return context.WithValue(ctx, CONTEXT_KEY_NAUTES_CONFIG, cfg)
+	return context.WithValue(ctx, ContextKeyNautesConfig, cfg)
 }
 
 func FromConfigContext(ctx context.Context) (*nautescfg.Config, error) {
-	cfgInterface := ctx.Value(CONTEXT_KEY_NAUTES_CONFIG)
+	cfgInterface := ctx.Value(ContextKeyNautesConfig)
 	cfg, ok := cfgInterface.(nautescfg.Config)
 	if !ok {
 		return nil, fmt.Errorf("can not find nautes config from context")

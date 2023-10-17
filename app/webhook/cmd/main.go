@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	nautesv1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	nauteszap "github.com/nautes-labs/nautes/pkg/log/zap"
 	//+kubebuilder:scaffold:imports
 )
@@ -45,7 +45,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(nautesv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -78,42 +78,55 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	nautesv1alpha1.KubernetesClient = mgr.GetClient()
-	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepo{}, nautesv1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
+	v1alpha1.KubernetesClient = mgr.GetClient()
+	ctx := context.TODO()
+	err = mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.CodeRepo{}, v1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
 		return []string{obj.GetName()}
 	})
-	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.Cluster{}, nautesv1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
+	if err != nil {
+		setupLog.Error(err, "add index field faild")
+		os.Exit(1)
+	}
+	err = mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Cluster{}, v1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
 		return []string{obj.GetName()}
 	})
-	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepoBinding{}, nautesv1alpha1.SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {
-		binding := obj.(*nautesv1alpha1.CodeRepoBinding)
+	if err != nil {
+		setupLog.Error(err, "add index field faild")
+		os.Exit(1)
+	}
+	err = mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.CodeRepoBinding{}, v1alpha1.SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {
+		binding := obj.(*v1alpha1.CodeRepoBinding)
 		if binding.Spec.Product == "" || binding.Spec.CodeRepo == "" {
 			return nil
 		}
 		return []string{fmt.Sprintf("%s/%s", binding.Spec.Product, binding.Spec.CodeRepo)}
 	})
+	if err != nil {
+		setupLog.Error(err, "add index field faild")
+		os.Exit(1)
+	}
 
-	if err = (&nautesv1alpha1.Cluster{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&v1alpha1.Cluster{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Cluster")
 		os.Exit(1)
 	}
-	if err = (&nautesv1alpha1.CodeRepo{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&v1alpha1.CodeRepo{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "CodeRepo")
 		os.Exit(1)
 	}
-	if err = (&nautesv1alpha1.ProductProvider{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&v1alpha1.ProductProvider{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ProductProvider")
 		os.Exit(1)
 	}
-	if err = (&nautesv1alpha1.Environment{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&v1alpha1.Environment{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Environment")
 		os.Exit(1)
 	}
-	if err = (&nautesv1alpha1.DeploymentRuntime{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&v1alpha1.DeploymentRuntime{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DeploymentRuntime")
 		os.Exit(1)
 	}
-	if err = (&nautesv1alpha1.ProjectPipelineRuntime{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&v1alpha1.ProjectPipelineRuntime{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ProjectPipelineRuntime")
 		os.Exit(1)
 	}

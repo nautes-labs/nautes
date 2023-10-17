@@ -46,7 +46,7 @@ const ConfigMapNameConsumerCache = "nautes-consumer-cache"
 const ServiceAccountArgoEvents = "argo-events-sa"
 
 func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer syncer.Consumers) error {
-	if consumer.User.AuthInfo == nil || len(consumer.User.AuthInfo.Kubernetes) != 1 {
+	if consumer.User.AuthInfo == nil {
 		return fmt.Errorf("can not find service account in user info")
 	}
 	cache, err := sg.getConsumerCache(ctx, buildConsumerLabel(consumer.Product, consumer.Name))

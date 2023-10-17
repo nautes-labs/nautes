@@ -49,7 +49,7 @@ type CodeRepo interface {
 type Secretrepo interface {
 	GetSecret(ctx context.Context, secretOptions *SecretOptions) (string, error)
 	GetDeployKey(ctx context.Context, secretOptions *SecretOptions) (*DeployKeySecretData, error)
-	SaveDeployKey(ctx context.Context, id, key, user, permission string, extendKVs map[string]string) error
+	SaveDeployKey(ctx context.Context, data *SecretData, extendKVs map[string]string) error
 	SaveProjectAccessToken(ctx context.Context, id, token, user, permission string, extendKVs map[string]string) error
 	SaveClusterConfig(ctx context.Context, id, config string) error
 	DeleteSecret(ctx context.Context, id int, user, permission string) error

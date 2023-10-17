@@ -34,7 +34,7 @@ func IsLegal(res client.Object, productName string) (string, bool) {
 
 func CheckResourceOperability(res client.Object, productName string) error {
 	if !res.GetDeletionTimestamp().IsZero() {
-		return fmt.Errorf("resouce %s is terminating", res.GetName())
+		return fmt.Errorf("resource %s is terminating", res.GetName())
 	}
 
 	if !IsBelongsToProduct(res, productName) {

@@ -80,7 +80,7 @@ func matchValue(f reflect.Value, value, field string, matchFunc MatchFunc) (bool
 				v := f.Index(j)
 
 				// If the field include "In" symbol, then will compare item
-				if i+1 == len(fieldNames)-1 && string(fieldNames[i+1]) == string(In) {
+				if i+1 == len(fieldNames)-1 && fieldNames[i+1] == string(In) {
 					match, err := matchFunc(v, value)
 					if err != nil {
 						return false, err

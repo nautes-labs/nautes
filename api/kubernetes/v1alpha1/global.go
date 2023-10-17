@@ -101,6 +101,7 @@ type Runtime interface {
 	GetDestination() string
 	GetNamespaces() []string
 	GetRuntimeType() RuntimeType
+	GetAccount() string
 }
 
 func convertArrayToBoolMap(in []string) map[string]bool {

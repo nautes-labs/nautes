@@ -90,7 +90,7 @@ func (s *StringSelector) NotIn(value reflect.Value, matchValue string) (bool, er
 func (s *StringSelector) checkStringType(value reflect.Value) error {
 	t := reflect.TypeOf(value.Interface())
 	if t.Kind() != reflect.String {
-		return fmt.Errorf("inconsistent data type, expected is 'String', but now is '%v'", strings.Title(t.Kind().String()))
+		return fmt.Errorf("inconsistent data type, expected is 'String', but now is '%s'", t.Kind().String())
 	}
 
 	return nil

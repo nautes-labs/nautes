@@ -52,7 +52,7 @@ func (r *CodeRepoReconciler) updateStatus(ctx context.Context, codeRepo *resourc
 	return nil
 }
 
-func (r *CodeRepoReconciler) setSync2ArgoStatus(ctx context.Context, codeRepo *resourcev1alpha1.CodeRepo, url, secret_id string) error {
+func (r *CodeRepoReconciler) setSync2ArgoStatus(_ context.Context, codeRepo *resourcev1alpha1.CodeRepo, url, secretID string) error {
 	if codeRepo.Status.Sync2ArgoStatus == nil {
 		codeRepo.Status.Sync2ArgoStatus = &resourcev1alpha1.SyncCodeRepo2ArgoStatus{}
 	}
@@ -63,7 +63,7 @@ func (r *CodeRepoReconciler) setSync2ArgoStatus(ctx context.Context, codeRepo *r
 			return err
 		}
 		codeRepo.Status.Sync2ArgoStatus.LastSuccessSpec = string(jsonSpec)
-		codeRepo.Status.Sync2ArgoStatus.SecretID = secret_id
+		codeRepo.Status.Sync2ArgoStatus.SecretID = secretID
 		codeRepo.Status.Sync2ArgoStatus.Url = url
 		codeRepo.Status.Sync2ArgoStatus.LastSuccessTime = metav1.NewTime(time.Now())
 	}

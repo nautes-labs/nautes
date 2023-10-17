@@ -22,7 +22,7 @@ import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -51,11 +51,12 @@ const (
 // DeploymentRuntimeReconciler reconciles a DeploymentRuntime object
 type DeploymentRuntimeReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme *k8sRuntime.Scheme
 	Syncer syncer.Syncer
 }
 
 var reconcileFrequency = time.Second * 60
+var errorMsgUpdateStatusFailed = "update status failed"
 
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=nautes.resource.nautes.io,resources=deploymentruntimes/status,verbs=get;update;patch
@@ -100,7 +101,7 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if err != nil {
 			setDeployRuntimeStatus(dr, cache, nil, err)
 			if err := r.Status().Update(ctx, dr); err != nil {
-				logger.Error(err, "update status failed")
+				logger.Error(err, errorMsgUpdateStatusFailed)
 			}
 			return ctrl.Result{}, err
 		}
@@ -124,7 +125,7 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if err != nil {
 		setDeployRuntimeStatus(dr, nil, nil, err)
 		if err := r.Status().Update(ctx, dr); err != nil {
-			logger.Error(err, "update status failed")
+			logger.Error(err, errorMsgUpdateStatusFailed)
 		}
 		return ctrl.Result{}, fmt.Errorf("validate runtime failed: %w", err)
 	}
@@ -132,7 +133,7 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if len(illegalProjectRefs) != 0 && len(illegalProjectRefs) == len(dr.Spec.ProjectsRef) {
 		setDeployRuntimeStatus(dr, nil, illegalProjectRefs, fmt.Errorf("no valid project exists"))
 		if err := r.Status().Update(ctx, dr); err != nil {
-			logger.Error(err, "update status failed")
+			logger.Error(err, errorMsgUpdateStatusFailed)
 		}
 		return ctrl.Result{RequeueAfter: reconcileFrequency}, nil
 	}
@@ -193,7 +194,7 @@ func (r *DeploymentRuntimeReconciler) findDeploymentRuntimeForCoderepo(coderepo 
 	return requests
 }
 
-func setDeployRuntimeStatus(runtime *v1alpha1.DeploymentRuntime, result *runtime.RawExtension, illegalProjectRefs []v1alpha1.IllegalProjectRef, err error) {
+func setDeployRuntimeStatus(runtime *v1alpha1.DeploymentRuntime, result *k8sRuntime.RawExtension, illegalProjectRefs []v1alpha1.IllegalProjectRef, err error) {
 	if result != nil {
 		runtime.Status.DeployStatus = result
 	}

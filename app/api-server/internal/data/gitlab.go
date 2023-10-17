@@ -25,7 +25,7 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-type gitlabRepo struct {
+type GitlabRepo struct {
 	url    string
 	client gitlabclient.GitlabOperator
 }
@@ -33,11 +33,11 @@ type gitlabRepo struct {
 type ProjectDeployKey struct {
 }
 
-func NewGitlabRepo(url string, client gitlabclient.GitlabOperator) (*gitlabRepo, error) {
-	return &gitlabRepo{url: url, client: client}, nil
+func NewGitlabRepo(url string, client gitlabclient.GitlabOperator) (*GitlabRepo, error) {
+	return &GitlabRepo{url: url, client: client}, nil
 }
 
-func (g *gitlabRepo) GetCurrentUser(ctx context.Context) (user string, email string, err error) {
+func (g *GitlabRepo) GetCurrentUser(ctx context.Context) (user string, email string, err error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return
@@ -50,7 +50,7 @@ func (g *gitlabRepo) GetCurrentUser(ctx context.Context) (user string, email str
 	return currentUser.Username, currentUser.Email, nil
 }
 
-func (g *gitlabRepo) CreateCodeRepo(ctx context.Context, gid int, options *biz.GitCodeRepoOptions) (*biz.Project, error) {
+func (g *GitlabRepo) CreateCodeRepo(ctx context.Context, gid int, options *biz.GitCodeRepoOptions) (*biz.Project, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (g *gitlabRepo) CreateCodeRepo(ctx context.Context, gid int, options *biz.G
 	}, nil
 }
 
-func (g *gitlabRepo) DeleteCodeRepo(ctx context.Context, pid interface{}) error {
+func (g *GitlabRepo) DeleteCodeRepo(ctx context.Context, pid interface{}) error {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (g *gitlabRepo) DeleteCodeRepo(ctx context.Context, pid interface{}) error 
 	return nil
 }
 
-func (g *gitlabRepo) UpdateCodeRepo(ctx context.Context, pid interface{}, options *biz.GitCodeRepoOptions) (*biz.Project, error) {
+func (g *GitlabRepo) UpdateCodeRepo(ctx context.Context, pid interface{}, options *biz.GitCodeRepoOptions) (*biz.Project, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func (g *gitlabRepo) UpdateCodeRepo(ctx context.Context, pid interface{}, option
 	}, nil
 }
 
-func (g *gitlabRepo) GetCodeRepo(ctx context.Context, pid interface{}) (*biz.Project, error) {
+func (g *GitlabRepo) GetCodeRepo(ctx context.Context, pid interface{}) (*biz.Project, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -176,7 +176,7 @@ func (g *gitlabRepo) GetCodeRepo(ctx context.Context, pid interface{}) (*biz.Pro
 	}, nil
 }
 
-func (g *gitlabRepo) CreateGroup(ctx context.Context, git *biz.GitGroupOptions) (*biz.Group, error) {
+func (g *GitlabRepo) CreateGroup(ctx context.Context, git *biz.GitGroupOptions) (*biz.Group, error) {
 	opts := &gitlab.CreateGroupOptions{}
 
 	if git != nil && git.Gitlab != nil {
@@ -213,7 +213,7 @@ func (g *gitlabRepo) CreateGroup(ctx context.Context, git *biz.GitGroupOptions) 
 }
 
 // DeleteGroup Deletes group in gitlab
-func (g *gitlabRepo) DeleteGroup(ctx context.Context, gid interface{}) error {
+func (g *GitlabRepo) DeleteGroup(ctx context.Context, gid interface{}) error {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return err
@@ -231,7 +231,7 @@ func (g *gitlabRepo) DeleteGroup(ctx context.Context, gid interface{}) error {
 	return nil
 }
 
-func (g *gitlabRepo) UpdateGroup(ctx context.Context, gid interface{}, git *biz.GitGroupOptions) (*biz.Group, error) {
+func (g *GitlabRepo) UpdateGroup(ctx context.Context, gid interface{}, git *biz.GitGroupOptions) (*biz.Group, error) {
 	opts := &gitlab.UpdateGroupOptions{}
 
 	if git != nil && git.Gitlab != nil {
@@ -263,7 +263,7 @@ func (g *gitlabRepo) UpdateGroup(ctx context.Context, gid interface{}, git *biz.
 	}, nil
 }
 
-func (g *gitlabRepo) GetGroup(ctx context.Context, gid interface{}) (*biz.Group, error) {
+func (g *GitlabRepo) GetGroup(ctx context.Context, gid interface{}) (*biz.Group, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -293,7 +293,7 @@ func (g *gitlabRepo) GetGroup(ctx context.Context, gid interface{}) (*biz.Group,
 	}, nil
 }
 
-func (g *gitlabRepo) ListGroupCodeRepos(ctx context.Context, gid interface{}, opts *biz.ListGroupProjectsOptions) ([]*biz.Project, error) {
+func (g *GitlabRepo) ListGroupCodeRepos(ctx context.Context, gid interface{}, opts *biz.ListGroupProjectsOptions) ([]*biz.Project, error) {
 	var projects []*gitlab.Project
 	var result []*biz.Project
 
@@ -313,7 +313,7 @@ func (g *gitlabRepo) ListGroupCodeRepos(ctx context.Context, gid interface{}, op
 	return result, nil
 }
 
-func (*gitlabRepo) convertProject(projects []*gitlab.Project, result []*biz.Project) []*biz.Project {
+func (*GitlabRepo) convertProject(projects []*gitlab.Project, result []*biz.Project) []*biz.Project {
 	for _, project := range projects {
 		result = append(result, &biz.Project{
 			ID:                int32(project.ID),
@@ -340,7 +340,7 @@ func (*gitlabRepo) convertProject(projects []*gitlab.Project, result []*biz.Proj
 	return result
 }
 
-func (g *gitlabRepo) ListCodeRepos(ctx context.Context, search string) ([]*biz.Project, error) {
+func (g *GitlabRepo) ListCodeRepos(ctx context.Context, search string) ([]*biz.Project, error) {
 	var projects []*gitlab.Project
 	var result []*biz.Project
 
@@ -359,20 +359,20 @@ func (g *gitlabRepo) ListCodeRepos(ctx context.Context, search string) ([]*biz.P
 	return result, nil
 }
 
-func (g *gitlabRepo) ListAllGroups(ctx context.Context) ([]*biz.Group, error) {
+func (g *GitlabRepo) ListAllGroups(ctx context.Context) ([]*biz.Group, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
 	}
 
-	var Groups []*biz.Group
 	groups, _, err := client.ListGroups(nil)
 	if err != nil {
 		return nil, err
 	}
 
+	var result []*biz.Group
 	for _, group := range groups {
-		Groups = append(Groups, &biz.Group{
+		result = append(result, &biz.Group{
 			ID:          int32(group.ID),
 			Name:        group.Name,
 			Visibility:  string(group.Visibility),
@@ -383,10 +383,10 @@ func (g *gitlabRepo) ListAllGroups(ctx context.Context) ([]*biz.Group, error) {
 		})
 	}
 
-	return Groups, nil
+	return result, nil
 }
 
-func (g *gitlabRepo) ListAllDeployKeys(ctx context.Context, opt *biz.ListOptions) ([]*biz.ProjectDeployKey, error) {
+func (g *GitlabRepo) ListAllDeployKeys(ctx context.Context, opt *biz.ListOptions) ([]*biz.ProjectDeployKey, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -434,7 +434,7 @@ func (g *gitlabRepo) ListAllDeployKeys(ctx context.Context, opt *biz.ListOptions
 	return projectDeployKeys, nil
 }
 
-func (g *gitlabRepo) ListDeployKeys(ctx context.Context, pid interface{}, opt *biz.ListOptions) ([]*biz.ProjectDeployKey, error) {
+func (g *GitlabRepo) ListDeployKeys(ctx context.Context, pid interface{}, opt *biz.ListOptions) ([]*biz.ProjectDeployKey, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -464,7 +464,7 @@ func (g *gitlabRepo) ListDeployKeys(ctx context.Context, pid interface{}, opt *b
 	return projectDeployKeys, nil
 }
 
-func (g *gitlabRepo) DeleteDeployKey(ctx context.Context, pid interface{}, deployKey int) error {
+func (g *GitlabRepo) DeleteDeployKey(ctx context.Context, pid interface{}, deployKey int) error {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return err
@@ -481,7 +481,7 @@ func (g *gitlabRepo) DeleteDeployKey(ctx context.Context, pid interface{}, deplo
 	return nil
 }
 
-func (g *gitlabRepo) GetDeployKey(ctx context.Context, pid interface{}, deployKeyID int) (*biz.ProjectDeployKey, error) {
+func (g *GitlabRepo) GetDeployKey(ctx context.Context, pid interface{}, deployKeyID int) (*biz.ProjectDeployKey, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -502,7 +502,7 @@ func (g *gitlabRepo) GetDeployKey(ctx context.Context, pid interface{}, deployKe
 	}, nil
 }
 
-func (g *gitlabRepo) SaveDeployKey(ctx context.Context, pid interface{}, title string, canPush bool, publicKey []byte) (*biz.ProjectDeployKey, error) {
+func (g *GitlabRepo) SaveDeployKey(ctx context.Context, pid interface{}, title string, canPush bool, publicKey []byte) (*biz.ProjectDeployKey, error) {
 	opts := &gitlab.AddDeployKeyOptions{
 		Title:   gitlab.String(title),
 		Key:     gitlab.String(string(publicKey)),
@@ -526,7 +526,7 @@ func (g *gitlabRepo) SaveDeployKey(ctx context.Context, pid interface{}, title s
 	}, nil
 }
 
-func (g *gitlabRepo) UpdateDeployKey(ctx context.Context, pid interface{}, deployKey int, title string, canPush bool) (*biz.ProjectDeployKey, error) {
+func (g *GitlabRepo) UpdateDeployKey(ctx context.Context, pid interface{}, deployKey int, title string, canPush bool) (*biz.ProjectDeployKey, error) {
 	opts := &gitlab.UpdateDeployKeyOptions{
 		Title:   gitlab.String(title),
 		CanPush: gitlab.Bool(canPush),
@@ -549,7 +549,7 @@ func (g *gitlabRepo) UpdateDeployKey(ctx context.Context, pid interface{}, deplo
 	}, nil
 }
 
-func (g *gitlabRepo) EnableProjectDeployKey(ctx context.Context, pid interface{}, deployKey int) (*biz.ProjectDeployKey, error) {
+func (g *GitlabRepo) EnableProjectDeployKey(ctx context.Context, pid interface{}, deployKey int) (*biz.ProjectDeployKey, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -567,7 +567,7 @@ func (g *gitlabRepo) EnableProjectDeployKey(ctx context.Context, pid interface{}
 	}, nil
 }
 
-func (g *gitlabRepo) GetProjectAccessToken(ctx context.Context, pid interface{}, id int) (*biz.ProjectAccessToken, error) {
+func (g *GitlabRepo) GetProjectAccessToken(ctx context.Context, pid interface{}, id int) (*biz.ProjectAccessToken, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -596,7 +596,7 @@ func (g *gitlabRepo) GetProjectAccessToken(ctx context.Context, pid interface{},
 	}, nil
 }
 
-func (g *gitlabRepo) ListAccessTokens(ctx context.Context, pid interface{}, opt *biz.ListOptions) ([]*biz.ProjectAccessToken, error) {
+func (g *GitlabRepo) ListAccessTokens(ctx context.Context, pid interface{}, opt *biz.ListOptions) ([]*biz.ProjectAccessToken, error) {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return nil, err
@@ -632,7 +632,7 @@ func (g *gitlabRepo) ListAccessTokens(ctx context.Context, pid interface{}, opt 
 	return projectAccessTokens, nil
 }
 
-func (g *gitlabRepo) CreateProjectAccessToken(ctx context.Context, pid interface{}, opt *biz.CreateProjectAccessTokenOptions) (*biz.ProjectAccessToken, error) {
+func (g *GitlabRepo) CreateProjectAccessToken(ctx context.Context, pid interface{}, opt *biz.CreateProjectAccessTokenOptions) (*biz.ProjectAccessToken, error) {
 	tokenOptions := &gitlab.CreateProjectAccessTokenOptions{
 		Name:        opt.Name,
 		Scopes:      opt.Scopes,
@@ -664,7 +664,7 @@ func (g *gitlabRepo) CreateProjectAccessToken(ctx context.Context, pid interface
 	}, nil
 }
 
-func (g *gitlabRepo) DeleteProjectAccessToken(ctx context.Context, pid interface{}, id int) error {
+func (g *GitlabRepo) DeleteProjectAccessToken(ctx context.Context, pid interface{}, id int) error {
 	client, err := NewGitlabClient(ctx, g)
 	if err != nil {
 		return err
@@ -677,7 +677,7 @@ func (g *gitlabRepo) DeleteProjectAccessToken(ctx context.Context, pid interface
 	return nil
 }
 
-func NewGitlabClient(ctx context.Context, g *gitlabRepo) (gitlabclient.GitlabOperator, error) {
+func NewGitlabClient(ctx context.Context, g *GitlabRepo) (gitlabclient.GitlabOperator, error) {
 	token := ctx.Value("token")
 	if token == nil {
 		return nil, fmt.Errorf("token is not found")

@@ -42,10 +42,6 @@ func NewTraefik() Gateway {
 	return &Traefik{}
 }
 
-func (t *Traefik) GetDefaultValue(field string, opt *DefaultValueOptions) (string, error) {
-	return "", nil
-}
-
 func (t *Traefik) GetGatewayServer(param *ClusterRegistrationParams) *GatewayServer {
 	if param == nil {
 		return nil
@@ -76,6 +72,7 @@ func (t *Traefik) GetGatewayServer(param *ClusterRegistrationParams) *GatewaySer
 
 func (t *Traefik) getMiddlewares(param *ClusterRegistrationParams) []*Middleware {
 	var middlewares []*Middleware
+	var clusters = param.Clusters
 
 	if IsPhysicalProjectPipelineRuntime(param.Cluster) {
 		host := param.Cluster.Spec.ComponentsList.Pipeline.Additions[Host]
@@ -98,9 +95,9 @@ func (t *Traefik) getMiddlewares(param *ClusterRegistrationParams) []*Middleware
 	hostCluster := param.Cluster
 	httpsNodePort := hostCluster.Spec.ComponentsList.Gateway.Additions[HttpsNodePort]
 
-	for _, cluster := range param.Clusters {
-		if IsVirtualProjectPipelineRuntime(&cluster) &&
-			cluster.Spec.HostCluster == param.Cluster.Name {
+	for i, cluster := range clusters {
+		if IsVirtualProjectPipelineRuntime(&clusters[i]) &&
+			cluster.Spec.HostCluster == hostCluster.Name {
 			host := cluster.Spec.ComponentsList.Pipeline.Additions[Host]
 			middlewares = append(middlewares, &Middleware{
 				Errors: &MiddlewareError{

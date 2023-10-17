@@ -22,7 +22,6 @@ import (
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,9 +40,9 @@ type ProjectData struct {
 	Language    string
 }
 
-func NewProjectUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, nodestree nodestree.NodesTree, configs *nautesconfigs.Config, resourcesUsecase *ResourcesUsecase) *ProjectUsecase {
-	project := &ProjectUsecase{log: log.NewHelper(log.With(logger)), codeRepo: codeRepo, secretRepo: secretRepo, nodestree: nodestree, configs: configs, resourcesUsecase: resourcesUsecase}
-	nodestree.AppendOperators(project)
+func NewProjectUsecase(logger log.Logger, codeRepo CodeRepo, secretRepo Secretrepo, nodeOperator nodestree.NodesTree, configs *nautesconfigs.Config, resourcesUsecase *ResourcesUsecase) *ProjectUsecase {
+	project := &ProjectUsecase{log: log.NewHelper(log.With(logger)), codeRepo: codeRepo, secretRepo: secretRepo, nodestree: nodeOperator, configs: configs, resourcesUsecase: resourcesUsecase}
+	nodeOperator.AppendOperators(project)
 	return project
 }
 
@@ -68,9 +67,9 @@ func (p *ProjectUsecase) GetProject(ctx context.Context, projectName, productNam
 func (p *ProjectUsecase) nodeToProject(node *nodestree.Node) (*resourcev1alpha1.Project, error) {
 	if project, ok := node.Content.(*resourcev1alpha1.Project); ok {
 		return project, nil
-	} else {
-		return nil, fmt.Errorf("failed to get %s project", node.Name)
 	}
+
+	return nil, fmt.Errorf("failed to get %s project", node.Name)
 }
 
 func (p *ProjectUsecase) ListProjects(ctx context.Context, productName string) ([]*resourcev1alpha1.Project, error) {
@@ -144,47 +143,6 @@ func (p *ProjectUsecase) listProjects(nodes nodestree.Node, productName string) 
 	return projects, nil
 }
 
-func (p *ProjectUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	var resourceNode *nodestree.Node
-
-	val, ok := data.(*ProjectData)
-	if !ok {
-		return nil, fmt.Errorf("failed to save project when create specify node path: %s", path)
-	}
-
-	projectName := val.ProjectName
-	productName := val.ProductName
-	language := val.Language
-	project := &resourcev1alpha1.Project{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-			Kind:       nodestree.Project,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: projectName,
-		},
-		Spec: resourcev1alpha1.ProjectSpec{
-			Product:  productName,
-			Language: language,
-		},
-	}
-
-	storageResourceDirectory := fmt.Sprintf("%v/%v", path, ProjectsDir)
-	resourceParentDir := fmt.Sprintf("%v/%v", storageResourceDirectory, projectName)
-	resourceFile := fmt.Sprintf("%v/%v.yaml", resourceParentDir, projectName)
-	resourceNode = &nodestree.Node{
-		Name:    projectName,
-		Path:    resourceFile,
-		Content: project,
-		Kind:    nodestree.Project,
-		Level:   4,
-		IsDir:   false,
-	}
-
-	return resourceNode, nil
-
-}
-
 func (p *ProjectUsecase) UpdateNode(resourceNode *nodestree.Node, data interface{}) (*nodestree.Node, error) {
 	val, ok := data.(*ProjectData)
 	if !ok {
@@ -206,7 +164,7 @@ func (p *ProjectUsecase) UpdateNode(resourceNode *nodestree.Node, data interface
 	return resourceNode, nil
 }
 
-func (p *ProjectUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, k8sClient client.Client) (bool, error) {
+func (p *ProjectUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, _ client.Client) (bool, error) {
 	if node.Kind != nodestree.Project {
 		return false, nil
 	}

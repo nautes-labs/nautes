@@ -1221,6 +1221,9 @@ components:
                     $ref: '#/components/schemas/api.deploymentruntime.v1.ManifestSource'
                 destination:
                     $ref: '#/components/schemas/api.deploymentruntime.v1.DeploymentRuntimesDestination'
+                account:
+                    type: string
+                    description: Account specify the runtime account.
             description: GetReply is a message that returns a Deployment Runtime.
         api.deploymentruntime.v1.ListsReply:
             type: object
@@ -1263,6 +1266,9 @@ components:
                     $ref: '#/components/schemas/api.deploymentruntime.v1.ManifestSource'
                 destination:
                     $ref: '#/components/schemas/api.deploymentruntime.v1.DeploymentRuntimesDestination'
+                account:
+                    type: string
+                    description: Account specify the runtime account.
             description: Body is the message body.
         api.environment.v1.DeleteReply:
             type: object
@@ -1530,6 +1536,9 @@ components:
                     description: 'Isolation definition of pipeline runtime related resources: shared(default) or exclusive.'
                 additional_resources:
                     $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
+                account:
+                    type: string
+                    description: Account specify the runtime account.
             description: Response message format for getting pipeline information.
         api.projectpipelineruntime.v1.Gitlab:
             type: object
@@ -1643,6 +1652,9 @@ components:
                     description: 'Isolation definition of pipeline runtime related resources: shared(default) or exclusive'
                 additional_resources:
                     $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
+                account:
+                    type: string
+                    description: Account specify the runtime account.
             description: Message containing the body of the request.
         google.protobuf.ListValue:
             type: object

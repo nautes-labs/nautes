@@ -24,7 +24,6 @@ import (
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/nautes-labs/nautes/app/api-server/pkg/validate"
@@ -33,7 +32,7 @@ import (
 type ProjectPipelineRuntimeUsecase struct {
 	log              *log.Helper
 	codeRepo         CodeRepo
-	nodestree        nodestree.NodesTree
+	nodeOperator     nodestree.NodesTree
 	resourcesUsecase *ResourcesUsecase
 	client           client.Client
 	config           *nautesconfigs.Config
@@ -44,15 +43,16 @@ type ProjectPipelineRuntimeData struct {
 	Spec resourcev1alpha1.ProjectPipelineRuntimeSpec
 }
 
-func NewProjectPipelineRuntimeUsecase(logger log.Logger, codeRepo CodeRepo, nodestree nodestree.NodesTree, resourcesUsecase *ResourcesUsecase, client client.Client, config *nautesconfigs.Config) *ProjectPipelineRuntimeUsecase {
+func NewProjectPipelineRuntimeUsecase(logger log.Logger, codeRepo CodeRepo, nodeOperator nodestree.NodesTree, resourcesUsecase *ResourcesUsecase, k8sClient client.Client, config *nautesconfigs.Config) *ProjectPipelineRuntimeUsecase {
 	runtime := &ProjectPipelineRuntimeUsecase{
-		log:      log.NewHelper(log.With(logger)),
-		codeRepo: codeRepo, nodestree: nodestree,
+		log:              log.NewHelper(log.With(logger)),
+		codeRepo:         codeRepo,
+		nodeOperator:     nodeOperator,
 		resourcesUsecase: resourcesUsecase,
-		client:           client,
+		client:           k8sClient,
 		config:           config,
 	}
-	nodestree.AppendOperators(runtime)
+	nodeOperator.AppendOperators(runtime)
 	return runtime
 }
 
@@ -79,7 +79,7 @@ func (p *ProjectPipelineRuntimeUsecase) ListProjectPipelineRuntimes(ctx context.
 }
 
 func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.Context, options *BizOptions, data *ProjectPipelineRuntimeData) error {
-	codeRepoName, err := p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.PipelineSource)
+	codeRepoName, err := ConvertRepoNameToCodeRepoName(ctx, p.codeRepo, options.ProductName, data.Spec.PipelineSource)
 	if err != nil {
 		return fmt.Errorf("failed to get codeRepo name when converting pipeline repository name, err: %v", err)
 	}
@@ -87,7 +87,7 @@ func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.C
 
 	// AdditionalResources is optional
 	if data.Spec.AdditionalResources != nil && data.Spec.AdditionalResources.Git != nil {
-		codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
+		codeRepoName, err = ConvertRepoNameToCodeRepoName(ctx, p.codeRepo, options.ProductName, data.Spec.AdditionalResources.Git.CodeRepo)
 		if err != nil {
 			return fmt.Errorf("failed to get codeRepo name when converting git repository name for additional resources, err: %v", err)
 		}
@@ -96,7 +96,7 @@ func (p *ProjectPipelineRuntimeUsecase) SaveProjectPipelineRuntime(ctx context.C
 
 	for idx, eventSource := range data.Spec.EventSources {
 		if eventSource.Gitlab != nil && eventSource.Gitlab.RepoName != "" {
-			codeRepoName, err = p.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, options.ProductName, eventSource.Gitlab.RepoName)
+			codeRepoName, err = ConvertRepoNameToCodeRepoName(ctx, p.codeRepo, options.ProductName, eventSource.Gitlab.RepoName)
 			if err != nil {
 				return fmt.Errorf("failed to get codeRepo name when converting git repository name for event source, err: %v", err)
 			}
@@ -142,45 +142,14 @@ func (p *ProjectPipelineRuntimeUsecase) IsRepositoryExist(ctx context.Context, p
 	if err != nil {
 		if ok := commonv1.IsProjectNotFound(err); ok {
 			return nil, projectpipelineruntimev1.ErrorPipelineResourceNotFound("failed to get repository %s in product %s", repoName, productName)
-		} else {
-			return nil, err
 		}
+
+		return nil, err
 	}
+
 	return project, nil
 }
 
-func (p *ProjectPipelineRuntimeUsecase) CreateNode(path string, data interface{}) (*nodestree.Node, error) {
-	var resourceNode *nodestree.Node
-
-	val, ok := data.(*ProjectPipelineRuntimeData)
-	if !ok {
-		return nil, fmt.Errorf("failed to save project when create specify node path: %s", path)
-	}
-
-	runtime := &resourcev1alpha1.ProjectPipelineRuntime{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: resourcev1alpha1.GroupVersion.String(),
-			Kind:       nodestree.ProjectPipelineRuntime,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: val.Name,
-		},
-		Spec: val.Spec,
-	}
-
-	storageResourceDirectory := fmt.Sprintf("%s/%s", path, ProjectsDir)
-	resourceParentDir := fmt.Sprintf("%s/%s", storageResourceDirectory, val.Spec.Project)
-	resourceFile := fmt.Sprintf("%s/%s.yaml", resourceParentDir, val.Name)
-	resourceNode = &nodestree.Node{
-		Name:    val.Name,
-		Path:    resourceFile,
-		Content: runtime,
-		Kind:    nodestree.ProjectPipelineRuntime,
-		Level:   4,
-	}
-
-	return resourceNode, nil
-}
 func (p *ProjectPipelineRuntimeUsecase) UpdateNode(node *nodestree.Node, data interface{}) (*nodestree.Node, error) {
 	val, ok := data.(*ProjectPipelineRuntimeData)
 	if !ok {
@@ -202,7 +171,7 @@ func (p *ProjectPipelineRuntimeUsecase) UpdateNode(node *nodestree.Node, data in
 	return node, nil
 }
 
-func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, k8sClient client.Client) (bool, error) {
+func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.CompareOptions, node *nodestree.Node, _ client.Client) (bool, error) {
 	if node.Kind != nodestree.ProjectPipelineRuntime {
 		return false, nil
 	}
@@ -221,22 +190,34 @@ func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.Compare
 	resourceDirectory := fmt.Sprintf("%s/%s", ProjectsDir, projectPipelineRuntime.Spec.Project)
 	ok = nodestree.IsResourceExist(options, projectName, nodestree.Project)
 	if !ok {
-		return true, fmt.Errorf(_ResourceDoesNotExistOrUnavailable, nodestree.Project, projectName, nodestree.ProjectPipelineRuntime,
-			projectPipelineRuntime.Name, resourceDirectory)
+		err := fmt.Errorf(_ResourceDoesNotExistOrUnavailable,
+			nodestree.Project,
+			projectName,
+			nodestree.ProjectPipelineRuntime,
+			projectPipelineRuntime.Name,
+			resourceDirectory,
+		)
+		return true, err
 	}
 
 	targetEnvironment := projectPipelineRuntime.Spec.Destination.Environment
 	ok = nodestree.IsResourceExist(options, targetEnvironment, nodestree.Environment)
 	if !ok {
-		return true, fmt.Errorf(_ResourceDoesNotExistOrUnavailable, nodestree.Environment, targetEnvironment, nodestree.ProjectPipelineRuntime,
-			projectPipelineRuntime.Name, resourceDirectory)
+		err := fmt.Errorf(_ResourceDoesNotExistOrUnavailable,
+			nodestree.Environment,
+			targetEnvironment,
+			nodestree.ProjectPipelineRuntime,
+			projectPipelineRuntime.Name, resourceDirectory,
+		)
+		return true, err
 	}
 
 	pipelineRepository := projectPipelineRuntime.Spec.PipelineSource
 	ok = nodestree.IsResourceExist(options, pipelineRepository, nodestree.CodeRepo)
 	if !ok {
-		return true, fmt.Errorf(_ResourceDoesNotExistOrUnavailable, nodestree.CodeRepo, pipelineRepository, nodestree.ProjectPipelineRuntime,
+		err := fmt.Errorf(_ResourceDoesNotExistOrUnavailable, nodestree.CodeRepo, pipelineRepository, nodestree.ProjectPipelineRuntime,
 			projectPipelineRuntime.Name, resourceDirectory)
+		return true, err
 	}
 
 	if len(projectPipelineRuntime.Spec.EventSources) > 0 {
@@ -245,8 +226,9 @@ func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.Compare
 				// TODO
 				// In the future, cross product query codeRepo will be supported.
 				if ok := nodestree.IsResourceExist(options, event.Gitlab.RepoName, nodestree.CodeRepo); !ok {
-					return true, fmt.Errorf(_ResourceDoesNotExistOrUnavailable, nodestree.CodeRepo, event.Gitlab.RepoName, nodestree.ProjectPipelineRuntime,
+					err := fmt.Errorf(_ResourceDoesNotExistOrUnavailable, nodestree.CodeRepo, event.Gitlab.RepoName, nodestree.ProjectPipelineRuntime,
 						projectPipelineRuntime.Name, resourceDirectory)
+					return true, err
 				}
 			}
 		}
@@ -257,7 +239,7 @@ func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.Compare
 		return true, err
 	}
 
-	validateClient := validate.NewValidateClient(p.client, p.nodestree, &options.Nodes, p.config.Nautes.Namespace, options.ProductName)
+	validateClient := validate.NewValidateClient(p.client, p.nodeOperator, &options.Nodes, p.config.Nautes.Namespace, options.ProductName)
 	projectPipelineRuntime.Namespace = options.ProductName
 	illegalEventSources, err := projectPipelineRuntime.Validate(context.TODO(), validateClient)
 	if err != nil {
@@ -293,34 +275,19 @@ func (p *ProjectPipelineRuntimeUsecase) isRepeatPipelinePath(runtime *resourcev1
 	return false, nil
 }
 
-func (e *ProjectPipelineRuntimeUsecase) compare(nodes nodestree.Node) (bool, error) {
+func (p *ProjectPipelineRuntimeUsecase) compare(nodes nodestree.Node) (bool, error) {
 	resourceNodes := nodestree.ListsResourceNodes(nodes, nodestree.ProjectPipelineRuntime)
-
 	for i := 0; i < len(resourceNodes); i++ {
-		v1, ok := resourceNodes[i].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
-		if !ok {
-			continue
-		}
-
+		runtime1, _ := resourceNodes[i].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
 		for j := i + 1; j < len(resourceNodes); j++ {
-			v2, ok := resourceNodes[j].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
-			if !ok {
-				continue
-			}
-
-			ok, err := v1.Compare(v2)
+			runtime2, _ := resourceNodes[j].Content.(*resourcev1alpha1.ProjectPipelineRuntime)
+			ok, err := runtime1.Compare(runtime2)
 			if err != nil {
 				return true, err
 			}
 
 			if ok {
-				n1 := resourceNodes[i].Name
-				n2 := resourceNodes[j].Name
-				p1 := nodestree.GetResourceValue(resourceNodes[i].Content, "Spec", "Project")
-				p2 := nodestree.GetResourceValue(resourceNodes[j].Content, "Spec", "Project")
-				d1 := fmt.Sprintf("%s/%s", p1, n1)
-				d2 := fmt.Sprintf("%s/%s", p2, n2)
-				return true, fmt.Errorf("duplicate pipeline found in verify the validity of the global template, respectively %s and %s", d1, d2)
+				return true, fmt.Errorf("duplicate reference found between resource %s and resource %s", runtime1.Name, runtime2.Name)
 			}
 		}
 	}
@@ -337,41 +304,5 @@ func (p *ProjectPipelineRuntimeUsecase) CreateResource(kind string) interface{} 
 }
 
 func SpliceCodeRepoResourceName(id int) string {
-	return fmt.Sprintf("%s%d", RepoPrefix, int(id))
-}
-
-type PipelineRuntimeValidateClient struct {
-	nodes nodestree.Node
-}
-
-func (p *PipelineRuntimeValidateClient) GetCodeRepoList(repoName string) (*resourcev1alpha1.CodeRepoList, error) {
-	resourceNodes := nodestree.ListsResourceNodes(p.nodes, nodestree.CodeRepo)
-	list := &resourcev1alpha1.CodeRepoList{}
-	for _, node := range resourceNodes {
-		val, ok := node.Content.(*resourcev1alpha1.CodeRepo)
-		if !ok {
-			return nil, fmt.Errorf("wrong type found for %s node", node.Name)
-		}
-		if val.Name == repoName {
-			list.Items = append(list.Items, *val)
-		}
-	}
-
-	return list, nil
-}
-
-func (p *PipelineRuntimeValidateClient) GetCodeRepoBindingList(productName, repoName string) (*resourcev1alpha1.CodeRepoBindingList, error) {
-	resourceNodes := nodestree.ListsResourceNodes(p.nodes, nodestree.CodeRepoBinding)
-	list := &resourcev1alpha1.CodeRepoBindingList{}
-	for _, node := range resourceNodes {
-		val, ok := node.Content.(*resourcev1alpha1.CodeRepoBinding)
-		if !ok {
-			return nil, fmt.Errorf("wrong type found for %s node", node.Name)
-		}
-		if val.Spec.Product == productName && val.Spec.CodeRepo == repoName {
-			list.Items = append(list.Items, *val)
-		}
-	}
-
-	return list, nil
+	return fmt.Sprintf("%s%d", RepoPrefix, id)
 }

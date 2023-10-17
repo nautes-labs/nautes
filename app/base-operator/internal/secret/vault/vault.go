@@ -34,18 +34,18 @@ type Vault struct {
 }
 
 const (
-	TENANT_NAMESPACE   = "tenant"
-	GIT_REPO_ROOT_PATH = "git/%s/root"
-	GIT_REPO_ROOT_KEY  = "access_token"
+	TenantNamespace             = "tenant"
+	CodeHostingPlatformRootPath = "git/%s/root"
+	CodeHostingPlatformRootKey  = "access_token"
 )
 
 func (v *Vault) GetGitRepoRootToken(ctx context.Context, name string) (string, error) {
-	path := fmt.Sprintf(GIT_REPO_ROOT_PATH, name)
-	secret, err := v.KVv2(TENANT_NAMESPACE).Get(ctx, path)
+	path := fmt.Sprintf(CodeHostingPlatformRootPath, name)
+	secret, err := v.KVv2(TenantNamespace).Get(ctx, path)
 	if err != nil {
 		return "", err
 	}
-	token, ok := secret.Data[GIT_REPO_ROOT_KEY]
+	token, ok := secret.Data[CodeHostingPlatformRootKey]
 	if !ok {
 		return "", fmt.Errorf("can not find access token in secret store. instance name %s", name)
 	}
@@ -73,7 +73,8 @@ func NewVault(cfg nautescfg.SecretRepo) (*Vault, error) {
 		config.HttpClient = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
+					MinVersion: tls.VersionTLS12,
+					RootCAs:    caCertPool,
 				},
 			},
 		}

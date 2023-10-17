@@ -55,15 +55,18 @@ func resourceEffectiveness(nodeInfos []NodeInfo, configInfos []configInfo) error
 
 func verificationLayoutRules(node NodeInfo, config configInfo) error {
 	if node.Category != config.Category {
-		return fmt.Errorf("this %s resource belongs to a directory that is not consistent with the template layout, expected is %s, but now is %s in %s", node.Kind, config.Category, node.Category, node.Path)
+		err := fmt.Errorf("this %s resource belongs to a directory that is not consistent with the template layout, expected is %s, but now is %s in %s", node.Kind, config.Category, node.Category, node.Path)
+		return err
 	}
 
 	if node.Level != config.Level {
-		return fmt.Errorf("this %s resource level is not consistent with the template layout, expected is %d, but now is %d in %s", node.Kind, config.Level, node.Level, node.Path)
+		err := fmt.Errorf("this %s resource level is not consistent with the template layout, expected is %d, but now is %d in %s", node.Kind, config.Level, node.Level, node.Path)
+		return err
 	}
 
 	if config.Name != "any" && config.Name != node.Name {
-		return fmt.Errorf("the %s resource name is not consistent with the template layout, expected is %s, but now is %s in %s", node.Kind, config.Name, node.Name, node.Path)
+		err := fmt.Errorf("the %s resource name is not consistent with the template layout, expected is %s, but now is %s in %s", node.Kind, config.Name, node.Name, node.Path)
+		return err
 	}
 
 	return nil

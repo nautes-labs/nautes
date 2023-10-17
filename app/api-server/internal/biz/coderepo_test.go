@@ -33,40 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	_DefaultProjectResourceName = "project1"
-)
-
-func createFakeCodeRepoResource(name string) *resourcev1alpha1.CodeRepo {
-	return &resourcev1alpha1.CodeRepo{
-		ObjectMeta: v1.ObjectMeta{
-			Name: name,
-		},
-		TypeMeta: v1.TypeMeta{
-			Kind: nodestree.CodeRepo,
-		},
-		Spec: resourcev1alpha1.CodeRepoSpec{
-			Product:           defaultProductId,
-			RepoName:          name,
-			Project:           _DefaultProjectResourceName,
-			DeploymentRuntime: true,
-			Webhook: &resourcev1alpha1.Webhook{
-				Events: []string{"push_events"},
-			},
-		},
-	}
-}
-
-func createFakeCodeRepoNode(resource *resourcev1alpha1.CodeRepo) *nodestree.Node {
-	return &nodestree.Node{
-		Name:    resource.Name,
-		Path:    fmt.Sprintf("%s/%s/%s/%s.yaml", localRepositoryPath, CodeReposSubDir, resource.Name, resource.Name),
-		Level:   4,
-		Content: resource,
-		Kind:    nodestree.CodeRepo,
-	}
-}
-
 func createFakeCcontainingCodeRepoNodes(node *nodestree.Node) nodestree.Node {
 	return nodestree.Node{
 		Name:  defaultProjectName,
@@ -103,7 +69,7 @@ var _ = Describe("Get codeRepo", func() {
 		fakeNodes         = createFakeCcontainingCodeRepoNodes(fakeNode)
 		gid, _            = utilstrings.ExtractNumber(ProductPrefix, fakeResource.Spec.Product)
 		group             = &Group{ID: int32(gid), Name: fakeResource.Spec.Product, Path: fakeResource.Spec.Product}
-		project           = &Project{ID: 1222, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
+		project           = &Project{ID: MockID1, HttpUrlToRepo: fmt.Sprintf("ssh://git@gitlab.io/nautes-labs/%s.git", resourceName)}
 		productPrefixPath = fmt.Sprintf("%s/%s", fakeResource.Spec.Product, resourceName)
 		groupPath         = fmt.Sprintf("%s/%s", defaultGroupName, resourceName)
 	)
@@ -134,7 +100,7 @@ var _ = Describe("Get codeRepo", func() {
 
 var _ = Describe("List coderepos", func() {
 	var (
-		resourceName = "repo-1222"
+		resourceName = MockCodeRepo1Name
 		fakeResource = createFakeCodeRepoResource(resourceName)
 		fakeNode     = createFakeCodeRepoNode(fakeResource)
 		fakeNodes    = createFakeCcontainingCodeRepoNodes(fakeNode)
@@ -154,16 +120,16 @@ var _ = Describe("List coderepos", func() {
 
 var _ = Describe("Save codeRepo", func() {
 	var (
-		resourceName  = "repo-1222"
+		resourceName  = MockCodeRepo1Name
 		pid, _        = utilstrings.ExtractNumber(RepoPrefix, resourceName)
 		fakeResource  = createFakeCodeRepoResource(resourceName)
 		fakeNode      = createFakeCodeRepoNode(fakeResource)
 		fakeNodes     = createFakeCcontainingCodeRepoNodes(fakeNode)
 		toSaveProject = &Project{
-			ID:            1222,
+			ID:            MockID1,
 			HttpUrlToRepo: "https://gitlab.com/nautes-labs/test.git",
 			Namespace: &ProjectNamespace{
-				ID:   123,
+				ID:   MockID2,
 				Path: defaultGroupName,
 			},
 		}
@@ -179,7 +145,7 @@ var _ = Describe("Save codeRepo", func() {
 			Spec: resourcev1alpha1.CodeRepoSpec{
 				CodeRepoProvider:  "provider",
 				Product:           "product",
-				Project:           _DefaultProjectResourceName,
+				Project:           MockProject1Name,
 				RepoName:          repoName,
 				DeploymentRuntime: true,
 				Webhook: &resourcev1alpha1.Webhook{
@@ -289,7 +255,7 @@ var _ = Describe("Save codeRepo", func() {
 		codeRepo.EXPECT().ListAccessTokens(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Any()).Return(projectAccessTokens, nil).AnyTimes()
 
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(nil, commonv1.ErrorSecretNotFound("secret data is not found")).Times(2)
-		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Any(), gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
+		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
 		secretRepo.EXPECT().GetProjectAccessToken(gomock.Any(), secretOptions).Return(nil, commonv1.ErrorAccesstokenNotFound("failed to get access token from secret repo"))
 		secretRepo.EXPECT().SaveProjectAccessToken(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Eq(projectAccessToken.Token), gomock.Any(), gomock.Any(), gomock.Eq(accessTokenExtendKVs)).Return(nil)
 
@@ -298,8 +264,8 @@ var _ = Describe("Save codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  _GitUser,
-			Email: _GitEmail,
+			User:  GitUser,
+			Email: GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -324,13 +290,13 @@ var _ = Describe("Save codeRepo", func() {
 		codeRepo.EXPECT().ListAccessTokens(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Any()).Return(projectAccessTokens, nil).AnyTimes()
 
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(nil, commonv1.ErrorSecretNotFound("secret data is not found")).Times(2)
-		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Any(), gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
+		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
 		secretRepo.EXPECT().GetProjectAccessToken(gomock.Any(), secretOptions).Return(accessTokenSecretData, nil)
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  _GitUser,
-			Email: _GitEmail,
+			User:  GitUser,
+			Email: GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -358,13 +324,13 @@ var _ = Describe("Save codeRepo", func() {
 		codeRepo.EXPECT().DeleteDeployKey(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Any()).Return(nil)
 
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(nil, commonv1.ErrorSecretNotFound("secret data is not found")).Times(2)
-		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Any(), gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
+		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
 		secretRepo.EXPECT().GetProjectAccessToken(gomock.Any(), secretOptions).Return(accessTokenSecretData, nil)
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  _GitUser,
-			Email: _GitEmail,
+			User:  GitUser,
+			Email: GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -392,14 +358,14 @@ var _ = Describe("Save codeRepo", func() {
 		codeRepo.EXPECT().CreateProjectAccessToken(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Eq(createProjectAccessTokenOptions)).Return(projectAccessToken, nil)
 
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(nil, commonv1.ErrorSecretNotFound("secret data is not found")).Times(2)
-		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Any(), gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
+		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
 		secretRepo.EXPECT().GetProjectAccessToken(gomock.Any(), secretOptions).Return(accessTokenSecretData, nil)
 		secretRepo.EXPECT().SaveProjectAccessToken(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Eq(projectAccessToken.Token), gomock.Any(), gomock.Any(), gomock.Eq(accessTokenExtendKVs)).Return(nil)
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  _GitUser,
-			Email: _GitEmail,
+			User:  GitUser,
+			Email: GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -427,14 +393,14 @@ var _ = Describe("Save codeRepo", func() {
 		codeRepo.EXPECT().CreateProjectAccessToken(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Eq(createProjectAccessTokenOptions)).Return(projectAccessToken, nil)
 
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(nil, commonv1.ErrorSecretNotFound("secret data is not found")).Times(2)
-		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Any(), gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
+		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2)
 		secretRepo.EXPECT().GetProjectAccessToken(gomock.Any(), secretOptions).Return(nil, commonv1.ErrorAccesstokenNotFound("failed to get access token"))
 		secretRepo.EXPECT().SaveProjectAccessToken(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Eq(projectAccessToken.Token), gomock.Any(), gomock.Any(), gomock.Eq(accessTokenExtendKVs)).Return(nil)
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  _GitUser,
-			Email: _GitEmail,
+			User:  GitUser,
+			Email: GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -460,14 +426,14 @@ var _ = Describe("Save codeRepo", func() {
 		codeRepo.EXPECT().ListAccessTokens(gomock.Any(), gomock.Eq(int(toSaveProject.ID)), gomock.Any()).Return(projectAccessTokens, nil).AnyTimes()
 
 		secretRepo.EXPECT().GetDeployKey(gomock.Any(), gomock.Any()).Return(nil, commonv1.ErrorSecretNotFound("secret data is not found")).Times(2)
-		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Any(), gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2).Times(2)
+		secretRepo.EXPECT().SaveDeployKey(gomock.Any(), gomock.Any(), extendKVs).Return(nil).Times(2).Times(2)
 		secretRepo.EXPECT().GetProjectAccessToken(gomock.Any(), secretOptions).Return(nil, commonv1.ErrorAccesstokenNotFound("failed to get access token from secret repo"))
 		secretRepo.EXPECT().SaveProjectAccessToken(gomock.Any(), gomock.Eq(getCodeRepoResourceName(int(toSaveProject.ID))), gomock.Eq(projectAccessToken.Token), gomock.Any(), gomock.Any(), gomock.Eq(accessTokenExtendKVs)).Return(nil)
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   toSaveProject.HttpUrlToRepo,
-			User:  _GitUser,
-			Email: _GitEmail,
+			User:  GitUser,
+			Email: GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -622,11 +588,11 @@ var _ = Describe("Save codeRepo", func() {
 
 var _ = Describe("Delete codeRepo", func() {
 	var (
-		resourceName   = "repo-1222"
+		resourceName   = MockCodeRepo1Name
 		fakeResource   = createFakeCodeRepoResource(resourceName)
 		fakeNode       = createFakeCodeRepoNode(fakeResource)
 		fakeNodes      = createFakeCcontainingCodeRepoNodes(fakeNode)
-		deletedProject = &Project{ID: 1222}
+		deletedProject = &Project{ID: MockID1}
 		bizOptions     = &BizOptions{
 			ResouceName: resourceName,
 			ProductName: defaultGroupName,
@@ -663,8 +629,8 @@ var _ = Describe("Delete codeRepo", func() {
 
 		cloneRepositoryParam := &CloneRepositoryParam{
 			URL:   deletedProject.HttpUrlToRepo,
-			User:  _GitUser,
-			Email: _GitEmail,
+			User:  GitUser,
+			Email: GitEmail,
 		}
 		gitRepo.EXPECT().Clone(gomock.Any(), cloneRepositoryParam).Return(localRepositoryPath, nil).AnyTimes()
 
@@ -676,3 +642,33 @@ var _ = Describe("Delete codeRepo", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 	}))
 })
+
+func createFakeCodeRepoResource(name string) *resourcev1alpha1.CodeRepo {
+	return &resourcev1alpha1.CodeRepo{
+		ObjectMeta: v1.ObjectMeta{
+			Name: name,
+		},
+		TypeMeta: v1.TypeMeta{
+			Kind: nodestree.CodeRepo,
+		},
+		Spec: resourcev1alpha1.CodeRepoSpec{
+			Product:           defaultProductId,
+			RepoName:          name,
+			Project:           MockProject1Name,
+			DeploymentRuntime: true,
+			Webhook: &resourcev1alpha1.Webhook{
+				Events: []string{"push_events"},
+			},
+		},
+	}
+}
+
+func createFakeCodeRepoNode(resource *resourcev1alpha1.CodeRepo) *nodestree.Node {
+	return &nodestree.Node{
+		Name:    resource.Name,
+		Path:    fmt.Sprintf("%s/%s/%s/%s.yaml", localRepositoryPath, CodeReposSubDir, resource.Name, resource.Name),
+		Level:   4,
+		Content: resource,
+		Kind:    nodestree.CodeRepo,
+	}
+}

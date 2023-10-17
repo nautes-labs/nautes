@@ -101,12 +101,11 @@ var (
 )
 
 const (
-	OptKeyProductResourcePathPipeline   = "ProductResourcePathPipeline"
-	OptKeyProductResourcePathDeployment = "ProductResourcePathDeployment"
-	OptKeyProductResourceRevision       = "ProductResourceRevision"
+	OptKeyProductResourceKustomizeFileFolder = "productResourceKustomizeFileFolder"
+	OptKeyProductResourceRevision            = "productResourceRevision"
 	// OptKeySyncResourceTypes store witch kind of resource will sync between parent and sub namespace
 	// format [group/name, group/name]
-	OptKeySyncResourceTypes = "SyncResourceTypes"
+	OptKeySyncResourceTypes = "syncResourceTypes"
 )
 
 func (h hnc) CreateProduct(ctx context.Context, name string) error {
@@ -149,7 +148,7 @@ func (h hnc) getEmptyProductApp(productName string) syncer.Application {
 }
 
 func (h hnc) getProductApp(productName string) (*syncer.Application, error) {
-	productResourcePath := h.getProductResourcePath()
+	productResourcePath := h.opts[OptKeyProductResourceKustomizeFileFolder]
 	revision := h.opts[OptKeyProductResourceRevision]
 	if productResourcePath == "" || revision == "" {
 		return nil, nil
@@ -186,17 +185,6 @@ func (h hnc) getProductApp(productName string) (*syncer.Application, error) {
 	}
 
 	return app, nil
-}
-
-func (h hnc) getProductResourcePath() string {
-	switch h.clusterWorkerType {
-	case v1alpha1.ClusterWorkTypeDeployment:
-		return h.opts[OptKeyProductResourcePathDeployment]
-	case v1alpha1.ClusterWorkTypePipeline:
-		return h.opts[OptKeyProductResourcePathPipeline]
-	default:
-		return ""
-	}
 }
 
 func (h hnc) addRoleBinding(ctx context.Context, name string) error {
@@ -383,8 +371,8 @@ func (h hnc) deleteRoleBindingServiceAccount(ctx context.Context, name, namespac
 }
 
 const (
-	keyProductUserList = "ProductUsers"
-	keySpaceUserList   = "SpaceUsers"
+	keyProductUserList = "productUsers"
+	keySpaceUserList   = "spaceUsers"
 )
 
 func (h hnc) addSpaceUsers(ctx context.Context, productName string, spaceName string, users []string) error {

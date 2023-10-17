@@ -17,6 +17,7 @@ package loadcert
 import (
 	"crypto/x509"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,33 +54,47 @@ func GetCertPool(opts ...LoadOption) (*x509.CertPool, error) {
 
 	for _, file := range files {
 		fullPath := filepath.Join(loadOpts.path, file.Name())
-		if file.IsDir() {
+
+		ok, err := checkFileIsReadable(loadOpts.path, file)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
 			continue
 		}
 
-		info, err := file.Info()
-		if err != nil {
-			return nil, fmt.Errorf("get file %s info failed: %w", file.Name(), err)
-		}
-
-		if info.Mode()&os.ModeSymlink != 0 {
-			isDir, err := linkIsDir(loadOpts.path, fullPath)
-			if err != nil {
-				return nil, err
-			}
-			if isDir {
-				continue
-			}
-		}
-
-		CABytes, err := os.ReadFile(fullPath)
+		caBytes, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, fmt.Errorf("read cert file %s failed: %w", file.Name(), err)
 		}
 
-		caCertPool.AppendCertsFromPEM(CABytes)
+		caCertPool.AppendCertsFromPEM(caBytes)
 	}
 	return caCertPool, nil
+}
+
+func checkFileIsReadable(rootPath string, file fs.DirEntry) (bool, error) {
+	fullPath := filepath.Join(rootPath, file.Name())
+	if file.IsDir() {
+		return false, nil
+	}
+
+	info, err := file.Info()
+	if err != nil {
+		return false, fmt.Errorf("get file %s info failed: %w", file.Name(), err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		isDir, err := linkIsDir(rootPath, fullPath)
+		if err != nil {
+			return false, err
+		}
+		if isDir {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func linkIsDir(root, path string) (bool, error) {

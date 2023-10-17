@@ -71,11 +71,11 @@ type ClusterSpec struct {
 	// +optional
 	// +nullable
 	// ReservedNamespacesAllowedProducts key is namespace name, value is the product name list witch can use namespace.
-	ReservedNamespacesAllowedProducts map[string][]string `json:"reservedNamespacesAllowedProducts"`
+	ReservedNamespacesAllowedProducts map[string][]string `json:"reservedNamespacesAllowedProducts,omitempty"`
 	// +optional
 	// +nullable
 	// ReservedNamespacesAllowedProducts key is product name, value is the list of cluster resources.
-	ProductAllowedClusterResources map[string][]ClusterResourceInfo `json:"productAllowedClusterResources"`
+	ProductAllowedClusterResources map[string][]ClusterResourceInfo `json:"productAllowedClusterResources,omitempty"`
 }
 
 type ClusterResourceInfo struct {
@@ -92,41 +92,41 @@ type Component struct {
 	Namespace string `json:"namespace"`
 	// +optional
 	// +nullable
-	Additions map[string]string `json:"additions"`
+	Additions map[string]string `json:"additions,omitempty"`
 }
 
 // ComponentsList declares the specific components used by the cluster
 type ComponentsList struct {
 	// +optional
 	// +nullable
-	CertManagement *Component `json:"certManagement"`
+	CertManagement *Component `json:"certManagement,omitempty" componentName:"certManagement"`
 	// +optional
 	// +nullable
-	Deployment *Component `json:"deployment"`
+	Deployment *Component `json:"deployment,omitempty" componentName:"deployment"`
 	// +optional
 	// +nullable
-	EventListener *Component `json:"eventListener"`
+	EventListener *Component `json:"eventListener,omitempty" componentName:"eventListener"`
 	// +optional
 	// +nullable
-	Gateway *Component `json:"gateway"`
+	Gateway *Component `json:"gateway,omitempty" componentName:"gateway"`
 	// +optional
 	// +nullable
-	MultiTenant *Component `json:"multiTenant"`
+	MultiTenant *Component `json:"multiTenant,omitempty" componentName:"multiTenant"`
 	// +optional
 	// +nullable
-	Pipeline *Component `json:"pipeline"`
+	Pipeline *Component `json:"pipeline,omitempty" componentName:"pipeline"`
 	// +optional
 	// +nullable
-	ProgressiveDelivery *Component `json:"progressiveDelivery"`
+	ProgressiveDelivery *Component `json:"progressiveDelivery,omitempty" componentName:"progressiveDelivery"`
 	// +optional
 	// +nullable
-	SecretManagement *Component `json:"secretManagement"`
+	SecretManagement *Component `json:"secretManagement,omitempty" componentName:"secretManagement"`
 	// +optional
 	// +nullable
-	SecretSync *Component `json:"secretSync"`
+	SecretSync *Component `json:"secretSync,omitempty" componentName:"secretSync"`
 	// +optional
 	// +nullable
-	OauthProxy *Component `json:"oauthProxy"`
+	OauthProxy *Component `json:"oauthProxy,omitempty" componentName:"oauthProxy"`
 }
 
 // ClusterStatus defines the observed state of Cluster
@@ -222,7 +222,7 @@ func ConvertComponentsListToMap(list ComponentsList) map[string]*Component {
 			continue
 		}
 
-		compoentType := val.Type().Field(i).Tag.Get("json")
+		compoentType := val.Type().Field(i).Tag.Get("componentName")
 		component := val.Field(i).Interface().(*Component)
 		componentsListMap[compoentType] = component
 	}

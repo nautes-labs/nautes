@@ -43,8 +43,7 @@ import (
 	"github.com/go-logr/logr"
 	vault "github.com/hashicorp/vault/api"
 	kubernetesauth "github.com/hashicorp/vault/api/auth/kubernetes"
-	clustercrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	nautescrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	kubeclient "github.com/nautes-labs/nautes/app/cluster-operator/internal/pkg/kubeclient"
 	operatorerror "github.com/nautes-labs/nautes/app/cluster-operator/pkg/error"
 	secretclient "github.com/nautes-labs/nautes/app/cluster-operator/pkg/secretclient/interface"
@@ -59,7 +58,7 @@ import (
 var requeueAfterEnvIsNotReady = time.Second * 60
 
 type KubernetesClient interface {
-	GetCluster(ctx context.Context, name, namespace string) (*nautescrd.Cluster, error)
+	GetCluster(ctx context.Context, name, namespace string) (*v1alpha1.Cluster, error)
 	GetServiceAccount(ctx context.Context, name, namespace string) (*v1.ServiceAccount, error)
 	GetSecret(ctx context.Context, name, namespace string) (*v1.Secret, error)
 	ListStatefulSets(ctx context.Context, namespace string, opts metav1.ListOptions) (*appsv1.StatefulSetList, error)
@@ -74,11 +73,11 @@ type VaultStatus struct {
 }
 
 const (
-	CONTEXT_KEY_CFG nautesctx.ContextKey = "vault.client.config"
+	ContextKeyConfig nautesctx.ContextKey = "vault.client.config"
 )
 
 func NewK8SClient(kubeconfig string) (KubernetesClient, error) {
-	var client *kubernetes.Clientset
+	var k8sClientSet *kubernetes.Clientset
 	var dclient dynamic.Interface
 	var config *rest.Config
 	var err error
@@ -92,7 +91,7 @@ func NewK8SClient(kubeconfig string) (KubernetesClient, error) {
 		return nil, err
 	}
 
-	client, err = kubernetes.NewForConfig(config)
+	k8sClientSet, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +102,7 @@ func NewK8SClient(kubeconfig string) (KubernetesClient, error) {
 	}
 
 	return &kubeclient.K8SClient{
-		Clientset: *client,
+		Clientset: *k8sClientSet,
 		Dynamic:   dclient,
 	}, nil
 }
@@ -124,28 +123,27 @@ type VaultClient struct {
 
 type InitOpt func(vs *VaultClient) error
 
-func NewVaultClient(ctx context.Context, configs *configs.Config, k8sClient client.Client) (secretclient.SecretClient, error) {
-	return NewVaultClientWithOpts(ctx, configs, func(vs *VaultClient) error {
+func NewVaultClient(ctx context.Context, cfg *configs.Config, k8sClient client.Client) (secretclient.SecretClient, error) {
+	return NewVaultClientWithOpts(ctx, cfg, func(vs *VaultClient) error {
 		vs.Client = k8sClient
 		return nil
 	})
 }
 
-func NewVaultClientWithOpts(ctx context.Context, configs *configs.Config, opts ...InitOpt) (*VaultClient, error) {
+func NewVaultClientWithOpts(ctx context.Context, cfg *configs.Config, opts ...InitOpt) (*VaultClient, error) {
 	vs := &VaultClient{}
 
 	for _, init := range opts {
 		if err := init(vs); err != nil {
 			return nil, err
 		}
-
 	}
 
 	vs.ctx = ctx
 	vs.log = log.FromContext(ctx)
 
 	if vs.Vault == nil {
-		vaultClient, err := newVaultClient(configs.Secret.Vault, configs.Secret.OperatorName["Cluster"])
+		vaultClient, err := newVaultClient(cfg.Secret.Vault, cfg.Secret.OperatorName["Cluster"])
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +151,7 @@ func NewVaultClientWithOpts(ctx context.Context, configs *configs.Config, opts .
 	}
 
 	if vs.VaultProxy == nil && vs.VaultAuth == nil && vs.VaultAuthGrant == nil {
-		secProxy, authProxy, authGrantProxy, err := newVProxyClient(configs.Secret.Vault.ProxyAddr, loadcert.NautesDefaultCertsPath)
+		secProxy, authProxy, authGrantProxy, err := newVProxyClient(cfg.Secret.Vault.ProxyAddr, loadcert.NautesDefaultCertsPath)
 		if err != nil {
 			return nil, err
 		}
@@ -166,13 +164,13 @@ func NewVaultClientWithOpts(ctx context.Context, configs *configs.Config, opts .
 		vs.GetKubeClient = NewK8SClient
 	}
 
-	vs.TenantAuthName = configs.Secret.Vault.MountPath
-	vs.Configs = configs
+	vs.TenantAuthName = cfg.Secret.Vault.MountPath
+	vs.Configs = cfg
 
 	return vs, nil
 }
 
-func (vc *VaultClient) createSecret(cluster *nautescrd.Cluster) error {
+func (vc *VaultClient) createSecret(cluster *v1alpha1.Cluster) error {
 	if cluster == nil {
 		return nil
 	}
@@ -189,7 +187,8 @@ func (vc *VaultClient) createSecret(cluster *nautescrd.Cluster) error {
 		return err
 	}
 	vc.log.V(1).Info("creating secret in vault", "secret path", clusterMeta.SecretPath)
-	sec, err := vc.Vault.KVv2("cluster").Get(context.Background(), clusterMeta.SecretPath)
+	// If secret not found err will not be nil. So ignor err, check sec is nil or not.
+	sec, _ := vc.Vault.KVv2("cluster").Get(context.Background(), clusterMeta.SecretPath)
 	if sec != nil {
 		if _, ok := sec.Data["kubeconfig"]; ok {
 			if sec.Data["kubeconfig"] == kubeconfig {
@@ -197,6 +196,7 @@ func (vc *VaultClient) createSecret(cluster *nautescrd.Cluster) error {
 			}
 		}
 	}
+
 	_, err = vc.VaultProxy.CreateCluster(context.Background(), clusterRequest)
 	if err != nil {
 		return err
@@ -205,7 +205,7 @@ func (vc *VaultClient) createSecret(cluster *nautescrd.Cluster) error {
 	return nil
 }
 
-func (vc *VaultClient) deleteSecret(cluster *nautescrd.Cluster) error {
+func (vc *VaultClient) deleteSecret(cluster *v1alpha1.Cluster) error {
 	if cluster == nil {
 		return nil
 	}
@@ -227,7 +227,7 @@ func (vc *VaultClient) deleteSecret(cluster *nautescrd.Cluster) error {
 	return nil
 }
 
-func (vc *VaultClient) getSecretMeta(cluster *nautescrd.Cluster) (*vault.KVMetadata, error) {
+func (vc *VaultClient) getSecretMeta(cluster *v1alpha1.Cluster) (*vault.KVMetadata, error) {
 	clusterRequest := getClusterRequest(*cluster)
 	clusterMeta, err := clusterRequest.ConvertRequest()
 	if err != nil {
@@ -241,7 +241,7 @@ func (vc *VaultClient) getSecretMeta(cluster *nautescrd.Cluster) (*vault.KVMetad
 	return meta, nil
 }
 
-func (vc *VaultClient) createAuth(cluster *nautescrd.Cluster) error {
+func (vc *VaultClient) createAuth(cluster *v1alpha1.Cluster) error {
 	if cluster == nil {
 		return nil
 	}
@@ -286,7 +286,7 @@ func (vc *VaultClient) createAuth(cluster *nautescrd.Cluster) error {
 	return nil
 }
 
-func (vc *VaultClient) disableAuth(cluster *nautescrd.Cluster) error {
+func (vc *VaultClient) disableAuth(cluster *v1alpha1.Cluster) error {
 	if cluster == nil {
 		return nil
 	}
@@ -309,7 +309,7 @@ func (vc *VaultClient) disableAuth(cluster *nautescrd.Cluster) error {
 	return nil
 }
 
-func (vc *VaultClient) createRole(cluster *nautescrd.Cluster) error {
+func (vc *VaultClient) createRole(cluster *v1alpha1.Cluster) error {
 	if cluster == nil {
 		return nil
 	}
@@ -355,7 +355,7 @@ func (ca *clusterAccountKubeconfig) GetAccount() *vaultproxyv1.ClusterAccount {
 	}
 }
 
-func getClusterRequest(cluster nautescrd.Cluster, accounts ...clusterAccount) *vaultproxyv1.ClusterRequest {
+func getClusterRequest(cluster v1alpha1.Cluster, accounts ...clusterAccount) *vaultproxyv1.ClusterRequest {
 	var clusterAccount *vaultproxyv1.ClusterAccount
 	for _, account := range accounts {
 		clusterAccount = account.GetAccount()
@@ -375,7 +375,7 @@ func getClusterRequest(cluster nautescrd.Cluster, accounts ...clusterAccount) *v
 
 type vaultAuthOptions func(authReq *vaultproxyv1.AuthRequest) error
 
-func getAuthRequest(cluster *nautescrd.Cluster, auths ...vaultAuthOptions) (*vaultproxyv1.AuthRequest, error) {
+func getAuthRequest(cluster *v1alpha1.Cluster, auths ...vaultAuthOptions) (*vaultproxyv1.AuthRequest, error) {
 	authReq := &vaultproxyv1.AuthRequest{
 		ClusterName: cluster.Name,
 		AuthType:    "kubernetes",
@@ -391,15 +391,15 @@ func getAuthRequest(cluster *nautescrd.Cluster, auths ...vaultAuthOptions) (*vau
 	return authReq, nil
 }
 
-func getGrantRequest(ctx context.Context, cluster nautescrd.Cluster, authName string) (*vaultproxyv1.AuthroleClusterPolicyRequest, error) {
-	cfg, err := nautesctx.FromConfigContext(ctx, CONTEXT_KEY_CFG)
+func getGrantRequest(ctx context.Context, cluster v1alpha1.Cluster, authName string) (*vaultproxyv1.AuthroleClusterPolicyRequest, error) {
+	cfg, err := nautesctx.FromConfigContext(ctx, ContextKeyConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	roleName, ok := cfg.Secret.OperatorName[ROLE_NAME_KEY_RUNTIME]
+	roleName, ok := cfg.Secret.OperatorName[RoleNameKeyRuntime]
 	if !ok {
-		return nil, ErrorRoleNameNotFound(ROLE_NAME_KEY_RUNTIME)
+		return nil, ErrorRoleNameNotFound(RoleNameKeyRuntime)
 	}
 	return &vaultproxyv1.AuthroleClusterPolicyRequest{
 		ClusterName: authName,
@@ -413,7 +413,7 @@ func getGrantRequest(ctx context.Context, cluster nautescrd.Cluster, authName st
 	}, nil
 }
 
-func (vc *VaultClient) grantClusterPermission(ctx context.Context, cluster *nautescrd.Cluster, authName string) error {
+func (vc *VaultClient) grantClusterPermission(ctx context.Context, cluster *v1alpha1.Cluster, authName string) error {
 	if cluster == nil {
 		return nil
 	}
@@ -435,7 +435,7 @@ func (vc *VaultClient) grantClusterPermission(ctx context.Context, cluster *naut
 	return nil
 }
 
-func (vc *VaultClient) revokeClusterPermission(ctx context.Context, cluster *nautescrd.Cluster, authName string) error {
+func (vc *VaultClient) revokeClusterPermission(ctx context.Context, cluster *v1alpha1.Cluster, authName string) error {
 	if cluster == nil {
 		return nil
 	}
@@ -459,18 +459,18 @@ func (vc *VaultClient) revokeClusterPermission(ctx context.Context, cluster *nau
 	return nil
 }
 
-func (vc *VaultClient) grantTenantPermission(ctx context.Context, cluster *clustercrd.Cluster, authName string) error {
+func (vc *VaultClient) grantTenantPermission(ctx context.Context, cluster *v1alpha1.Cluster, authName string) error {
 	if cluster == nil {
 		return nil
 	}
 
-	cfg, err := nautesctx.FromConfigContext(ctx, CONTEXT_KEY_CFG)
+	cfg, err := nautesctx.FromConfigContext(ctx, ContextKeyConfig)
 	if err != nil {
 		return err
 	}
-	roleName, ok := cfg.Secret.OperatorName[ROLE_NAME_KEY_ARGO]
+	roleName, ok := cfg.Secret.OperatorName[RoleNameKeyArgo]
 	if !ok {
-		return ErrorRoleNameNotFound(ROLE_NAME_KEY_ARGO)
+		return ErrorRoleNameNotFound(RoleNameKeyArgo)
 	}
 	tenantCodeRepoID, err := vc.getTenantRepoID(ctx)
 	if err != nil {
@@ -490,11 +490,11 @@ func (vc *VaultClient) grantTenantPermission(ctx context.Context, cluster *clust
 	return err
 }
 
-func (vc *VaultClient) GetKubeConfig(ctx context.Context, cluster *nautescrd.Cluster) (string, error) {
+func (vc *VaultClient) GetKubeConfig(_ context.Context, cluster *v1alpha1.Cluster) (string, error) {
 	return vc.getKubeConfig(*cluster)
 }
 
-func (vc *VaultClient) getKubeConfig(cluster nautescrd.Cluster) (string, error) {
+func (vc *VaultClient) getKubeConfig(cluster v1alpha1.Cluster) (string, error) {
 	clusterRequest := getClusterRequest(cluster)
 	clusterMeta, err := clusterRequest.ConvertRequest()
 	if err != nil {
@@ -514,7 +514,7 @@ func (vc *VaultClient) getKubeConfig(cluster nautescrd.Cluster) (string, error) 
 // *. Get vcluster secret from host cluster
 // *. Update vcluster host path
 // *. Return vcluster's kubeconfig string
-func (vc *VaultClient) getVClusterKubeConfig(cluster nautescrd.Cluster) (string, error) {
+func (vc *VaultClient) getVClusterKubeConfig(cluster v1alpha1.Cluster) (string, error) {
 	currentClient, err := vc.GetKubeClient("")
 	if err != nil {
 		return "", err
@@ -564,17 +564,16 @@ func (vc *VaultClient) getVClusterKubeConfig(cluster nautescrd.Cluster) (string,
 		return "", err
 	}
 	return string(newKubeconfig), nil
-
 }
 
 func (vc *VaultClient) getTenantRepoID(ctx context.Context) (string, error) {
-	cfg, err := nautesctx.FromConfigContext(ctx, CONTEXT_KEY_CFG)
+	cfg, err := nautesctx.FromConfigContext(ctx, ContextKeyConfig)
 	if err != nil {
 		return "", err
 	}
 
-	lables := map[string]string{nautescrd.LABEL_TENANT_MANAGEMENT: cfg.Nautes.TenantName}
-	coderepos := &nautescrd.CodeRepoList{}
+	lables := map[string]string{v1alpha1.LABEL_TENANT_MANAGEMENT: cfg.Nautes.TenantName}
+	coderepos := &v1alpha1.CodeRepoList{}
 	listOpts := []client.ListOption{
 		client.MatchingLabels(lables),
 		client.InNamespace(cfg.Nautes.Namespace),
@@ -592,7 +591,6 @@ func (vc *VaultClient) getTenantRepoID(ctx context.Context) (string, error) {
 }
 
 func (vc *VaultClient) getVaultToken(kubeconfig string) (string, error) {
-
 	vaultNamespace := vc.Configs.Secret.Vault.Namesapce
 	vaultServiceAccount := vc.Configs.Secret.Vault.ServiceAccount
 	k8sClient, err := vc.GetKubeClient(kubeconfig)
@@ -622,20 +620,21 @@ func newVaultClient(vaultConfig configs.Vault, roleName string) (*vault.Client, 
 		config.HttpClient = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
+					MinVersion: tls.VersionTLS12,
+					RootCAs:    caCertPool,
 				},
 			},
 		}
 	}
 
-	client, err := vault.NewClient(config)
+	vaultClient, err := vault.NewClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize Vault client: %w", err)
 	}
 
 	if vaultConfig.Token != "" {
-		client.SetToken(vaultConfig.Token)
-		return client, nil
+		vaultClient.SetToken(vaultConfig.Token)
+		return vaultClient, nil
 	}
 
 	var vaultOpts []kubernetesauth.LoginOption
@@ -649,14 +648,14 @@ func newVaultClient(vaultConfig configs.Vault, roleName string) (*vault.Client, 
 		return nil, fmt.Errorf("unable to initialize Kubernetes auth method: %w", err)
 	}
 
-	authInfo, err := client.Auth().Login(context.Background(), k8sAuth)
+	authInfo, err := vaultClient.Auth().Login(context.Background(), k8sAuth)
 	if err != nil {
 		return nil, fmt.Errorf("unable to log in with Kubernetes auth: %w", err)
 	}
 	if authInfo == nil {
 		return nil, fmt.Errorf("no auth info was returned after login")
 	}
-	return client, nil
+	return vaultClient, nil
 }
 
 func (vc *VaultClient) Logout() {
@@ -671,8 +670,8 @@ const (
 	EnvVaultProxyClientKeypairPath = "VAULT_PROXY_CLIENT_KEYPAIR_PATH"
 )
 
-func newVProxyClient(url, PKIPath string) (vaultproxyv1.SecretHTTPClient, vaultproxyv1.AuthHTTPClient, vaultproxyv1.AuthGrantHTTPClient, error) {
-	caCertPool, err := loadcert.GetCertPool(loadcert.CertPath(PKIPath))
+func newVProxyClient(url, certPath string) (vaultproxyv1.SecretHTTPClient, vaultproxyv1.AuthHTTPClient, vaultproxyv1.AuthGrantHTTPClient, error) {
+	caCertPool, err := loadcert.GetCertPool(loadcert.CertPath(certPath))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -690,6 +689,7 @@ func newVProxyClient(url, PKIPath string) (vaultproxyv1.SecretHTTPClient, vaultp
 	}
 
 	tlsConfig := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
 		RootCAs:      caCertPool,
 		Certificates: []tls.Certificate{cert},
 	}

@@ -23,6 +23,7 @@ import (
 
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	kubernetes "github.com/nautes-labs/nautes/app/api-server/pkg/kubernetes"
@@ -31,7 +32,11 @@ import (
 	utilstring "github.com/nautes-labs/nautes/app/api-server/util/string"
 )
 
-func NewClusterManagement(file FileOperation, nodestree nodestree.NodesTree) (ClusterRegistrationOperator, error) {
+const (
+	Dex = "dex"
+)
+
+func NewClusterManagement(file FileOperation, nodes nodestree.NodesTree) (ClusterRegistrationOperator, error) {
 	clusterComponentConfig, err := clusterconfig.NewClusterComponentConfig()
 	if err != nil {
 		return nil, err
@@ -45,7 +50,7 @@ func NewClusterManagement(file FileOperation, nodestree nodestree.NodesTree) (Cl
 	return &ClusterManagement{
 		clusterComponentConfig: clusterComponentConfig,
 		file:                   file,
-		nodestree:              nodestree,
+		nodestree:              nodes,
 		k8sClient:              k8sClient,
 	}, nil
 }
@@ -131,7 +136,9 @@ func (c *ClusterManagement) SaveCluster(params *ClusterRegistrationParams) error
 		return err
 	}
 
-	defer c.file.DeleteDir(clusterTemplateDir)
+	defer func() {
+		_ = c.file.DeleteDir(clusterTemplateDir)
+	}()
 
 	nodes, err := c.loadTemplateNodesTree(clusterTemplateDir)
 	if err != nil {
@@ -146,17 +153,15 @@ func (c *ClusterManagement) SaveCluster(params *ClusterRegistrationParams) error
 		return err
 	}
 
-	if err := c.createClusterResource(cluster, tenantRepoDir); err != nil {
-		return err
-	}
-
 	defer c.cleanExcessFiles(clusters, cluster, tenantRepoDir)
 
-	if err = c.createDexCallback(params); err != nil {
+	if err := c.createDexCallback(params, tenantRepoDir); err != nil {
 		return err
 	}
 
-	return nil
+	err = c.createClusterResource(cluster, tenantRepoDir)
+
+	return err
 }
 
 func (c *ClusterManagement) RemoveCluster(params *ClusterRegistrationParams) error {
@@ -165,7 +170,7 @@ func (c *ClusterManagement) RemoveCluster(params *ClusterRegistrationParams) err
 	var tenantRepoDir = params.Repo.TenantRepoDir
 	var err error
 
-	clusters, err = c.removeCluster(cluster, tenantRepoDir)
+	clusters, err = c.removeClusterByName(cluster, tenantRepoDir)
 	if err != nil {
 		return err
 	}
@@ -197,7 +202,9 @@ func (c *ClusterManagement) RemoveCluster(params *ClusterRegistrationParams) err
 		return err
 	}
 
-	defer c.file.DeleteDir(clusterTemplateDir)
+	defer func() {
+		_ = c.file.DeleteDir(clusterTemplateDir)
+	}()
 
 	nodes, err := c.loadTemplateNodesTree(clusterTemplateDir)
 	if err != nil {
@@ -222,11 +229,9 @@ func (c *ClusterManagement) RemoveCluster(params *ClusterRegistrationParams) err
 
 	defer c.cleanExcessFiles(params.Clusters, cluster, tenantRepoDir)
 
-	if err = c.removeDexCallback(params); err != nil {
-		return err
-	}
+	err = c.removeDexCallback(params)
 
-	return nil
+	return err
 }
 
 // cleanExcessFiles It's a side effect function, Don't worry about mistakes.
@@ -327,18 +332,18 @@ func (c *ClusterManagement) isDeleteHostCluster(clusters []resourcev1alpha1.Clus
 }
 
 func (c *ClusterManagement) createClusterResource(cluster *resourcev1alpha1.Cluster, tenantRepoDir string) error {
-	bytes, err := json.Marshal(cluster)
+	data, err := json.Marshal(cluster)
 	if err != nil {
 		return err
 	}
 
-	bytes, err = yaml.JSONToYAML(bytes)
+	data, err = yaml.JSONToYAML(data)
 	if err != nil {
 		return err
 	}
 
-	filePath := fmt.Sprintf("%s/%s.yaml", concatClustersDir(tenantRepoDir), cluster.Name)
-	return c.file.WriteFile(filePath, bytes)
+	clusterResourcePath := fmt.Sprintf("%s/%s.yaml", concatClustersDir(tenantRepoDir), cluster.Name)
+	return c.file.WriteFile(clusterResourcePath, data)
 }
 
 // getComponentInstallPaths is a method that retrieves the installation paths of components in a cluster.
@@ -479,7 +484,7 @@ func (c *ClusterManagement) getClusterTemplateDir() string {
 }
 
 func (c *ClusterManagement) writeTemporaryFile(filePath string, clusterTemplateDir, dir string) error {
-	bytes, err := c.file.ReadFile(filePath)
+	data, err := c.file.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -490,7 +495,7 @@ func (c *ClusterManagement) writeTemporaryFile(filePath string, clusterTemplateD
 		return err
 	}
 
-	err = c.file.WriteFile(path, bytes)
+	err = c.file.WriteFile(path, data)
 	if err != nil {
 		return err
 	}
@@ -512,7 +517,7 @@ func (c *ClusterManagement) appendCluster(cluster *resourcev1alpha1.Cluster, ten
 	return clusters, nil
 }
 
-func (c *ClusterManagement) removeCluster(cluster *resourcev1alpha1.Cluster, tenantRepoDir string) ([]resourcev1alpha1.Cluster, error) {
+func (c *ClusterManagement) removeClusterByName(cluster *resourcev1alpha1.Cluster, tenantRepoDir string) ([]resourcev1alpha1.Cluster, error) {
 	clusters, err := c.getClusters(tenantRepoDir)
 	if err != nil {
 		return nil, err
@@ -537,13 +542,13 @@ func (c *ClusterManagement) getClusters(tenantRepoDir string) ([]resourcev1alpha
 	}
 
 	for _, filePath := range paths {
-		bytes, err := c.file.ReadFile(filePath)
+		data, err := c.file.ReadFile(filePath)
 		if err != nil {
 			return nil, err
 		}
 
 		cluster := resourcev1alpha1.Cluster{}
-		if err = yaml.Unmarshal(bytes, &cluster); err == nil && cluster.Name != "" {
+		if err = yaml.Unmarshal(data, &cluster); err == nil && cluster.Name != "" {
 			clusters = append(clusters, cluster)
 		}
 	}
@@ -552,64 +557,138 @@ func (c *ClusterManagement) getClusters(tenantRepoDir string) ([]resourcev1alpha
 }
 
 // createDexCallback Default to use dex as OAuth authentication service.
-func (c *ClusterManagement) createDexCallback(parms *ClusterRegistrationParams) error {
-	var cluster = parms.Cluster
+func (c *ClusterManagement) createDexCallback(params *ClusterRegistrationParams, tenantRepoDir string) error {
+	var cluster = params.Cluster
 
-	if !IsHostCluser(cluster) {
-		url, err := c.GetDeploymentRedirectURI(parms)
+	cm, err := c.k8sClient.GetConfigMap(client.ObjectKey{Namespace: Dex, Name: Dex})
+	if err != nil {
+		return err
+	}
+
+	// Trying to fix runtime authorization.
+	if IsHostCluser(cluster) {
+		subClusters, err := c.getSubClusterByHostCluster(tenantRepoDir, cluster.Name)
 		if err != nil {
 			return err
 		}
 
-		err = c.AppendDexRedirectURIs(url)
+		for _, cluster := range subClusters {
+			copyParams := *params
+			copyParams.Cluster = cluster
+			copyParams.HostCluster = params.Cluster
+
+			deployAddress, err := c.getDeploymentRedirectURI(&copyParams)
+			if err != nil {
+				return err
+			}
+
+			err = c.appendDexRedirectURIs(cm, deployAddress)
+			if err != nil {
+				return err
+			}
+
+			hostCluster, err := c.getExistCluster(tenantRepoDir, params.Cluster.Name)
+			if err != nil {
+				return err
+			}
+			copyParams.HostCluster = hostCluster
+			oldDeployAddress, err := c.getExistDeploymentRedirectURI(&copyParams, tenantRepoDir, cluster.Name)
+			if err != nil {
+				return err
+			}
+
+			if oldDeployAddress != "" && deployAddress != oldDeployAddress {
+				if err := c.removeDexRedirectURIs(cm, oldDeployAddress); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		deployAddress, err := c.getDeploymentRedirectURI(params)
 		if err != nil {
 			return err
+		}
+
+		err = c.appendDexRedirectURIs(cm, deployAddress)
+		if err != nil {
+			return err
+		}
+
+		oldDeployAddress, err := c.getExistDeploymentRedirectURI(params, tenantRepoDir, cluster.Name)
+		if err != nil {
+			return err
+		}
+
+		if oldDeployAddress != "" && deployAddress != oldDeployAddress {
+			if err := c.removeDexRedirectURIs(cm, oldDeployAddress); err != nil {
+				return err
+			}
 		}
 	}
 
 	if IsPhysical(cluster) {
-		url, err := c.GetOAuthProxyRedirectURI(parms)
+		oauthProxyAdress, err := c.getOAuthProxyRedirectURI(params)
 		if err != nil {
 			return err
 		}
 
-		err = c.AppendDexRedirectURIs(url)
+		err = c.appendDexRedirectURIs(cm, oauthProxyAdress)
 		if err != nil {
 			return err
+		}
+
+		oldOauthProxyAddress, err := c.getExistOAuthProxyRedirectURI(params, tenantRepoDir, cluster.Name)
+		if err != nil {
+			return err
+		}
+
+		if oldOauthProxyAddress != "" && oauthProxyAdress != oldOauthProxyAddress {
+			if err = c.removeDexRedirectURIs(cm, oldOauthProxyAddress); err != nil {
+				return err
+			}
 		}
 	}
 
-	return nil
+	err = c.k8sClient.UpdateConfigMap(cm)
+
+	return err
 }
 
-func (c *ClusterManagement) removeDexCallback(parms *ClusterRegistrationParams) error {
-	var cluster = parms.Cluster
+func (c *ClusterManagement) removeDexCallback(params *ClusterRegistrationParams) error {
+	var cluster = params.Cluster
+
+	cm, err := c.k8sClient.GetConfigMap(client.ObjectKey{Namespace: Dex, Name: Dex})
+	if err != nil {
+		return err
+	}
 
 	if !IsHostCluser(cluster) {
-		url, err := c.GetDeploymentRedirectURI(parms)
+		url, err := c.getDeploymentRedirectURI(params)
 		if err != nil {
 			return err
 		}
 
-		err = c.RemoveDexRedirectURIs(url)
+		err = c.removeDexRedirectURIs(cm, url)
 		if err != nil {
 			return err
 		}
 	}
 
 	if IsPhysical(cluster) {
-		url, err := c.GetOAuthProxyRedirectURI(parms)
+		oauthProxyURL, err := c.getOAuthProxyRedirectURI(params)
 		if err != nil {
 			return err
 		}
 
-		err = c.RemoveDexRedirectURIs(url)
+		err = c.removeDexRedirectURIs(cm, oauthProxyURL)
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
+	err = c.k8sClient.UpdateConfigMap(cm)
+
+	return err
 }
 
 func (c *ClusterManagement) removeClusterResource(cluster *resourcev1alpha1.Cluster, tenantRepoDir string) error {
@@ -619,9 +698,9 @@ func (c *ClusterManagement) removeClusterResource(cluster *resourcev1alpha1.Clus
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
-		} else {
-			return err
 		}
+
+		return err
 	}
 
 	return c.file.DeleteFile(filePath)
@@ -633,11 +712,9 @@ func (c *ClusterManagement) updateTenantConfiguration(nodes *nodestree.Node, clu
 		return err
 	}
 
-	if err := c.writeConfigByNodes(nodes); err != nil {
-		return err
-	}
+	err = c.writeConfigByNodes(nodes)
 
-	return nil
+	return err
 }
 
 func (c *ClusterManagement) refreshNodePath(cluster *resourcev1alpha1.Cluster, nodes *nodestree.Node, repo *RepositoriesInfo, hostCluster *resourcev1alpha1.Cluster) error {
@@ -764,9 +841,5 @@ func (c *ClusterManagement) renderTemplate(nodes *nodestree.Node, params *Cluste
 		}
 	}
 
-	return nil
-}
-
-func (c *ClusterManagement) SaveClusterRuntime(nodes *nodestree.Node) error {
 	return nil
 }

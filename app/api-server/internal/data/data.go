@@ -39,7 +39,7 @@ const (
 // ProviderSet is data providers.
 var ProviderSet = wire.NewSet(NewData, NewCodeRepo, NewSecretRepo, NewGitRepo, NewDexRepo, NewKubernetes)
 
-func NewData(logger log.Logger, configs *nautesconfigs.Config) (func(), error) {
+func NewData(logger log.Logger, _ *nautesconfigs.Config) (func(), error) {
 	cleanup := func() {
 		log.NewHelper(logger).Info("closing the data resources")
 	}

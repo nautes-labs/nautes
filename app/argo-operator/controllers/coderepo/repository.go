@@ -42,7 +42,7 @@ func (r *CodeRepoReconciler) getRepository(url string) (*codeRepoInfo, error) {
 	}, nil
 }
 
-func (r *CodeRepoReconciler) updateRepository(ctx context.Context, repoName, secret, url string) error {
+func (r *CodeRepoReconciler) updateRepository(_ context.Context, repoName, secret, url string) error {
 	err := r.Argocd.Auth().Login()
 	if err != nil {
 		return err
@@ -56,16 +56,14 @@ func (r *CodeRepoReconciler) updateRepository(ctx context.Context, repoName, sec
 	return nil
 }
 
-func (r *CodeRepoReconciler) createRepository(ctx context.Context, repoName, secret, url string) error {
+func (r *CodeRepoReconciler) createRepository(_ context.Context, repoName, secret, url string) error {
 	if err := r.Argocd.Auth().Login(); err != nil {
 		return err
 	}
 
-	if err := r.Argocd.CodeRepo().CreateRepository(repoName, secret, url); err != nil {
-		return err
-	}
+	err := r.Argocd.CodeRepo().CreateRepository(repoName, secret, url)
 
-	return nil
+	return err
 }
 
 func (r *CodeRepoReconciler) deleteRepository(url string) error {
@@ -73,9 +71,7 @@ func (r *CodeRepoReconciler) deleteRepository(url string) error {
 		return err
 	}
 
-	if err := r.Argocd.CodeRepo().DeleteRepository(url); err != nil {
-		return err
-	}
+	err := r.Argocd.CodeRepo().DeleteRepository(url)
 
-	return nil
+	return err
 }

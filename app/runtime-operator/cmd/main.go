@@ -24,7 +24,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	nautesv1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -51,7 +51,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(nautesv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 
 	syncerv2.NewFunctionMapDeployment["argocd"] = argocd.NewArgoCD
 	syncerv2.NewFunctionMapMultiTenant["hnc"] = hnc.NewHNC
@@ -95,19 +95,30 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepo{}, nautesv1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
+
+	ctx := context.TODO()
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.CodeRepo{}, v1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
 		return []string{obj.GetName()}
-	})
-	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.Cluster{}, nautesv1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
+	}); err != nil {
+		setupLog.Error(err, "add index field failed")
+		os.Exit(1)
+	}
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.Cluster{}, v1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
 		return []string{obj.GetName()}
-	})
-	mgr.GetFieldIndexer().IndexField(context.Background(), &nautesv1alpha1.CodeRepoBinding{}, nautesv1alpha1.SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {
-		binding := obj.(*nautesv1alpha1.CodeRepoBinding)
+	}); err != nil {
+		setupLog.Error(err, "add index field failed")
+		os.Exit(1)
+	}
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.CodeRepoBinding{}, v1alpha1.SelectFieldCodeRepoBindingProductAndRepo, func(obj client.Object) []string {
+		binding := obj.(*v1alpha1.CodeRepoBinding)
 		if binding.Spec.Product == "" || binding.Spec.CodeRepo == "" {
 			return nil
 		}
 		return []string{fmt.Sprintf("%s/%s", binding.Spec.Product, binding.Spec.CodeRepo)}
-	})
+	}); err != nil {
+		setupLog.Error(err, "add index field failed")
+		os.Exit(1)
+	}
 
 	if err = (&controllers.DeploymentRuntimeReconciler{
 		Client: mgr.GetClient(),

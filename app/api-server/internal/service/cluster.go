@@ -137,7 +137,12 @@ func (s *ClusterService) SaveCluster(ctx context.Context, req *clusterv1.SaveReq
 		Vcluster: vcluster,
 	}
 
-	ctx = biz.SetResourceContext(ctx, "", biz.SaveMethod, "", "", nodestree.Cluster, req.ClusterName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.SaveMethod,
+		ResourceKind: nodestree.Cluster,
+		ResourceName: req.ClusterName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 	if err := s.cluster.SaveCluster(ctx, param, kubeconfig); err != nil {
 		return nil, err
 	}
@@ -148,7 +153,12 @@ func (s *ClusterService) SaveCluster(ctx context.Context, req *clusterv1.SaveReq
 }
 
 func (s *ClusterService) DeleteCluster(ctx context.Context, req *clusterv1.DeleteRequest) (*clusterv1.DeleteReply, error) {
-	ctx = biz.SetResourceContext(ctx, "", biz.DeleteMethod, "", "", nodestree.Cluster, req.ClusterName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.Cluster,
+		ResourceName: req.ClusterName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	err := s.cluster.DeleteCluster(ctx, req.ClusterName)
 	if err != nil {
@@ -323,7 +333,7 @@ func convertStringToValue(s interface{}) (*structpb.Value, error) {
 	return structpb.NewValue(s)
 }
 
-// convertStructToValue converts a struct to a structpb.Value by marshalling and unmarshalling it.
+// convertStructToValue converts a struct to a structpb.Value by marshaling and unmarshalling it.
 func convertStructToValue(s interface{}) (*structpb.Value, error) {
 	jsonBytes, err := json.Marshal(s)
 	if err != nil {
@@ -521,28 +531,29 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 	var name = field.Elem().FieldByName("Name")
 	var namespace = field.Elem().FieldByName("Namespace")
 	var additions = field.Elem().FieldByName("Additions")
+	var component *clusterv1.Component
+	var err error
 
 	if name.String() == "" {
-		defaultComponent, err := s.getDefaultComponent(componentType, req)
+		component, err = s.getDefaultComponent(componentType, req)
 		if err != nil {
 			return fmt.Errorf("failed to get default component for the component type '%s'", componentType)
 		}
 
-		name.SetString(defaultComponent.Name)
-		namespace.SetString(defaultComponent.Namespace)
-
-		return nil
-	}
-
-	component, err := s.setComponentDefaults(componentType, name.String(), req)
-	if err != nil {
-		return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
-	}
-
-	if namespace.String() == "" {
+		name.SetString(component.Name)
 		namespace.SetString(component.Namespace)
+	} else {
+		component, err = s.setComponentDefaults(componentType, name.String(), req)
+		if err != nil {
+			return fmt.Errorf("failed to get %s component for the component type '%s'", name.String(), componentType)
+		}
+
+		if namespace.String() == "" {
+			namespace.SetString(component.Namespace)
+		}
 	}
 
+	// set additions
 	if additions.Len() == 0 {
 		newAdditions := reflect.ValueOf(component.Additions)
 		additions.Set(newAdditions)
@@ -552,7 +563,7 @@ func (s *ClusterService) fillDefaultFields(field reflect.Value, componentType st
 			valReflect := reflect.ValueOf(val)
 
 			result := additions.MapIndex(keyReflect)
-			fmt.Println("result: " + result.String())
+
 			if !result.IsValid() {
 				additions.SetMapIndex(keyReflect, valReflect)
 			}

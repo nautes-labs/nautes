@@ -126,8 +126,8 @@ func (db *RuntimeDataBase) cacheProductResourcesFromCluster(ctx context.Context,
 	deployRuntimeList := &v1alpha1.DeploymentRuntimeList{}
 	pipelineRuntimeList := &v1alpha1.ProjectPipelineRuntimeList{}
 
-	ObjLists := []client.ObjectList{envList, projectList, codeRepoList, deployRuntimeList, pipelineRuntimeList}
-	for _, objList := range ObjLists {
+	objLists := []client.ObjectList{envList, projectList, codeRepoList, deployRuntimeList, pipelineRuntimeList}
+	for _, objList := range objLists {
 		if err := db.k8sClient.List(ctx, objList, listOptInProductNamespace); err != nil {
 			return err
 		}
@@ -187,12 +187,12 @@ func (db *RuntimeDataBase) cachePermissionMatrix(ctx context.Context) error {
 
 func (db *RuntimeDataBase) convertCodeReposToRuntimeFormat() error {
 	for name, codeRepo := range db.CodeRepos {
-		url, err := db.GetCodeRepoURL(name)
+		codeRepoURL, err := db.GetCodeRepoURL(name)
 		if err != nil {
 			return err
 		}
 
-		codeRepo.Spec.URL = url
+		codeRepo.Spec.URL = codeRepoURL
 
 		codeRepo.ObjectMeta = metav1.ObjectMeta{
 			Name: codeRepo.Name,
@@ -217,28 +217,29 @@ func (db *RuntimeDataBase) removeIllegalReposInRuntime() {
 
 func (db *RuntimeDataBase) removeIllegalReposInPipelineRuntime() {
 	for runtimeName, runtime := range db.PipelineRuntimes {
-		project := runtime.Spec.Project
+		newRuntime := runtime.DeepCopy()
+		project := newRuntime.Spec.Project
 		repos := db.PermissionMatrix.ListCodeReposInProject(project)
 		if len(repos) == 0 {
 			delete(db.PipelineRuntimes, runtimeName)
 		}
 
 		repoSet := sets.New(repos...)
-		if !repoSet.Has(runtime.Spec.PipelineSource) {
+		if !repoSet.Has(newRuntime.Spec.PipelineSource) {
 			delete(db.PipelineRuntimes, runtimeName)
 		}
 
 		newEventSources := []v1alpha1.EventSource{}
-		for _, envSrc := range runtime.Spec.EventSources {
+		for _, envSrc := range newRuntime.Spec.EventSources {
 			if envSrc.Gitlab == nil || repoSet.Has(envSrc.Gitlab.RepoName) {
 				newEventSources = append(newEventSources, envSrc)
 			}
 		}
 
-		runtime.Spec.EventSources = newEventSources
-		removeEventSourceInPipelineRuntime(&runtime)
+		newRuntime.Spec.EventSources = newEventSources
+		removeEventSourceInPipelineRuntime(newRuntime)
 
-		db.PipelineRuntimes[runtimeName] = runtime
+		db.PipelineRuntimes[runtimeName] = *newRuntime
 	}
 }
 
@@ -294,9 +295,9 @@ func (db *RuntimeDataBase) GetCodeRepo(name string) (*v1alpha1.CodeRepo, error) 
 	return repo.DeepCopy(), nil
 }
 
-func (db *RuntimeDataBase) GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error) {
+func (db *RuntimeDataBase) GetCodeRepoByURL(codeRepoURL string) (*v1alpha1.CodeRepo, error) {
 	for _, coderepo := range db.CodeRepos {
-		if coderepo.Spec.URL == url {
+		if coderepo.Spec.URL == codeRepoURL {
 			return coderepo.DeepCopy(), nil
 		}
 	}
@@ -318,12 +319,12 @@ func (db *RuntimeDataBase) GetCodeRepoURL(name string) (string, error) {
 		return "", fmt.Errorf("code repo provider %s not found", codeRepo.Spec.CodeRepoProvider)
 	}
 
-	url, err := url.JoinPath(provider.Spec.SSHAddress, db.Product.Spec.Name, codeRepo.Spec.RepoName)
+	codeRepoURL, err := url.JoinPath(provider.Spec.SSHAddress, db.Product.Spec.Name, codeRepo.Spec.RepoName)
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s.git", url), nil
+	return fmt.Sprintf("%s.git", codeRepoURL), nil
 }
 
 func (db *RuntimeDataBase) getListOptions(opts []ListOption) *ListOptions {
@@ -428,42 +429,22 @@ func (db *RuntimeDataBase) ListUsedCodeRepos(opts ...ListOption) ([]v1alpha1.Cod
 
 	repoSet := map[string]v1alpha1.CodeRepo{}
 
-	for _, runtime := range db.DeploymentRuntimes {
-		cluster, err := db.GetClusterByRuntime(&runtime)
-		if err != nil {
-			return nil, err
-		}
-
-		if !options.MatchRequest(&runtime, cluster.Name) {
-			continue
-		}
-
-		repo, err := db.GetCodeRepo(runtime.Spec.ManifestSource.CodeRepo)
-		if err != nil {
-			return nil, err
-		}
-		repoSet[repo.Name] = *repo
+	deploymentUsedCodeRepos, err := db.listDeploymentRuntimeUsedCodeRepos(*options)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, runtime := range db.PipelineRuntimes {
-		cluster, err := db.GetClusterByRuntime(&runtime)
-		if err != nil {
-			return nil, err
-		}
+	for i, repo := range deploymentUsedCodeRepos {
+		repoSet[repo.Name] = deploymentUsedCodeRepos[i]
+	}
 
-		if !options.MatchRequest(&runtime, cluster.Name) {
-			continue
-		}
+	pipelineUsedCodeRepos, err := db.listPipelineRuntimeUsedCodeRepos(*options)
+	if err != nil {
+		return nil, err
+	}
 
-		if runtime.Spec.AdditionalResources != nil &&
-			runtime.Spec.AdditionalResources.Git != nil &&
-			runtime.Spec.AdditionalResources.Git.CodeRepo != "" {
-			repo, err := db.GetCodeRepo(runtime.Spec.AdditionalResources.Git.CodeRepo)
-			if err != nil {
-				return nil, err
-			}
-			repoSet[repo.Name] = *repo
-		}
+	for i, repo := range pipelineUsedCodeRepos {
+		repoSet[repo.Name] = pipelineUsedCodeRepos[i]
 	}
 
 	repos := make([]v1alpha1.CodeRepo, 0)
@@ -478,39 +459,72 @@ func (db *RuntimeDataBase) ListUsedCodeRepos(opts ...ListOption) ([]v1alpha1.Cod
 	return repos, nil
 }
 
-func (db *RuntimeDataBase) ListUsedURLs(opts ...ListOption) ([]string, error) {
-	options := db.getListOptions(opts)
+func (db *RuntimeDataBase) listDeploymentRuntimeUsedCodeRepos(options ListOptions) ([]v1alpha1.CodeRepo, error) {
+	repoNameSet := sets.New[string]()
+	var repos []v1alpha1.CodeRepo
+	for _, runtime := range db.DeploymentRuntimes {
+		deployRuntime := runtime.DeepCopy()
+		repoName := deployRuntime.Spec.ManifestSource.CodeRepo
+		if repoNameSet.Has(repoName) {
+			continue
+		}
 
-	repos, err := db.ListUsedCodeRepos(opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	URLs := []string{}
-	for _, runtime := range db.PipelineRuntimes {
-		cluster, err := db.GetClusterByRuntime(&runtime)
+		cluster, err := db.GetClusterByRuntime(deployRuntime)
 		if err != nil {
 			return nil, err
 		}
 
-		if !options.MatchRequest(&runtime, cluster.Name) {
+		if !options.MatchRequest(deployRuntime, cluster.Name) {
 			continue
 		}
 
-		if runtime.Spec.AdditionalResources == nil ||
-			runtime.Spec.AdditionalResources.Git == nil ||
-			runtime.Spec.AdditionalResources.Git.URL == "" {
+		repo, err := db.GetCodeRepo(repoName)
+		if err != nil {
+			return nil, err
+		}
+
+		repoNameSet.Insert(repoName)
+		repos = append(repos, *repo)
+	}
+	return repos, nil
+}
+
+func (db *RuntimeDataBase) listPipelineRuntimeUsedCodeRepos(options ListOptions) ([]v1alpha1.CodeRepo, error) {
+	repoNameSet := sets.New[string]()
+	var repos []v1alpha1.CodeRepo
+
+	for _, runtime := range db.PipelineRuntimes {
+		pipelineRuntime := runtime.DeepCopy()
+		repoName := ""
+
+		if pipelineRuntime.Spec.AdditionalResources != nil &&
+			pipelineRuntime.Spec.AdditionalResources.Git != nil &&
+			pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo != "" {
+			repoName = pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo
+		}
+		if repoName == "" || repoNameSet.Has(repoName) {
 			continue
 		}
 
-		URLs = append(URLs, runtime.Spec.AdditionalResources.Git.URL)
+		cluster, err := db.GetClusterByRuntime(pipelineRuntime)
+		if err != nil {
+			return nil, err
+		}
+
+		if !options.MatchRequest(pipelineRuntime, cluster.Name) {
+			continue
+		}
+
+		repo, err := db.GetCodeRepo(pipelineRuntime.Spec.AdditionalResources.Git.CodeRepo)
+		if err != nil {
+			return nil, err
+		}
+
+		repoNameSet.Insert(repoName)
+		repos = append(repos, *repo)
 	}
 
-	for _, repo := range repos {
-		URLs = append(URLs, repo.Spec.URL)
-	}
-
-	return URLs, nil
+	return repos, nil
 }
 
 func NewRuntimeDataSource(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Database, error) {
@@ -558,10 +572,10 @@ func getEmptyRuntimeDataSource() *RuntimeDataBase {
 func convertListToMap[T any](objs []T) map[string]T {
 	objMap := make(map[string]T)
 
-	for _, obj := range objs {
-		rst := reflect.ValueOf(&obj).MethodByName("GetName").Call(nil)
+	for i := range objs {
+		rst := reflect.ValueOf(&objs[i]).MethodByName("GetName").Call(nil)
 		name := rst[0].String()
-		objMap[name] = obj
+		objMap[name] = objs[i]
 	}
 
 	return objMap

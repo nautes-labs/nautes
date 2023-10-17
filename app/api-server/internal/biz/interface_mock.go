@@ -488,17 +488,17 @@ func (mr *MockSecretrepoMockRecorder) SaveClusterConfig(ctx, id, config interfac
 }
 
 // SaveDeployKey mocks base method.
-func (m *MockSecretrepo) SaveDeployKey(ctx context.Context, id, key, user, permission string, extendKVs map[string]string) error {
+func (m *MockSecretrepo) SaveDeployKey(ctx context.Context, data *SecretData, extendKVs map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveDeployKey", ctx, id, key, user, permission, extendKVs)
+	ret := m.ctrl.Call(m, "SaveDeployKey", ctx, data, extendKVs)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SaveDeployKey indicates an expected call of SaveDeployKey.
-func (mr *MockSecretrepoMockRecorder) SaveDeployKey(ctx, id, key, user, permission, extendKVs interface{}) *gomock.Call {
+func (mr *MockSecretrepoMockRecorder) SaveDeployKey(ctx, data, extendKVs interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveDeployKey", reflect.TypeOf((*MockSecretrepo)(nil).SaveDeployKey), ctx, id, key, user, permission, extendKVs)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveDeployKey", reflect.TypeOf((*MockSecretrepo)(nil).SaveDeployKey), ctx, data, extendKVs)
 }
 
 // SaveProjectAccessToken mocks base method.

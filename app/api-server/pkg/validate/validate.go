@@ -31,11 +31,11 @@ type validateClient struct {
 	productName          string
 }
 
-func NewValidateClient(client client.Client, nodestree nodestree.NodesTree, nodes *nodestree.Node, tenantAdminNamespace, productName string) resourcev1alpha1.ValidateClient {
-	return &validateClient{client: client, nodestree: nodestree, nodes: nodes, tenantAdminNamespace: tenantAdminNamespace, productName: productName}
+func NewValidateClient(k8sClient client.Client, nodeOperator nodestree.NodesTree, nodes *nodestree.Node, tenantAdminNamespace, productName string) resourcev1alpha1.ValidateClient {
+	return &validateClient{client: k8sClient, nodestree: nodeOperator, nodes: nodes, tenantAdminNamespace: tenantAdminNamespace, productName: productName}
 }
 
-func (v *validateClient) GetCodeRepo(ctx context.Context, repoName string) (*resourcev1alpha1.CodeRepo, error) {
+func (v *validateClient) GetCodeRepo(_ context.Context, repoName string) (*resourcev1alpha1.CodeRepo, error) {
 	node := v.nodestree.GetNode(v.nodes, nodestree.CodeRepo, repoName)
 	if node == nil {
 		return nil, fmt.Errorf("node %s not found", repoName)
@@ -47,7 +47,7 @@ func (v *validateClient) GetCodeRepo(ctx context.Context, repoName string) (*res
 	return codeRepo, nil
 }
 
-func (v *validateClient) GetEnvironment(ctx context.Context, productName, name string) (*resourcev1alpha1.Environment, error) {
+func (v *validateClient) GetEnvironment(_ context.Context, _, name string) (*resourcev1alpha1.Environment, error) {
 	node := v.nodestree.GetNode(v.nodes, nodestree.Environment, name)
 	if node == nil {
 		return nil, fmt.Errorf("the environment %s is not found", name)
@@ -75,7 +75,7 @@ func (v *validateClient) GetCluster(ctx context.Context, name string) (*resource
 	return cluster, nil
 }
 
-func (v *validateClient) ListCodeRepoBindings(ctx context.Context, productName, repoName string) ([]resourcev1alpha1.CodeRepoBinding, error) {
+func (v *validateClient) ListCodeRepoBindings(_ context.Context, _, repoName string) ([]resourcev1alpha1.CodeRepoBinding, error) {
 	nodes := nodestree.ListsResourceNodes(*v.nodes, nodestree.CodeRepoBinding)
 
 	items := make([]resourcev1alpha1.CodeRepoBinding, 0)

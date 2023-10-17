@@ -44,9 +44,8 @@ const (
 )
 
 var (
-	warningTypeProductNotFound   warningType = "ProductNotFound"
-	warningTypeProductNotMatch   warningType = "ProductNotMatch"
-	warningTypeUnclassifiedError warningType = "UnclassifiedError"
+	warningTypeProductNotFound warningType = "ProductNotFound"
+	warningTypeProductNotMatch warningType = "ProductNotMatch"
 )
 
 // ClusterReconciler reconciles a Cluster object
@@ -123,7 +122,7 @@ func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 
 		products := []string{}
-		for productName, _ := range productMap {
+		for productName := range productMap {
 			products = append(products, productName)
 		}
 
@@ -165,15 +164,15 @@ func (r *ClusterReconciler) findClusterForProduct(obj client.Object) []reconcile
 	}
 
 	clusters := make([]reconcile.Request, len(clusterList.Items))
-	for i, cluster := range clusterList.Items {
-		clusters[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cluster)}
+	for i := range clusterList.Items {
+		clusters[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&clusterList.Items[i])}
 	}
 
 	return clusters
 }
 
 func (r *ClusterReconciler) setCondition(cluster *nautescrd.Cluster, err error) {
-	condition := metav1.Condition{}
+	var condition metav1.Condition
 	if err != nil {
 		condition = metav1.Condition{
 			Type:    clusterConditionTypeProductInfoUpdated,
@@ -241,7 +240,7 @@ func (r *productUpdater) setProductIDMap(ctx context.Context, cluster *nautescrd
 	}
 
 	for productName := range products {
-		var warningError ClusterUpdateError
+		var warningError clusterUpdateError
 
 		productID, ok := cluster.Status.ProductIDMap[productName]
 		if !ok {
@@ -377,13 +376,13 @@ func (p warningProducts) GetWarnings() []nautescrd.Warning {
 	return warnings
 }
 
-type ClusterUpdateError struct {
+type clusterUpdateError struct {
 	error
 	warningType warningType
 }
 
 func NewClusterUpdateError(err error, warningType warningType) error {
-	return ClusterUpdateError{
+	return clusterUpdateError{
 		error:       err,
 		warningType: warningType,
 	}
@@ -402,6 +401,6 @@ func NewClusterUpdateErrorProductNotMatch(productName, productID string) error {
 	)
 }
 
-func (e ClusterUpdateError) GetWarningType() warningType {
+func (e clusterUpdateError) GetWarningType() warningType {
 	return e.warningType
 }

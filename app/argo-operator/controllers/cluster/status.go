@@ -49,11 +49,9 @@ func (r *ClusterReconciler) updateSync2ArgoStatus(ctx context.Context, spec reso
 		cluster.Status.Sync2ArgoStatus.LastSuccessTime = metav1.NewTime(time.Now())
 	}
 
-	if err = r.Status().Update(ctx, cluster); err != nil {
-		return err
-	}
+	err = r.Status().Update(ctx, cluster)
 
-	return nil
+	return err
 }
 
 func (r *ClusterReconciler) setConditionAndUpdateStatus(ctx context.Context, condition metav1.Condition) error {
@@ -79,16 +77,14 @@ func (r *ClusterReconciler) setConditionAndUpdateStatus(ctx context.Context, con
 	return nil
 }
 
-func (r *ClusterReconciler) appendFinalizerAndUpdateStaus(ctx context.Context, FinalizerName string, namespacedName types.NamespacedName) error {
+func (r *ClusterReconciler) appendFinalizerAndUpdateStaus(ctx context.Context, finalizerName string, namespacedName types.NamespacedName) error {
 	cluster, err := r.getClusterResource(ctx, namespacedName)
 	if err != nil {
 		return err
 	}
 
-	cluster.ObjectMeta.Finalizers = append(cluster.ObjectMeta.Finalizers, FinalizerName)
-	if err := r.Update(context.Background(), cluster); err != nil {
-		return err
-	}
+	cluster.ObjectMeta.Finalizers = append(cluster.ObjectMeta.Finalizers, finalizerName)
+	err = r.Update(context.Background(), cluster)
 
-	return nil
+	return err
 }

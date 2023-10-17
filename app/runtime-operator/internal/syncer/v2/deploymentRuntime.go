@@ -20,7 +20,9 @@ import (
 	"fmt"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -38,35 +40,14 @@ type DeploymentRuntimeDeployer struct {
 	usageController UsageController
 	rawCache        *runtime.RawExtension
 	cache           DeploymentRuntimeSyncHistory
-	newCache        deploymentRuntimeHistoryInner
+	newCache        DeploymentRuntimeSyncHistory
 }
 
 type DeploymentRuntimeSyncHistory struct {
-	Cluster  string   `json:"cluster,omitempty"`
-	Spaces   []string `json:"spaces,omitempty"`
-	CodeRepo string   `json:"codeRepo,omitempty"`
-}
-
-func (his *DeploymentRuntimeSyncHistory) convertToInner() deploymentRuntimeHistoryInner {
-	return deploymentRuntimeHistoryInner{
-		Cluster:  his.Cluster,
-		Spaces:   sets.New(his.Spaces...),
-		CodeRepo: his.CodeRepo,
-	}
-}
-
-type deploymentRuntimeHistoryInner struct {
-	Cluster  string
-	Spaces   sets.Set[string]
-	CodeRepo string
-}
-
-func (his *deploymentRuntimeHistoryInner) convertToPublic() DeploymentRuntimeSyncHistory {
-	return DeploymentRuntimeSyncHistory{
-		Cluster:  his.Cluster,
-		Spaces:   his.Spaces.UnsortedList(),
-		CodeRepo: his.CodeRepo,
-	}
+	Cluster  string          `json:"cluster,omitempty"`
+	Spaces   utils.StringSet `json:"spaces,omitempty"`
+	CodeRepo string          `json:"codeRepo,omitempty"`
+	Account  string          `json:"account"`
 }
 
 func newDeploymentRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) {
@@ -98,16 +79,14 @@ func newDeploymentRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) 
 			return nil, fmt.Errorf("unmarshal history failed: %w", err)
 		}
 	}
-
-	newCache := history.convertToInner()
-	newCache.Cluster = initInfo.ClusterName
+	if history.Spaces.Set == nil {
+		history.Spaces = utils.NewStringSet()
+	}
 
 	usageController := UsageController{
 		nautesNamespace: initInfo.NautesConfig.Nautes.Namespace,
 		k8sClient:       initInfo.tenantK8sClient,
 		clusterName:     initInfo.ClusterName,
-		runtime:         initInfo.runtime,
-		productID:       productID,
 	}
 
 	return &DeploymentRuntimeDeployer{
@@ -123,34 +102,43 @@ func newDeploymentRuntimeDeployer(initInfo runnerInitInfos) (taskRunner, error) 
 		usageController: usageController,
 		rawCache:        initInfo.cache,
 		cache:           *history,
-		newCache:        newCache,
+		newCache:        *history,
 	}, nil
 }
 
 func (drd *DeploymentRuntimeDeployer) Deploy(ctx context.Context) (*runtime.RawExtension, error) {
 	err := drd.deploy(ctx)
 
-	cache, convertErr := json.Marshal(drd.newCache.convertToPublic())
+	runtimeCache, convertErr := json.Marshal(drd.newCache)
 	if convertErr != nil {
 		return drd.rawCache, convertErr
 	}
 
 	return &runtime.RawExtension{
-		Raw: cache,
+		Raw: runtimeCache,
 	}, err
 }
 
 func (drd *DeploymentRuntimeDeployer) deploy(ctx context.Context) error {
-	usage, err := drd.usageController.AddProductUsage(ctx)
+	productUsage, err := drd.usageController.GetProductUsage(ctx, drd.productID)
 	if err != nil {
-		return fmt.Errorf("add product usage failed")
+		return fmt.Errorf("get usage failed: %w", err)
 	}
+	if productUsage == nil {
+		tmp := cache.NewEmptyProductUsage()
+		productUsage = &tmp
+	}
+	defer func() {
+		_ = drd.usageController.UpdateProductUsage(context.TODO(), drd.productID, *productUsage)
+	}()
 
-	if err := drd.initEnvironment(ctx, *usage); err != nil {
+	productUsage.Runtimes.Insert(drd.runtime.Name)
+
+	userName := drd.runtime.GetAccount()
+	if err := drd.initEnvironment(ctx, userName, *productUsage); err != nil {
 		return err
 	}
 
-	userName := drd.runtime.GetName()
 	user, err := drd.productMgr.GetUser(ctx, drd.productID, userName)
 	if err != nil {
 		return fmt.Errorf("get user %s's info failed: %w", userName, err)
@@ -160,53 +148,93 @@ func (drd *DeploymentRuntimeDeployer) deploy(ctx context.Context) error {
 		return err
 	}
 
+	if userName != drd.cache.Account {
+		oldUserName := drd.cache.Account
+
+		oldUser, err := drd.productMgr.GetUser(ctx, drd.productID, oldUserName)
+		listOpt := cache.ExcludedRuntimeNames([]string{drd.runtime.GetName()})
+		accountUsage := productUsage.Account.Accounts[oldUserName]
+		if err != nil && !IsUserNotFound(err) {
+			return fmt.Errorf("get user %s's info failed: %w", oldUserName, err)
+		}
+
+		if oldUser != nil {
+			if err := drd.cleanUpUserInSecretManagement(ctx, *oldUser, accountUsage, listOpt); err != nil {
+				return fmt.Errorf("clean up user in secret management failed: %w", err)
+			}
+
+			if err := drd.cleanUpUserInMultiTenant(ctx, *oldUser, accountUsage, listOpt); err != nil {
+				return fmt.Errorf("clean up user in multi tenant failed: %w", err)
+			}
+
+			productUsage.Account.DeleteRuntime(oldUserName, drd.runtime)
+		}
+	}
+
+	if err := productUsage.Account.AddOrUpdateRuntime(drd.runtime.GetAccount(), drd.runtime); err != nil {
+		return fmt.Errorf("add account usage failed: %w", err)
+	}
+	drd.newCache.Account = drd.runtime.GetAccount()
+
 	return drd.deployApp(ctx)
 }
 
 func (drd *DeploymentRuntimeDeployer) Delete(ctx context.Context) (*runtime.RawExtension, error) {
 	err := drd.delete(ctx)
-	cache, convertErr := json.Marshal(drd.newCache.convertToPublic())
+	runtimeCache, convertErr := json.Marshal(drd.newCache)
 	if convertErr != nil {
 		return drd.rawCache, convertErr
 	}
 
 	return &runtime.RawExtension{
-		Raw: cache,
+		Raw: runtimeCache,
 	}, err
 }
 
 func (drd *DeploymentRuntimeDeployer) delete(ctx context.Context) error {
-	usage, err := drd.usageController.GetProductUsage(ctx)
+	productUsage, err := drd.usageController.GetProductUsage(ctx, drd.productID)
 	if err != nil {
-		return err
+		return fmt.Errorf("get usage failed: %w", err)
 	}
-
-	usage.Runtimes.Delete(drd.runtime.Name)
-
-	user, err := drd.productMgr.GetUser(ctx, drd.productID, drd.runtime.GetName())
-	if err != nil {
-		if !IsUserNotFound(err) {
-			return fmt.Errorf("get user %s's info failed: %w", drd.runtime.GetName(), err)
+	defer func() {
+		if productUsage == nil {
+			return
 		}
+		_ = drd.usageController.UpdateProductUsage(context.TODO(), drd.productID, *productUsage)
+	}()
+	if productUsage == nil {
+		return nil
 	}
 
-	if err := drd.deleteDeploymentApps(ctx, *usage); err != nil {
+	productUsage.Runtimes.Delete(drd.runtime.Name)
+
+	userName := drd.cache.Account
+	user, err := drd.productMgr.GetUser(ctx, drd.productID, userName)
+	if err != nil && !IsUserNotFound(err) {
+		return fmt.Errorf("get user %s's info failed: %w", userName, err)
+	}
+
+	if err := drd.deleteDeploymentApps(ctx, *productUsage); err != nil {
 		return err
 	}
 
 	if user != nil {
-		if err := drd.deleteUserInSecretDatabase(ctx, *user); err != nil {
+		if err := drd.deleteUserInSecretDatabase(ctx, *user, *productUsage); err != nil {
 			return err
 		}
 	}
 
-	if err := drd.cleanUpProduct(ctx, user, *usage); err != nil {
+	if err := drd.cleanUpProduct(ctx, user, *productUsage); err != nil {
 		return err
 	}
-	return drd.usageController.DeleteProductUsage(ctx)
+
+	productUsage.Runtimes.Delete(drd.runtime.Name)
+	productUsage.Account.DeleteRuntime(drd.cache.Account, drd.runtime)
+
+	return nil
 }
 
-func (drd *DeploymentRuntimeDeployer) deleteUserInSecretDatabase(ctx context.Context, user User) error {
+func (drd *DeploymentRuntimeDeployer) deleteUserInSecretDatabase(ctx context.Context, user User, usage cache.ProductUsage) error {
 	if drd.cache.CodeRepo != "" {
 		if err := drd.secMgr.RevokePermission(ctx, buildSecretInfoCodeRepo(drd.repoProvider.Spec.ProviderType, drd.cache.CodeRepo), user); err != nil {
 			return fmt.Errorf("revoke code repo %s readonly permission from user %s failed: %w", drd.cache.CodeRepo, user.Name, err)
@@ -214,13 +242,15 @@ func (drd *DeploymentRuntimeDeployer) deleteUserInSecretDatabase(ctx context.Con
 		drd.newCache.CodeRepo = ""
 	}
 
-	if err := drd.secMgr.DeleteUser(ctx, user); err != nil {
+	listOpt := cache.ExcludedRuntimeNames([]string{drd.runtime.GetName()})
+	accountUsage := usage.Account.Accounts[drd.cache.Account]
+	if err := drd.cleanUpUserInSecretManagement(ctx, user, accountUsage, listOpt); err != nil {
 		return fmt.Errorf("delete user %s in secret database failed: %w", user.Name, err)
 	}
 	return nil
 }
 
-func (drd *DeploymentRuntimeDeployer) deleteDeploymentApps(ctx context.Context, usage ProductUsage) error {
+func (drd *DeploymentRuntimeDeployer) deleteDeploymentApps(ctx context.Context, usage cache.ProductUsage) error {
 	app := drd.buildApp()
 	if err := drd.deployer.DeleteApp(ctx, app); err != nil {
 		return err
@@ -248,15 +278,17 @@ func (drd *DeploymentRuntimeDeployer) deleteDeploymentApps(ctx context.Context, 
 	return nil
 }
 
-func (drd *DeploymentRuntimeDeployer) cleanUpProduct(ctx context.Context, user *User, usage ProductUsage) error {
+func (drd *DeploymentRuntimeDeployer) cleanUpProduct(ctx context.Context, user *User, usage cache.ProductUsage) error {
 	if user != nil {
-		if err := drd.productMgr.DeleteUser(ctx, drd.productID, user.Name); err != nil {
+		listOpt := cache.ExcludedRuntimeNames([]string{drd.runtime.GetName()})
+		accountUsage := usage.Account.Accounts[drd.cache.Account]
+		if err := drd.cleanUpUserInMultiTenant(ctx, *user, accountUsage, listOpt); err != nil {
 			return fmt.Errorf("delete user %s in product %s failed: %w", user.Name, drd.productID, err)
 		}
 	}
 
 	spacesInUsed := drd.getSpaceUsage(usage)
-	for _, ns := range drd.cache.Spaces {
+	for _, ns := range drd.cache.Spaces.UnsortedList() {
 		if spacesInUsed.Has(ns) {
 			continue
 		}
@@ -275,8 +307,50 @@ func (drd *DeploymentRuntimeDeployer) cleanUpProduct(ctx context.Context, user *
 	return nil
 }
 
-func (drd *DeploymentRuntimeDeployer) getSpaceUsage(usage ProductUsage) sets.Set[string] {
-	spaces := sets.New[string]("")
+func (drd *DeploymentRuntimeDeployer) cleanUpUserInSecretManagement(ctx context.Context,
+	user User,
+	account cache.AccountResource,
+	listOpt cache.ListOption) error {
+	codeRepoInUsed := account.ListAccountCodeRepos(listOpt)
+	if codeRepoInUsed.Len() == 0 {
+		err := drd.secMgr.DeleteUser(ctx, user)
+		if err != nil {
+			return fmt.Errorf("delete user in secret management failed: %w", err)
+		}
+	} else if !codeRepoInUsed.Has(drd.cache.CodeRepo) {
+		err := drd.secMgr.RevokePermission(ctx,
+			buildSecretInfoCodeRepo(drd.repoProvider.Spec.ProviderType, drd.codeRepo.Name),
+			user)
+		if err != nil {
+			return fmt.Errorf("revoke unused code repo failed: %w", err)
+		}
+	}
+	return nil
+}
+
+func (drd *DeploymentRuntimeDeployer) cleanUpUserInMultiTenant(ctx context.Context,
+	user User,
+	account cache.AccountResource,
+	listOpt cache.ListOption) error {
+	spacesInUsed := account.ListAccountSpaces(listOpt)
+
+	if spacesInUsed.Len() == 0 {
+		err := drd.productMgr.DeleteUser(ctx, drd.productID, user.Name)
+		if err != nil {
+			return fmt.Errorf("delete user failed: %w", err)
+		}
+	} else {
+		spaceShouldDeleteUser := drd.cache.Spaces.Difference(spacesInUsed.Set).UnsortedList()
+		err := removeSpacUsers(ctx, drd.productMgr, spaceShouldDeleteUser, drd.productID, user.Name)
+		if err != nil {
+			return fmt.Errorf("remove user from space failed: %w", err)
+		}
+	}
+	return nil
+}
+
+func (drd *DeploymentRuntimeDeployer) getSpaceUsage(usage cache.ProductUsage) sets.Set[string] {
+	spaces := sets.New[string]()
 	for _, dr := range usage.Runtimes.UnsortedList() {
 		dr, err := drd.db.GetRuntime(dr, v1alpha1.RuntimeTypeDeploymentRuntime)
 		if err != nil {
@@ -330,12 +404,11 @@ func (drd *DeploymentRuntimeDeployer) syncUserInSecretDatabase(ctx context.Conte
 	return nil
 }
 
-func (drd *DeploymentRuntimeDeployer) initEnvironment(ctx context.Context, usage ProductUsage) error {
+func (drd *DeploymentRuntimeDeployer) initEnvironment(ctx context.Context, userName string, usage cache.ProductUsage) error {
 	if err := drd.productMgr.CreateProduct(ctx, drd.productID); err != nil {
 		return fmt.Errorf("create product failed: %w", err)
 	}
 
-	userName := drd.runtime.GetName()
 	if err := drd.productMgr.CreateUser(ctx, drd.productID, userName); err != nil {
 		return fmt.Errorf("create user failed: %w", err)
 	}
@@ -376,9 +449,31 @@ func (drd *DeploymentRuntimeDeployer) initEnvironment(ctx context.Context, usage
 	return nil
 }
 
+func removeSpacUsers(ctx context.Context, productMgr MultiTenant, spaces []string, productID, user string) error {
+	var errs []error
+	for _, space := range spaces {
+		err := productMgr.DeleteSpaceUser(ctx, PermissionRequest{
+			RequestScope: RequestScopeUser,
+			Resource: Resource{
+				Product: productID,
+				Name:    space,
+			},
+			User:       user,
+			Permission: Permission{},
+		})
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) != 0 {
+		return fmt.Errorf("remove user from spaces failed: %v", errs)
+	}
+	return nil
+}
+
 func (drd *DeploymentRuntimeDeployer) getUnusedSpacesInCache() []string {
 	newSpaces := sets.New(drd.runtime.GetNamespaces()...)
-	oldSpaces := sets.New(drd.cache.Spaces...)
+	oldSpaces := drd.cache.Spaces
 	return oldSpaces.Difference(newSpaces).UnsortedList()
 }
 

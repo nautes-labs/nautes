@@ -33,3 +33,10 @@ func (r *DeploymentRuntime) GetNamespaces() []string {
 func (r *DeploymentRuntime) GetRuntimeType() RuntimeType {
 	return RuntimeTypeDeploymentRuntime
 }
+
+func (r *DeploymentRuntime) GetAccount() string {
+	if r.Spec.Account == "" {
+		return r.GetName()
+	}
+	return r.Spec.Account
+}

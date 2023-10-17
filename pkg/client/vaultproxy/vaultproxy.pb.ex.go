@@ -54,12 +54,12 @@ func (s SecretType) String() string {
 }
 
 var (
-	SecretPolicy string = `
+	SecretPolicy = `  //nolint:gosec
 path "%s" {
 	capabilities = ["read"]
 }`
 
-	GitPolicy string = `
+	GitPolicy = `
 path "git/data/%[1]s" {
     capabilities = ["read"]
 }
@@ -68,7 +68,7 @@ path "git/metadata/%[1]s" {
     capabilities = ["read"]
 }`
 
-	ClusterPolicy string = `
+	ClusterPolicy = `
 path "cluster/data/%s" {
     capabilities = ["read"]
 }
@@ -84,43 +84,43 @@ type VaultTemplate struct {
 }
 
 var (
-	GitPathTemplate VaultTemplate = VaultTemplate{
+	GitPathTemplate = VaultTemplate{
 		name:     "gitPath",
 		template: "{{.ProviderType}}/{{.Id}}/{{.Username}}/{{.Permission}}",
 	}
-	GitPolicyPathTemplate VaultTemplate = VaultTemplate{
+	GitPolicyPathTemplate = VaultTemplate{
 		name:     "gitPolicyPath",
 		template: "{{.ProviderType}}-{{.Id}}-{{.Username}}-{{.Permission}}",
 	}
-	RepoPathTemplate VaultTemplate = VaultTemplate{
+	RepoPathTemplate = VaultTemplate{
 		name:     "repoPath",
 		template: "{{.ProviderId}}/{{.Product}}{{ if ne .Project \"\" }}/{{.Project}}{{ end }}",
 	}
-	RepoPolicyPathTemplate VaultTemplate = VaultTemplate{
+	RepoPolicyPathTemplate = VaultTemplate{
 		name:     "repoPolicy",
 		template: "{{.ProviderId}}-{{.Product}}{{ if ne .Project \"\" }}-{{.Project}}{{ end }}",
 	}
-	ClusterPathTemplate VaultTemplate = VaultTemplate{
+	ClusterPathTemplate = VaultTemplate{
 		name:     "clusterPath",
 		template: "{{.Type}}/{{.Id}}/{{.Username}}/{{.Permission}}",
 	}
-	ClusterPolicyPathTemplate VaultTemplate = VaultTemplate{
+	ClusterPolicyPathTemplate = VaultTemplate{
 		name:     "clusterPolicyPath",
 		template: "{{.Type}}-{{.Id}}-{{.Username}}-{{.Permission}}",
 	}
-	TenantGitPathTemplate VaultTemplate = VaultTemplate{
+	TenantGitPathTemplate = VaultTemplate{
 		name:     "tenantGitPath",
 		template: "git/{{.Id}}/{{.Permission}}",
 	}
-	TenantGitPolicyPathTemplate VaultTemplate = VaultTemplate{
+	TenantGitPolicyPathTemplate = VaultTemplate{
 		name:     "tenantGitPolicyPath",
 		template: "tenant-git-{{.Id}}-{{.Permission}}",
 	}
-	TenantRepoPathTemplate VaultTemplate = VaultTemplate{
+	TenantRepoPathTemplate = VaultTemplate{
 		name:     "tenantRepoPath",
 		template: "repo/{{.Id}}/{{.Permission}}",
 	}
-	TenantRepoPolicyPathTemplate VaultTemplate = VaultTemplate{
+	TenantRepoPolicyPathTemplate = VaultTemplate{
 		name:     "tenantRepoPolicyPath",
 		template: "tenant-repo-{{.Id}}-{{.Permission}}",
 	}

@@ -27,18 +27,8 @@ type CoderepoOperation interface {
 	DeleteRepository(repoURL string) error
 }
 
-type codeRepo struct {
-	argocd *ArgocdClient
-}
-
-type CodeRepoResponse struct {
-	Name            string          `json:"name"`
-	ConnectionState ConnectionState `json:"connectionState"`
-	Repo            string          `json:"repo"`
-}
-
 func NewArgocdCodeRepo(argocd *ArgocdClient) CoderepoOperation {
-	return &codeRepo{argocd: argocd}
+	return &CodeRepo{argocd: argocd}
 }
 
 type RepositoryData struct {
@@ -49,20 +39,19 @@ type RepositoryData struct {
 	SSHPrivateKey string `json:"sshPrivateKey"`
 }
 
-func (c *codeRepo) CreateRepository(repoName, key, url string) error {
+func (c *CodeRepo) CreateRepository(repoName, key, address string) error {
 	repoType := "git"
 	data := &RepositoryData{
 		Name:          repoName,
-		Repo:          url,
+		Repo:          address,
 		Type:          repoType,
 		SSHPrivateKey: key,
 	}
 	requestAddress := fmt.Sprintf("%s/api/v1/repositories", c.argocd.client.url)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
+		SetHeader(Authorization, bearerToken).
 		SetBody(data).
 		Post(requestAddress)
 	if err != nil {
@@ -73,10 +62,10 @@ func (c *codeRepo) CreateRepository(repoName, key, url string) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to create repository, code: %d, reponse: %s", result.StatusCode(), string(result.Body()))
+	return fmt.Errorf("failed to create repository, code: %d, response: %s", result.StatusCode(), string(result.Body()))
 }
 
-func (c *codeRepo) UpdateRepository(repoName, key, repourl string) error {
+func (c *CodeRepo) UpdateRepository(repoName, key, repourl string) error {
 	repoType := "git"
 	data := &RepositoryData{
 		Name:          repoName,
@@ -87,10 +76,9 @@ func (c *codeRepo) UpdateRepository(repoName, key, repourl string) error {
 	encodedurl := url.QueryEscape(repourl)
 	requestAddress := fmt.Sprintf("%s/api/v1/repositories/%s", c.argocd.client.url, encodedurl)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
+		SetHeader(Authorization, bearerToken).
 		SetBody(data).
 		Put(requestAddress)
 	if err != nil {
@@ -101,18 +89,17 @@ func (c *codeRepo) UpdateRepository(repoName, key, repourl string) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to update repository, code: %d, reponse: %s", result.StatusCode(), string(result.Body()))
+	return fmt.Errorf("failed to update repository, code: %d, response: %s", result.StatusCode(), string(result.Body()))
 }
 
-func (c *codeRepo) GetRepositoryInfo(repo string) (*CodeRepoResponse, error) {
+func (c *CodeRepo) GetRepositoryInfo(repo string) (*CodeRepoResponse, error) {
 	escapeRepo := url.QueryEscape(repo)
-	url := spliceRequestCodeRepoUrl(c.argocd.client.url, escapeRepo)
+	address := spliceRequestCodeRepoUrl(c.argocd.client.url, escapeRepo)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
-		Get(url)
+		SetHeader(Authorization, bearerToken).
+		Get(address)
 
 	if err != nil {
 		return nil, err
@@ -140,15 +127,14 @@ func (c *codeRepo) GetRepositoryInfo(repo string) (*CodeRepoResponse, error) {
 	return nil, fmt.Errorf("failed to get repository result: %s", result.Body())
 }
 
-func (c *codeRepo) DeleteRepository(repourl string) error {
+func (c *CodeRepo) DeleteRepository(repourl string) error {
 	repoName := url.QueryEscape(repourl)
-	url := spliceRequestCodeRepoUrl(c.argocd.client.url, repoName)
+	address := spliceRequestCodeRepoUrl(c.argocd.client.url, repoName)
 	bearerToken := spliceBearerToken(c.argocd.client.token)
-	authorization := "Authorization"
 
 	result, err := c.argocd.http.R().
-		SetHeader(authorization, bearerToken).
-		Delete(url)
+		SetHeader(Authorization, bearerToken).
+		Delete(address)
 	if err != nil {
 		return err
 	}
@@ -157,7 +143,7 @@ func (c *codeRepo) DeleteRepository(repourl string) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to delete repository info, code: %d, reponse: %s", result.StatusCode(), string(result.Body()))
+	return fmt.Errorf("failed to delete repository info, code: %d, response: %s", result.StatusCode(), string(result.Body()))
 }
 
 func spliceRequestCodeRepoUrl(host, name string) string {

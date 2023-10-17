@@ -23,20 +23,20 @@ import (
 )
 
 func (r *ClusterReconciler) ConvertKubeconfig(data []byte) (*kubeconfig.KubectlConfig, error) {
-	kubeconfig := &kubeconfig.KubectlConfig{}
+	cfg := &kubeconfig.KubectlConfig{}
 	jsonData, err := yaml.YAMLToJSONStrict(data)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal([]byte(jsonData), kubeconfig)
+	err = json.Unmarshal(jsonData, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	if kubeconfig.Clusters == nil {
+	if cfg.Clusters == nil {
 		return nil, fmt.Errorf("kubeconfig parsing failed")
 	}
 
-	return kubeconfig, nil
+	return cfg, nil
 }

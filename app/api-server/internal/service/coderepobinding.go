@@ -42,11 +42,11 @@ var (
 type CodeRepoBindingService struct {
 	coderepobindingv1.UnimplementedCodeRepoBindingServer
 	codeRepoBindingUsecase *biz.CodeRepoBindingUsecase
-	resourcesUsecase       *biz.ResourcesUsecase
+	codeRepo               biz.CodeRepo
 }
 
-func NewCodeRepoBindingService(codeRepoBindingUsecase *biz.CodeRepoBindingUsecase, resourcesUsecase *biz.ResourcesUsecase) *CodeRepoBindingService {
-	return &CodeRepoBindingService{codeRepoBindingUsecase: codeRepoBindingUsecase, resourcesUsecase: resourcesUsecase}
+func NewCodeRepoBindingService(codeRepoBindingUsecase *biz.CodeRepoBindingUsecase, codeRepo biz.CodeRepo) *CodeRepoBindingService {
+	return &CodeRepoBindingService{codeRepoBindingUsecase: codeRepoBindingUsecase, codeRepo: codeRepo}
 }
 
 func (s *CodeRepoBindingService) CovertCodeRepoBindingValueToReply(codeRepoBinding *resourcev1alpha1.CodeRepoBinding) *coderepobindingv1.GetReply {
@@ -122,17 +122,25 @@ func (s *CodeRepoBindingService) ListCodeRepoBindings(ctx context.Context, req *
 }
 
 func (s *CodeRepoBindingService) SaveCodeRepoBinding(ctx context.Context, req *coderepobindingv1.SaveRequest) (*coderepobindingv1.SaveReply, error) {
-	productResourceName, err := s.resourcesUsecase.ConvertGroupToProductName(ctx, req.ProductName)
+	productResourceName, err := biz.ConvertGroupToProductName(ctx, s.codeRepo, req.ProductName)
 	if err != nil {
 		return nil, err
 	}
 
-	codeRepoResourceName, err := s.resourcesUsecase.ConvertRepoNameToCodeRepoName(ctx, req.ProductName, req.Body.Coderepo)
+	codeRepoResourceName, err := biz.ConvertRepoNameToCodeRepoName(ctx, s.codeRepo, req.ProductName, req.Body.Coderepo)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.SaveMethod, nodestree.CodeRepo, codeRepoResourceName, nodestree.CodeRepoBinding, req.CoderepoBindingName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:            biz.SaveMethod,
+		ResourceKind:      nodestree.CodeRepoBinding,
+		ResourceName:      req.CoderepoBindingName,
+		ProductName:       req.ProductName,
+		ParentResouceKind: nodestree.CodeRepo,
+		ParentResouceName: codeRepoResourceName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ProductName:       req.ProductName,
@@ -160,7 +168,13 @@ func (s *CodeRepoBindingService) SaveCodeRepoBinding(ctx context.Context, req *c
 }
 
 func (s *CodeRepoBindingService) DeleteCodeRepoBinding(ctx context.Context, req *coderepobindingv1.DeleteRequest) (*coderepobindingv1.DeleteReply, error) {
-	ctx = biz.SetResourceContext(ctx, req.ProductName, biz.DeleteMethod, "", "", nodestree.CodeRepoBinding, req.CoderepoBindingName)
+	rescourceInfo := &biz.RescourceInformation{
+		Method:       biz.DeleteMethod,
+		ResourceKind: nodestree.CodeRepoBinding,
+		ResourceName: req.CoderepoBindingName,
+		ProductName:  req.ProductName,
+	}
+	ctx = biz.SetResourceContext(ctx, rescourceInfo)
 
 	options := &biz.BizOptions{
 		ProductName:       req.ProductName,
@@ -177,14 +191,14 @@ func (s *CodeRepoBindingService) DeleteCodeRepoBinding(ctx context.Context, req 
 	}, nil
 }
 
-func (c *CodeRepoBindingService) ConvertProductAndRepoName(ctx context.Context, resource *resourcev1alpha1.CodeRepoBinding) error {
-	repoName, err := c.resourcesUsecase.ConvertCodeRepoToRepoName(ctx, resource.Spec.CodeRepo)
+func (s *CodeRepoBindingService) ConvertProductAndRepoName(ctx context.Context, resource *resourcev1alpha1.CodeRepoBinding) error {
+	repoName, err := biz.ConvertCodeRepoToRepoName(ctx, s.codeRepo, resource.Spec.CodeRepo)
 	if err != nil {
 		return err
 	}
 	resource.Spec.CodeRepo = repoName
 
-	groupName, err := c.resourcesUsecase.ConvertProductToGroupName(ctx, resource.Spec.Product)
+	groupName, err := biz.ConvertProductToGroupName(ctx, s.codeRepo, resource.Spec.Product)
 	if err != nil {
 		return err
 	}

@@ -22,8 +22,8 @@ func IsVirtual(cluster *resourcev1alpha1.Cluster) bool {
 
 func IsPhysical(cluster *resourcev1alpha1.Cluster) bool {
 	return cluster.Spec.ClusterType == resourcev1alpha1.CLUSTER_TYPE_PHYSICAL
-
 }
+
 func IsHostCluser(cluster *resourcev1alpha1.Cluster) bool {
 	return cluster.Spec.ClusterType == resourcev1alpha1.CLUSTER_TYPE_PHYSICAL && cluster.Spec.Usage == resourcev1alpha1.CLUSTER_USAGE_HOST
 }

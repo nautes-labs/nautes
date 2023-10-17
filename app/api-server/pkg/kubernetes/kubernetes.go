@@ -37,33 +37,33 @@ func NewKubernetes() (client.Client, error) {
 		return nil, err
 	}
 
-	client, err := client.New(cfg, client.Options{})
+	k8sClient, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	return k8sClient, nil
 }
 
 func NewClient() (client.Client, error) {
-	var config *rest.Config
+	var restConfig *rest.Config
 	var err error
 
-	config, err = rest.InClusterConfig()
+	restConfig, err = rest.InClusterConfig()
 	if err != nil {
 		kubeconfig, err := getKubeConfigFile()
 		if err != nil {
 			return nil, err
 		}
 
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		restConfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	resourcev1alpha1.AddToScheme(scheme.Scheme)
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
+	_ = resourcev1alpha1.AddToScheme(scheme.Scheme)
+	k8sClient, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
 		return nil, err
 	}
@@ -74,12 +74,12 @@ func NewClient() (client.Client, error) {
 func getKubeConfigFile() (string, error) {
 	kubeConfigFile := os.Getenv(kubeConfigFileEnv)
 	if kubeConfigFile == "" {
-		user, err := user.Current()
+		currentUser, err := user.Current()
 		if err != nil {
 			return "", err
 		}
 
-		kubeConfigFile = path.Join(user.HomeDir, ".kube", "config")
+		kubeConfigFile = path.Join(currentUser.HomeDir, ".kube", "config")
 		_, err = os.Stat(kubeConfigFile)
 		if err != nil {
 			return "", err
