@@ -304,6 +304,10 @@ spec:
           status:
             description: ClusterStatus defines the observed state of Cluster
             properties:
+              components:
+                description: Components is the cache where components are stored.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
@@ -403,9 +407,14 @@ spec:
               productIDMap:
                 additionalProperties:
                   type: string
-                description: PruoductIDMap records the corresponding relationship
-                  between product name and product in kubernetes.
+                description: ProductIDMap records the corresponding relationship between
+                  product name and product in kubernetes.
                 type: object
+              sharedResource:
+                description: SharedResource is the usage of shared resources in the
+                  cluster.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               sync2ArgoStatus:
                 properties:
                   lastSuccessSpec:

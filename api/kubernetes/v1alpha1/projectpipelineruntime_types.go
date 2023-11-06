@@ -61,7 +61,7 @@ type PipelineTrigger struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
 	Pipeline string `json:"pipeline"`
-	// Optional
+	// +optional
 	// Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
 	Revision string `json:"revision,omitempty"`
 }
@@ -71,7 +71,7 @@ type Pipeline struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// Optional
+	// +optional
 	// Default is 'default'
 	Label string `json:"label,omitempty"`
 	// Pipeline manifest path, wildcard support.
@@ -92,10 +92,32 @@ type ProjectPipelineRuntimeSpec struct {
 	// Isolation definition of pipeline runtime related resources: shared(default) or exclusive
 	Isolation        string            `json:"isolation"`
 	PipelineTriggers []PipelineTrigger `json:"pipelineTriggers"`
-	// optional
+	// +optional
 	AdditionalResources *ProjectPipelineRuntimeAdditionalResources `json:"additionalResources,omitempty"`
 	// +optional
+	// AdditionalTasks stores tasks that users need to append to the init pipeline.
+	AdditionalTasks *AdditionalTasks `json:"additionalTasks,omitempty"`
+	// +optional
 	Account string `json:"account,omitempty" yaml:"account"`
+}
+
+// AdditionalTasks is a set of tasks that can be added to the init pipeline.
+type AdditionalTasks struct {
+	// +optional
+	// PreTasks is a set of steps to be executed before running the init pipeline.
+	PreTasks []Task `json:"preTasks,omitempty"`
+	// +optional
+	// PostTasks is a set of steps to be executed after running the init pipeline.
+	PostTasks []Task `json:"postTasks,omitempty"`
+}
+
+// Task is a record of information about a runnable task.
+type Task struct {
+	// Name is the name of the task to be executed.
+	Name string `json:"name"`
+	// Vars is the parameter that the user wants to pass to the task,
+	// and the input items are determined based on the task.
+	Vars *runtime.RawExtension `json:"vars,omitempty"`
 }
 
 // ProjectPipelineRuntimeDestination defines where pipeline runtime will run
@@ -106,15 +128,15 @@ type ProjectPipelineRuntimeDestination struct {
 
 // ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
 type ProjectPipelineRuntimeAdditionalResources struct {
-	// Optional
+	// +optional
 	Git *ProjectPipelineRuntimeAdditionalResourcesGit `json:"git,omitempty"`
 }
 
 // ProjectPipelineRuntimeAdditionalResourcesGit defines the additional resources if it comes from git
 type ProjectPipelineRuntimeAdditionalResourcesGit struct {
-	// Optional
+	// +optional
 	CodeRepo string `json:"codeRepo,omitempty"`
-	// Optional
+	// +optional
 	// If git repo is a public repo, use url instead
 	URL      string `json:"url,omitempty"`
 	Revision string `json:"revision"`
