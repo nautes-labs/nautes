@@ -48,71 +48,26 @@ spec:
               account:
                 type: string
               additionalResources:
-                description: ProjectPipelineRuntimeAdditionalResources defines the
-                  additional resources witch runtime needed
+                description: optional
                 properties:
                   git:
-                    description: ProjectPipelineRuntimeAdditionalResourcesGit defines
-                      the additional resources if it comes from git
+                    description: Optional
                     properties:
                       codeRepo:
+                        description: Optional
                         type: string
                       path:
                         type: string
                       revision:
                         type: string
                       url:
-                        description: If git repo is a public repo, use url instead
+                        description: Optional If git repo is a public repo, use url
+                          instead
                         type: string
                     required:
                     - path
                     - revision
                     type: object
-                type: object
-              additionalTasks:
-                description: AdditionalTasks stores tasks that users need to append
-                  to the init pipeline.
-                properties:
-                  postTasks:
-                    description: PostTasks is a set of steps to be executed after
-                      running the init pipeline.
-                    items:
-                      description: Task is a record of information about a runnable
-                        task.
-                      properties:
-                        name:
-                          description: Name is the name of the task to be executed.
-                          type: string
-                        vars:
-                          description: Vars is the parameter that the user wants to
-                            pass to the task, and the input items are determined based
-                            on the task.
-                          type: object
-                          x-kubernetes-preserve-unknown-fields: true
-                      required:
-                      - name
-                      type: object
-                    type: array
-                  preTasks:
-                    description: PreTasks is a set of steps to be executed before
-                      running the init pipeline.
-                    items:
-                      description: Task is a record of information about a runnable
-                        task.
-                      properties:
-                        name:
-                          description: Name is the name of the task to be executed.
-                          type: string
-                        vars:
-                          description: Vars is the parameter that the user wants to
-                            pass to the task, and the input items are determined based
-                            on the task.
-                          type: object
-                          x-kubernetes-preserve-unknown-fields: true
-                      required:
-                      - name
-                      type: object
-                    type: array
                 type: object
               destination:
                 description: The target environment for running the pipeline.
@@ -199,9 +154,9 @@ spec:
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     revision:
-                      description: Regular expressions are not supported, If it is
-                        empty, the trigger will determine the revision of the pipeline
-                        based on the revision of the event source
+                      description: Optional Regular expressions are not supported,
+                        If it is empty, the trigger will determine the revision of
+                        the pipeline based on the revision of the event source
                       type: string
                   required:
                   - eventSource
@@ -215,7 +170,7 @@ spec:
                     corresponds to one declaration file in the Git repository.
                   properties:
                     label:
-                      description: Default is 'default'
+                      description: Optional Default is 'default'
                       type: string
                     name:
                       minLength: 1
