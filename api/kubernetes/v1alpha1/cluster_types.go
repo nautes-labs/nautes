@@ -18,6 +18,7 @@ import (
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type ClusterType string
@@ -142,8 +143,14 @@ type ClusterStatus struct {
 	// +optional
 	Warnings []Warning `json:"warnings"`
 	// +optional
-	// PruoductIDMap records the corresponding relationship between product name and product in kubernetes.
+	// ProductIDMap records the corresponding relationship between product name and product in kubernetes.
 	ProductIDMap map[string]string `json:"productIDMap"`
+	// +optional
+	// AllocatedResources stores the usage of unique resources in the cluster.
+	AllocatedResources *runtime.RawExtension `json:"allocatedResources,omitempty"`
+	// +optional
+	// ComponentsStatus is the status where components are stored.
+	ComponentsStatus *runtime.RawExtension `json:"componentsStatus,omitempty"`
 }
 
 type ServiceType string
