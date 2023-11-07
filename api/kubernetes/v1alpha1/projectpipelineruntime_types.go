@@ -95,7 +95,29 @@ type ProjectPipelineRuntimeSpec struct {
 	// optional
 	AdditionalResources *ProjectPipelineRuntimeAdditionalResources `json:"additionalResources,omitempty"`
 	// +optional
+	// Hooks are hooks that users need to add before or after the user pipeline.
+	Hooks *Hooks `json:"hooks,omitempty"`
+	// +optional
 	Account string `json:"account,omitempty" yaml:"account"`
+}
+
+// Hooks are hooks will to add before or after the user pipeline.
+type Hooks struct {
+	// +optional
+	// PreHooks is a set of hooks to be executed before running the user pipeline.
+	PreHooks []Hook `json:"preHooks,omitempty"`
+	// +optional
+	// PostHooks is a set of hooks that will run after the user pipeline starts executing.
+	PostHooks []Hook `json:"postHooks,omitempty"`
+}
+
+// Hook is a record of information about a runnable hook.
+type Hook struct {
+	// Name is the name of the hook to be executed.
+	Name string `json:"name"`
+	// Vars is the parameter that the user wants to pass to the hook,
+	// and the input items are determined based on the pipeline component in cluster.
+	Vars *runtime.RawExtension `json:"vars,omitempty"`
 }
 
 // ProjectPipelineRuntimeDestination defines where pipeline runtime will run

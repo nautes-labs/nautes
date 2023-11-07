@@ -134,6 +134,51 @@ spec:
                   - name
                   type: object
                 type: array
+              hooks:
+                description: Hooks are hooks that users need to add before or after
+                  the user pipeline.
+                properties:
+                  postHooks:
+                    description: PostHooks is a set of hooks that will run after the
+                      user pipeline starts executing.
+                    items:
+                      description: Hook is a record of information about a runnable
+                        hook.
+                      properties:
+                        name:
+                          description: Name is the name of the hook to be executed.
+                          type: string
+                        vars:
+                          description: Vars is the parameter that the user wants to
+                            pass to the hook, and the input items are determined based
+                            on the pipeline component in cluster.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  preHooks:
+                    description: PreHooks is a set of hooks to be executed before
+                      running the user pipeline.
+                    items:
+                      description: Hook is a record of information about a runnable
+                        hook.
+                      properties:
+                        name:
+                          description: Name is the name of the hook to be executed.
+                          type: string
+                        vars:
+                          description: Vars is the parameter that the user wants to
+                            pass to the hook, and the input items are determined based
+                            on the pipeline component in cluster.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - name
+                      type: object
+                    type: array
+                type: object
               isolation:
                 description: 'Isolation definition of pipeline runtime related resources:
                   shared(default) or exclusive'
