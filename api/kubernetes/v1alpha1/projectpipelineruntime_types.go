@@ -117,7 +117,8 @@ type Hook struct {
 	Name string `json:"name"`
 	// Vars is the parameter that the user wants to pass to the hook,
 	// and the input items are determined based on the pipeline component in cluster.
-	Vars *runtime.RawExtension `json:"vars,omitempty"`
+	// +optional
+	Vars map[string]string `json:"vars,omitempty"`
 }
 
 // ProjectPipelineRuntimeDestination defines where pipeline runtime will run
