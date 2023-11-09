@@ -149,11 +149,12 @@ spec:
                           description: Name is the name of the hook to be executed.
                           type: string
                         vars:
+                          additionalProperties:
+                            type: string
                           description: Vars is the parameter that the user wants to
                             pass to the hook, and the input items are determined based
                             on the pipeline component in cluster.
                           type: object
-                          x-kubernetes-preserve-unknown-fields: true
                       required:
                       - name
                       type: object
@@ -169,11 +170,12 @@ spec:
                           description: Name is the name of the hook to be executed.
                           type: string
                         vars:
+                          additionalProperties:
+                            type: string
                           description: Vars is the parameter that the user wants to
                             pass to the hook, and the input items are determined based
                             on the pipeline component in cluster.
                           type: object
-                          x-kubernetes-preserve-unknown-fields: true
                       required:
                       - name
                       type: object

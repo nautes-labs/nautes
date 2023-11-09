@@ -1093,8 +1093,10 @@ func (in *Hook) DeepCopyInto(out *Hook) {
 	*out = *in
 	if in.Vars != nil {
 		in, out := &in.Vars, &out.Vars
-		*out = new(runtime.RawExtension)
-		(*in).DeepCopyInto(*out)
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 }
 
