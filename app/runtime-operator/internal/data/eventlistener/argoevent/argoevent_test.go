@@ -16,6 +16,7 @@ package argoevent_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -24,7 +25,7 @@ import (
 	sensorv1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/eventlistener/argoevent"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,7 +39,7 @@ import (
 var _ = Describe("Gitlab eventsource", func() {
 	var ctx context.Context
 	var evListener syncer.EventListener
-	var es syncer.EventSource
+	var es syncer.EventSourceSet
 	var seed string
 	var esNames []string
 	var evNames []string
@@ -127,14 +128,13 @@ var _ = Describe("Gitlab eventsource", func() {
 		}
 		info := &syncer.ComponentInitInfo{
 			ClusterConnectInfo: syncer.ClusterConnectInfo{
-				Type: v1alpha1.CLUSTER_KIND_KUBERNETES,
+				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
 				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
-			ClusterName: clusterName,
-			RuntimeType: "",
-			NautesDB:    db,
+			ClusterName:            clusterName,
+			NautesResourceSnapshot: db,
 			NautesConfig: configs.Config{
 				Nautes: configs.Nautes{
 					Namespace: nautesNamespace,
@@ -149,16 +149,16 @@ var _ = Describe("Gitlab eventsource", func() {
 		evListener, err = argoevent.NewArgoEvent(opt, info)
 		Expect(err).Should(BeNil())
 
-		es = syncer.EventSource{
-			Resource: syncer.Resource{
+		es = syncer.EventSourceSet{
+			ResourceMetaData: syncer.ResourceMetaData{
 				Product: "",
 				Name:    esNames[0],
 			},
 			UniqueID: uuids[0],
-			Events: []syncer.Event{
+			EventSources: []syncer.EventSource{
 				{
 					Name: evNames[0],
-					Gitlab: &syncer.EventGitlab{
+					Gitlab: &syncer.EventSourceGitlab{
 						APIServer: apiServer,
 						Events:    []string{"push_events"},
 						CodeRepo:  codeRepo.Name,
@@ -188,7 +188,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(currentEs), currentEs)
 		Expect(err).Should(BeNil())
-		ev := es.Events[0]
+		ev := es.EventSources[0]
 		gitlabEvent, ok := currentEs.Spec.Gitlab[ev.Name]
 		Expect(ok).Should(BeTrue())
 		Expect(gitlabEvent.GitlabBaseURL).Should(Equal(apiServer))
@@ -212,10 +212,10 @@ var _ = Describe("Gitlab eventsource", func() {
 		err := evListener.CreateEventSource(ctx, es)
 		Expect(err).Should(BeNil())
 
-		oldSecretTokenName := fmt.Sprintf("%s-%s-secret-token", es.UniqueID, es.Events[0].Gitlab.CodeRepo)
-		es.Events[0].Gitlab.CodeRepo = codeRepoNames[1]
-		es.Events[0].Gitlab.RepoID = codeRepoIDs[1]
-		newSecretTokenName := fmt.Sprintf("%s-%s-secret-token", es.UniqueID, es.Events[0].Gitlab.CodeRepo)
+		oldSecretTokenName := fmt.Sprintf("%s-%s-secret-token", es.UniqueID, es.EventSources[0].Gitlab.CodeRepo)
+		es.EventSources[0].Gitlab.CodeRepo = codeRepoNames[1]
+		es.EventSources[0].Gitlab.RepoID = codeRepoIDs[1]
+		newSecretTokenName := fmt.Sprintf("%s-%s-secret-token", es.UniqueID, es.EventSources[0].Gitlab.CodeRepo)
 
 		err = evListener.CreateEventSource(ctx, es)
 		Expect(err).Should(BeNil())
@@ -229,7 +229,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(currentEs), currentEs)
 		Expect(err).Should(BeNil())
-		ev := es.Events[0]
+		ev := es.EventSources[0]
 		gitlabEvent, ok := currentEs.Spec.Gitlab[ev.Name]
 		Expect(ok).Should(BeTrue())
 		Expect(gitlabEvent.GitlabBaseURL).Should(Equal(apiServer))
@@ -279,10 +279,10 @@ var _ = Describe("Gitlab eventsource", func() {
 	It("can change event type", func() {
 		err := evListener.CreateEventSource(ctx, es)
 		Expect(err).Should(BeNil())
-		es.Events = []syncer.Event{
+		es.EventSources = []syncer.EventSource{
 			{
 				Name: evNames[1],
-				Calendar: &syncer.EventCalendar{
+				Calendar: &syncer.EventSourceCalendar{
 					Schedule:       "* * * * *",
 					Interval:       "2",
 					ExclusionDates: []string{"20"},
@@ -308,11 +308,11 @@ var _ = Describe("Gitlab eventsource", func() {
 		Expect(err).Should(BeNil())
 
 		destSpecCalendar := map[string]eventsourcev1alpha1.CalendarEventSource{
-			es.Events[0].Name: {
-				Schedule:       es.Events[0].Calendar.Schedule,
-				Interval:       es.Events[0].Calendar.Interval,
-				ExclusionDates: es.Events[0].Calendar.ExclusionDates,
-				Timezone:       es.Events[0].Calendar.Timezone,
+			es.EventSources[0].Name: {
+				Schedule:       es.EventSources[0].Calendar.Schedule,
+				Interval:       es.EventSources[0].Calendar.Interval,
+				ExclusionDates: es.EventSources[0].Calendar.ExclusionDates,
+				Timezone:       es.EventSources[0].Calendar.Timezone,
 			},
 		}
 		ok := reflect.DeepEqual(currentEs.Spec.Calendar, destSpecCalendar)
@@ -330,7 +330,12 @@ var _ = Describe("Sensor", func() {
 	var productName string
 	var serviceAccounts []string
 	var consumerNames []string
-	var consumer syncer.Consumers
+	var consumer syncer.ConsumerSet
+	var resBytes []byte
+
+	type res struct {
+		Go string
+	}
 	BeforeEach(func() {
 		var err error
 		ctx = context.TODO()
@@ -370,14 +375,13 @@ var _ = Describe("Sensor", func() {
 		}
 		info := &syncer.ComponentInitInfo{
 			ClusterConnectInfo: syncer.ClusterConnectInfo{
-				Type: v1alpha1.CLUSTER_KIND_KUBERNETES,
+				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
 				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
-			ClusterName: "",
-			RuntimeType: "",
-			NautesDB:    db,
+			ClusterName:            "",
+			NautesResourceSnapshot: db,
 			NautesConfig: configs.Config{
 				Nautes: configs.Nautes{
 					Namespace: nautesNamespace,
@@ -392,31 +396,26 @@ var _ = Describe("Sensor", func() {
 		evListener, err = argoevent.NewArgoEvent(opt, info)
 		Expect(err).Should(BeNil())
 
-		consumer = syncer.Consumers{
-			Resource: syncer.Resource{
+		res := &res{
+			Go: "123",
+		}
+		resBytes, err = json.Marshal(res)
+		Expect(err).Should(BeNil())
+
+		consumer = syncer.ConsumerSet{
+			ResourceMetaData: syncer.ResourceMetaData{
 				Product: productName,
 				Name:    consumerNames[0],
 			},
-			User: syncer.User{
-				Resource: syncer.Resource{
-					Product: productName,
-					Name:    serviceAccounts[0],
-				},
-				UserType: syncer.UserTypeMachine,
-				AuthInfo: &syncer.Auth{
-					Kubernetes: []syncer.AuthKubernetes{
-						{
-							ServiceAccount: serviceAccounts[0],
-							Namespace:      "",
-						},
-					},
-				},
+			Account: syncer.MachineAccount{
+				Product: productName,
+				Name:    serviceAccounts[0],
 			},
 			Consumers: []syncer.Consumer{
 				{
-					UniqueID:  uuids[0],
-					EventName: evNames[0],
-					EventType: syncer.EventTypeGitlab,
+					UniqueID:        uuids[0],
+					EventSourceName: evNames[0],
+					EventSourceType: syncer.EventTypeGitlab,
 					Filters: []syncer.Filter{
 						{
 							Key:        "headers.X-Gitlab-Event",
@@ -426,13 +425,13 @@ var _ = Describe("Sensor", func() {
 					},
 					Task: syncer.EventTask{
 						Type: syncer.EventTaskTypeRaw,
-						Vars: []syncer.VariableTransmission{
+						Vars: []syncer.InputOverWrite{
 							{
-								Source:      "body.ref",
-								Destination: "spec.params.1.value",
+								Name: syncer.EventSourceVarRef,
+								Dest: "spec.params.1.value",
 							},
 						},
-						Raw: `go: 123`,
+						Raw: res,
 					},
 				},
 			},
@@ -455,8 +454,8 @@ var _ = Describe("Sensor", func() {
 
 		dependName := fmt.Sprintf("%s-%s-%s",
 			consumer.Consumers[0].UniqueID,
-			consumer.Consumers[0].EventName,
-			consumer.Consumers[0].EventType,
+			consumer.Consumers[0].EventSourceName,
+			consumer.Consumers[0].EventSourceType,
 		)
 		destSpec := sensorv1alpha1.SensorSpec{
 			Dependencies: []sensorv1alpha1.EventDependency{
@@ -487,17 +486,17 @@ var _ = Describe("Sensor", func() {
 							Operation: sensorv1alpha1.Create,
 							Source: &sensorv1alpha1.ArtifactLocation{
 								Resource: &common.Resource{
-									Value: []byte("{\"go\":123}"),
+									Value: resBytes,
 								},
 							},
 							Parameters: []sensorv1alpha1.TriggerParameter{
 								{
 									Src: &sensorv1alpha1.TriggerParameterSource{
 										DependencyName: dependName,
-										DataKey:        consumer.Consumers[0].Task.Vars[0].Source,
+										DataKey:        "body.ref",
 										UseRawData:     false,
 									},
-									Dest: consumer.Consumers[0].Task.Vars[0].Destination,
+									Dest: consumer.Consumers[0].Task.Vars[0].Dest,
 								},
 							},
 						},

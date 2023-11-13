@@ -22,7 +22,7 @@ import (
 	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/deployment/argocd"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
@@ -148,14 +148,13 @@ var _ = Describe("ArgoCD", func() {
 
 		initInfo := syncer.ComponentInitInfo{
 			ClusterConnectInfo: syncer.ClusterConnectInfo{
-				Type: v1alpha1.CLUSTER_KIND_KUBERNETES,
+				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
 				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
-			ClusterName: clusterName,
-			RuntimeType: "",
-			NautesDB:    db,
+			ClusterName:            clusterName,
+			NautesResourceSnapshot: db,
 			NautesConfig: configs.Config{
 				Nautes: configs.Nautes{
 					Namespace: nautesNamespace,
@@ -222,7 +221,7 @@ var _ = Describe("ArgoCD", func() {
 
 		err = deployer.AddProductUser(ctx, syncer.PermissionRequest{
 			RequestScope: syncer.RequestScopeProduct,
-			Resource: syncer.Resource{
+			Resource: syncer.ResourceMetaData{
 				Product: "",
 				Name:    productID,
 			},
@@ -249,7 +248,7 @@ var _ = Describe("ArgoCD", func() {
 
 		req := syncer.PermissionRequest{
 			RequestScope: syncer.RequestScopeProduct,
-			Resource: syncer.Resource{
+			Resource: syncer.ResourceMetaData{
 				Product: "",
 				Name:    productID,
 			},
@@ -277,7 +276,7 @@ var _ = Describe("ArgoCD", func() {
 
 	It("can create app", func() {
 		app := syncer.Application{
-			Resource: syncer.Resource{
+			ResourceMetaData: syncer.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
@@ -289,12 +288,12 @@ var _ = Describe("ArgoCD", func() {
 			},
 			Destinations: []syncer.Space{
 				{
-					Resource: syncer.Resource{
+					ResourceMetaData: syncer.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: syncer.SpaceKubernetes{
+					Kubernetes: &syncer.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},
@@ -307,7 +306,7 @@ var _ = Describe("ArgoCD", func() {
 
 	It("can remove app", func() {
 		app := syncer.Application{
-			Resource: syncer.Resource{
+			ResourceMetaData: syncer.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
@@ -319,12 +318,12 @@ var _ = Describe("ArgoCD", func() {
 			},
 			Destinations: []syncer.Space{
 				{
-					Resource: syncer.Resource{
+					ResourceMetaData: syncer.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: syncer.SpaceKubernetes{
+					Kubernetes: &syncer.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},
@@ -350,7 +349,7 @@ var _ = Describe("ArgoCD", func() {
 
 	It("will remove coderepo when coderepo is not used", func() {
 		app := syncer.Application{
-			Resource: syncer.Resource{
+			ResourceMetaData: syncer.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
@@ -362,12 +361,12 @@ var _ = Describe("ArgoCD", func() {
 			},
 			Destinations: []syncer.Space{
 				{
-					Resource: syncer.Resource{
+					ResourceMetaData: syncer.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: syncer.SpaceKubernetes{
+					Kubernetes: &syncer.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},
@@ -399,7 +398,7 @@ var _ = Describe("ArgoCD", func() {
 		Expect(err).Should(BeNil())
 
 		app := syncer.Application{
-			Resource: syncer.Resource{
+			ResourceMetaData: syncer.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
@@ -411,12 +410,12 @@ var _ = Describe("ArgoCD", func() {
 			},
 			Destinations: []syncer.Space{
 				{
-					Resource: syncer.Resource{
+					ResourceMetaData: syncer.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: syncer.SpaceKubernetes{
+					Kubernetes: &syncer.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},

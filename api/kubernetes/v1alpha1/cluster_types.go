@@ -150,7 +150,7 @@ type ClusterStatus struct {
 	AllocatedResources *runtime.RawExtension `json:"allocatedResources,omitempty"`
 	// +optional
 	// ComponentsStatus is the status where components are stored.
-	ComponentsStatus *runtime.RawExtension `json:"componentsStatus,omitempty"`
+	ComponentsStatus map[string]runtime.RawExtension `json:"componentsStatus,omitempty"`
 }
 
 type ServiceType string
@@ -229,9 +229,9 @@ func ConvertComponentsListToMap(list ComponentsList) map[string]*Component {
 			continue
 		}
 
-		compoentType := val.Type().Field(i).Tag.Get("componentName")
+		componentType := val.Type().Field(i).Tag.Get("componentName")
 		component := val.Field(i).Interface().(*Component)
-		componentsListMap[compoentType] = component
+		componentsListMap[componentType] = component
 	}
 
 	return componentsListMap

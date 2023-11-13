@@ -29,10 +29,10 @@ func (nu NamespaceUsage) GetNamespacesInCluster(name string) []string {
 	return nu[name]
 }
 
-type NewDatabase func(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Database, error)
+type NewDatabase func(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Snapshot, error)
 
-// Database store all product resouces in kubernetes.
-type Database interface {
+// Snapshot store all product resouces in kubernetes.
+type Snapshot interface {
 	GetProduct(name string) (*v1alpha1.Product, error)
 	GetProductCodeRepo(name string) (*v1alpha1.CodeRepo, error)
 	GetCodeRepoProvider(name string) (*v1alpha1.CodeRepoProvider, error)

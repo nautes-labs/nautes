@@ -20,18 +20,20 @@ import (
 
 	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
 	argocdrbac "github.com/nautes-labs/nautes/app/runtime-operator/pkg/casbin/adapter"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	corev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 )
 
 func init() {
@@ -45,21 +47,21 @@ var (
 )
 
 type argocd struct {
-	db                       database.Database
+	db                       database.Snapshot
 	k8sClient                client.Client
 	components               *syncer.ComponentList
 	namespace                string
 	nautesNamespace          string
 	opts                     map[string]string
-	secretUser               syncer.User
+	machineAccount           syncer.MachineAccount
 	cluster                  v1alpha1.Cluster
 	policyManager            argocdrbac.Adapter
 	projectsNeedUpdateSource sets.Set[string]
 }
 
 func NewArgoCD(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.Deployment, error) {
-	if info.ClusterConnectInfo.Type != v1alpha1.CLUSTER_KIND_KUBERNETES {
-		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.Type)
+	if info.ClusterConnectInfo.ClusterKind != v1alpha1.CLUSTER_KIND_KUBERNETES {
+		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
 	}
 
 	k8sClient, err := client.New(info.ClusterConnectInfo.Kubernetes.Config, client.Options{Scheme: scheme})
@@ -67,22 +69,14 @@ func NewArgoCD(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.D
 		return nil, err
 	}
 
-	cluster, err := info.NautesDB.GetCluster(info.ClusterName)
+	cluster, err := info.NautesResourceSnapshot.GetCluster(info.ClusterName)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster failed: %w", err)
 	}
 
-	secUser := syncer.User{
-		Resource: syncer.Resource{Name: info.NautesConfig.Secret.OperatorName[configs.OperatorNameArgo]},
-		UserType: syncer.UserTypeMachine,
-		AuthInfo: &syncer.Auth{
-			Kubernetes: []syncer.AuthKubernetes{
-				{
-					ServiceAccount: info.NautesConfig.Nautes.ServiceAccount[configs.OperatorNameArgo],
-					Namespace:      info.NautesConfig.Nautes.Namespace,
-				},
-			},
-		},
+	account := syncer.MachineAccount{
+		Name:   info.NautesConfig.Secret.OperatorName[configs.OperatorNameArgo],
+		Spaces: []string{info.NautesConfig.Nautes.Namespace},
 	}
 
 	rbacAdapter := argocdrbac.NewAdapter(
@@ -91,13 +85,13 @@ func NewArgoCD(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.D
 		})
 
 	argoCD := &argocd{
-		db:                       info.NautesDB,
+		db:                       info.NautesResourceSnapshot,
 		k8sClient:                k8sClient,
 		components:               info.Components,
 		namespace:                opt.Namespace,
 		nautesNamespace:          info.NautesConfig.Nautes.Namespace,
 		opts:                     opt.Additions,
-		secretUser:               secUser,
+		machineAccount:           account,
 		cluster:                  *cluster,
 		policyManager:            *rbacAdapter,
 		projectsNeedUpdateSource: sets.Set[string]{},
@@ -136,6 +130,10 @@ func (a *argocd) CleanUp() error {
 	return nil
 }
 
+func (a *argocd) GetComponentMachineAccount() *syncer.MachineAccount {
+	return &a.machineAccount
+}
+
 const (
 	KubernetesAPIServerAddr = "https://kubernetes.default.svc"
 )
@@ -149,7 +147,7 @@ func (a *argocd) CreateProduct(ctx context.Context, name string) error {
 		},
 	}
 
-	spaces, err := a.components.MultiTenant.ListSpaces(ctx, name, syncer.IgnoreResourceInDeletion())
+	spaces, err := a.components.MultiTenant.ListSpaces(ctx, name)
 	if err != nil {
 		return fmt.Errorf("list spaces failed: %w", err)
 	}
@@ -204,10 +202,6 @@ func (a *argocd) DeleteProduct(ctx context.Context, name string) error {
 	}
 
 	return a.k8sClient.Delete(ctx, appProject)
-}
-
-func (a *argocd) GetProduct(_ context.Context, _ string) (*syncer.ProductStatus, error) {
-	panic("not implemented") // TODO: Implement
 }
 
 const (
@@ -436,7 +430,7 @@ func (a *argocd) grantReadOnlyPermissionToSecretUser(ctx context.Context, codeRe
 			Permission:   syncer.CodeRepoPermissionReadOnly,
 		},
 	}
-	if err := a.components.SecretManagement.GrantPermission(ctx, repoPermissionReq, a.secretUser); err != nil {
+	if err := a.components.SecretManagement.GrantPermission(ctx, repoPermissionReq, a.machineAccount); err != nil {
 		return fmt.Errorf("grant code repo %s permission to argo operator failed: %w", codeRepo.Name, err)
 	}
 
@@ -459,7 +453,7 @@ func (a *argocd) deleteCodeRepo(ctx context.Context, codeRepo *v1alpha1.CodeRepo
 		},
 	}
 
-	if err := a.components.SecretManagement.RevokePermission(ctx, repoPermissionReq, a.secretUser); err != nil {
+	if err := a.components.SecretManagement.RevokePermission(ctx, repoPermissionReq, a.machineAccount); err != nil {
 		return fmt.Errorf("revoke code repo %s from argo operator failed: %w", codeRepo.Name, err)
 	}
 

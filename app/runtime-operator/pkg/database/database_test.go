@@ -302,7 +302,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can list namespaces in product", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		requestResult := database.NamespaceUsage{
@@ -315,7 +315,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can list namespaces by cluster", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		requestResult := database.NamespaceUsage{
@@ -327,7 +327,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can list namespaces in without specify runtime", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		runtime := &v1alpha1.DeploymentRuntime{
@@ -352,7 +352,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can list code repo", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		codeRepos, err := db.ListUsedCodeRepos()
@@ -361,7 +361,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can list code repo by cluster", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		codeRepos, err := db.ListUsedCodeRepos(database.InCluster(clusterNames[2]))
@@ -370,7 +370,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("will remove trigger and event source if pipeline has no permission", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		runtimes, _ := db.ListPipelineRuntimes()
@@ -389,7 +389,7 @@ var _ = Describe("Database", func() {
 		})
 		Expect(err).Should(BeNil())
 
-		db, err = database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err = database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		runtimes, _ = db.ListPipelineRuntimes()
@@ -398,7 +398,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can get deploy runtime", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		runtime, err := db.GetRuntime(deployRuntime01.Name, v1alpha1.RuntimeTypeDeploymentRuntime)
@@ -412,7 +412,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can get pipeline runtime", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		runtime, err := db.GetRuntime(pipelineRuntime01.Name, v1alpha1.RuntimeTypePipelineRuntime)
@@ -426,7 +426,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can get code repo by url", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		repoURL := fmt.Sprintf("%s/%s/%s.git", codeRepoProvider.Spec.SSHAddress, product.Spec.Name, codeRepo01.Spec.RepoName)
@@ -440,7 +440,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can get code repo provider", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		provider, err := db.GetCodeRepoProvider(codeRepoProvider.Name)
@@ -453,7 +453,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can get product", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		productFromDB, err := db.GetProduct(product.Name)
@@ -466,7 +466,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("can get product code repo", func() {
-		db, err := database.NewRuntimeDataSource(context.TODO(), k8sClient, productName, nautesNamespaceName)
+		db, err := database.NewRuntimeSnapshot(context.TODO(), k8sClient, productName, nautesNamespaceName)
 		Expect(err).Should(BeNil())
 
 		repo, err := db.GetProductCodeRepo(productName)

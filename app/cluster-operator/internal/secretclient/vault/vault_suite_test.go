@@ -66,9 +66,11 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
+	var use = false
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("../../../../..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		UseExistingCluster:    &use,
 	}
 
 	cfg, err := testEnv.Start()
@@ -213,6 +215,13 @@ func initMock() {
 nautes:
   tenantName: "%s"
 secret:
+  operatorName:
+    Api: API
+    Argo: ARGO
+    Base: BASE
+    Cluster: CLUSTER
+    Repo: REPO
+    Runtime: RUNTIME
   vault:
     mountPath: "tenant"
 `, tenantName))

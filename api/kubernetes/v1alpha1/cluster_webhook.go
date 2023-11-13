@@ -252,7 +252,7 @@ func getComponentsByCategories(cluster *Cluster, categories []string) ([]*Compon
 func (r *Cluster) staticCheck() error {
 	if r.Spec.Usage == CLUSTER_USAGE_HOST {
 		if r.Spec.ClusterType != CLUSTER_TYPE_PHYSICAL {
-			return errors.New("host cluster can not be a virautl cluster")
+			return errors.New("host cluster can not be a virtual cluster")
 		}
 
 		if r.Spec.WorkerType != "" {

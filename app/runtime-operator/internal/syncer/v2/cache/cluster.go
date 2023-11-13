@@ -65,8 +65,9 @@ func (cu *ClusterUsage) DeleteRuntimeUsage(runtime v1alpha1.Runtime) {
 }
 
 type ProductUsage struct {
-	Runtimes utils.StringSet `yaml:"runtimes"`
-	Account  AccountUsage    `yaml:"account"`
+	Runtimes utils.StringSet `json:"runtimes"`
+	Space    SpaceUsage      `json:"space"`
+	Account  AccountUsage    `json:"account"`
 }
 
 func NewClustersUsage(usage string) (*ClusterUsage, error) {
@@ -85,5 +86,6 @@ func NewEmptyProductUsage() ProductUsage {
 		Account: AccountUsage{
 			Accounts: map[string]AccountResource{},
 		},
+		Space: SpaceUsage{},
 	}
 }

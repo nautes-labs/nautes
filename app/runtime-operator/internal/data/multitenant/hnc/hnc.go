@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +45,7 @@ var (
 )
 
 type hnc struct {
-	db                database.Database
+	db                database.Snapshot
 	deployer          syncer.Deployment
 	k8sClient         client.Client
 	clusterWorkerType v1alpha1.ClusterWorkType
@@ -55,8 +55,8 @@ type hnc struct {
 }
 
 func NewHNC(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.MultiTenant, error) {
-	if info.ClusterConnectInfo.Type != v1alpha1.CLUSTER_KIND_KUBERNETES {
-		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.Type)
+	if info.ClusterConnectInfo.ClusterKind != v1alpha1.CLUSTER_KIND_KUBERNETES {
+		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
 	}
 
 	k8sClient, err := client.New(info.ClusterConnectInfo.Kubernetes.Config, client.Options{Scheme: scheme})
@@ -64,13 +64,13 @@ func NewHNC(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.Mult
 		return nil, err
 	}
 
-	cluster, err := info.NautesDB.GetCluster(info.ClusterName)
+	cluster, err := info.NautesResourceSnapshot.GetCluster(info.ClusterName)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster failed: %w", err)
 	}
 
 	return hnc{
-		db:                info.NautesDB,
+		db:                info.NautesResourceSnapshot,
 		deployer:          info.Components.Deployment,
 		k8sClient:         k8sClient,
 		clusterWorkerType: cluster.Spec.WorkerType,
@@ -81,6 +81,10 @@ func NewHNC(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.Mult
 }
 
 func (h hnc) CleanUp() error {
+	return nil
+}
+
+func (h hnc) GetComponentMachineAccount() *syncer.MachineAccount {
 	return nil
 }
 
@@ -140,7 +144,7 @@ const (
 
 func (h hnc) getEmptyProductApp(productName string) syncer.Application {
 	return syncer.Application{
-		Resource: syncer.Resource{
+		ResourceMetaData: syncer.ResourceMetaData{
 			Product: productName,
 			Name:    fmt.Sprintf(nameFormatProductResourceApp, productName),
 		},
@@ -154,30 +158,30 @@ func (h hnc) getProductApp(productName string) (*syncer.Application, error) {
 		return nil, nil
 	}
 
-	coderepo, err := h.db.GetProductCodeRepo(productName)
+	codeRepo, err := h.db.GetProductCodeRepo(productName)
 	if err != nil {
 		return nil, err
 	}
 
 	app := &syncer.Application{
-		Resource: syncer.Resource{
+		ResourceMetaData: syncer.ResourceMetaData{
 			Product: productName,
 			Name:    fmt.Sprintf(nameFormatProductResourceApp, productName),
 		},
 		Git: &syncer.ApplicationGit{
-			URL:      coderepo.Spec.URL,
+			URL:      codeRepo.Spec.URL,
 			Revision: revision,
 			Path:     productResourcePath,
-			CodeRepo: coderepo.Name,
+			CodeRepo: codeRepo.Name,
 		},
 		Destinations: []syncer.Space{
 			{
-				Resource: syncer.Resource{
+				ResourceMetaData: syncer.ResourceMetaData{
 					Product: productName,
 					Name:    productName,
 				},
 				SpaceType: syncer.SpaceTypeKubernetes,
-				Kubernetes: syncer.SpaceKubernetes{
+				Kubernetes: &syncer.SpaceKubernetes{
 					Namespace: productName,
 				},
 			},
@@ -196,7 +200,7 @@ func (h hnc) addRoleBinding(ctx context.Context, name string) error {
 		},
 	}
 
-	prodcut, err := h.db.GetProduct(name)
+	product, err := h.db.GetProduct(name)
 	if err != nil {
 		return err
 	}
@@ -209,11 +213,11 @@ func (h hnc) addRoleBinding(ctx context.Context, name string) error {
 
 		roleBinding.Subjects = roleBindingTemplate.Subjects
 		roleBinding.RoleRef = roleBindingTemplate.RoleRef
-		roleBinding.Subjects[0].Name = prodcut.Spec.Name
+		roleBinding.Subjects[0].Name = product.Spec.Name
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("create or update rolebinding failed: %w", err)
+		return fmt.Errorf("create or update role binding failed: %w", err)
 	}
 
 	return nil
@@ -236,7 +240,7 @@ func (h hnc) DeleteProduct(ctx context.Context, name string) error {
 }
 
 func (h hnc) isRemovableProduct(ctx context.Context, name string) (bool, error) {
-	namespaces, err := h.listNamespaces(ctx, name, syncer.IgnoreResourceInDeletion())
+	namespaces, err := h.listNamespaces(ctx, name)
 	if err != nil {
 		return false, err
 	}
@@ -253,23 +257,6 @@ func (h hnc) isRemovableProduct(ctx context.Context, name string) (bool, error) 
 	}
 
 	return true, nil
-}
-
-func (h hnc) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus, error) {
-	namespace, err := h.getNamespace(ctx, name, name)
-	if err != nil {
-		return nil, err
-	}
-
-	userList := newUserList(namespace.Annotations[keyProductUserList])
-
-	status := &syncer.ProductStatus{
-		Name:     name,
-		Projects: []string{},
-		Users:    userList.getUsers(),
-	}
-
-	return status, nil
 }
 
 func (h hnc) CreateSpace(ctx context.Context, productName string, name string) error {
@@ -295,8 +282,8 @@ func (h hnc) GetSpace(ctx context.Context, productName string, name string) (*sy
 	return &spaceStatus, nil
 }
 
-func (h hnc) ListSpaces(ctx context.Context, productName string, opts ...syncer.ListOption) ([]syncer.SpaceStatus, error) {
-	namespaces, err := h.listNamespaces(ctx, productName, opts...)
+func (h hnc) ListSpaces(ctx context.Context, productName string) ([]syncer.SpaceStatus, error) {
+	namespaces, err := h.listNamespaces(ctx, productName)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +299,7 @@ func (h hnc) ListSpaces(ctx context.Context, productName string, opts ...syncer.
 
 func (h hnc) AddSpaceUser(ctx context.Context, request syncer.PermissionRequest) error {
 	switch request.RequestScope {
-	case syncer.RequestScopeUser:
+	case syncer.RequestScopeAccount:
 		if err := h.addRoleBindingServiceAccount(ctx, request.User, request.Resource.Name); err != nil {
 			return fmt.Errorf("grant user %s admin permission in space %s failed: %w", request.User, request.Resource.Name, err)
 		}
@@ -324,7 +311,7 @@ func (h hnc) AddSpaceUser(ctx context.Context, request syncer.PermissionRequest)
 
 func (h hnc) DeleteSpaceUser(ctx context.Context, request syncer.PermissionRequest) error {
 	switch request.RequestScope {
-	case syncer.RequestScopeUser:
+	case syncer.RequestScopeAccount:
 		if err := h.deleteRoleBindingServiceAccount(ctx, request.User, request.Resource.Name); err != nil {
 			return fmt.Errorf("revoke user %s admin permission in space %s failed: %w", request.User, request.Resource.Name, err)
 		}
@@ -354,7 +341,7 @@ func (h hnc) addRoleBindingServiceAccount(ctx context.Context, name, namespace s
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("create or update rolebinding failed: %w", err)
+		return fmt.Errorf("create or update role binding failed: %w", err)
 	}
 
 	return nil
@@ -433,7 +420,7 @@ func (h hnc) deleteSpaceUsers(ctx context.Context, productName string, spaceName
 	return h.k8sClient.Update(ctx, namespace)
 }
 
-func (h hnc) CreateUser(ctx context.Context, productName string, name string) error {
+func (h hnc) CreateAccount(ctx context.Context, productName string, name string) error {
 	namespace, err := h.getNamespace(ctx, productName, productName)
 	if err != nil {
 		return err
@@ -453,15 +440,15 @@ func (h hnc) CreateUser(ctx context.Context, productName string, name string) er
 	return nil
 }
 
-func (h hnc) DeleteUser(ctx context.Context, productName string, name string) error {
-	user, err := h.GetUser(ctx, productName, name)
+func (h hnc) DeleteAccount(ctx context.Context, productName string, name string) error {
+	user, err := h.GetAccount(ctx, productName, name)
 	if err != nil {
 		return fmt.Errorf("get user %s info failed: %w", name, err)
 	}
 
-	for _, authInfo := range user.AuthInfo.Kubernetes {
-		if err := h.deleteSpaceUsers(ctx, productName, authInfo.Namespace, []string{name}); err != nil {
-			return fmt.Errorf("remove user %s from space %s failed: %w", name, authInfo.Namespace, err)
+	for _, ns := range user.Spaces {
+		if err := h.deleteSpaceUsers(ctx, productName, ns, []string{name}); err != nil {
+			return fmt.Errorf("remove user %s from space %s failed: %w", name, ns, err)
 		}
 	}
 
@@ -485,36 +472,29 @@ func (h hnc) DeleteUser(ctx context.Context, productName string, name string) er
 	return nil
 }
 
-func (h hnc) GetUser(ctx context.Context, productName string, name string) (user *syncer.User, err error) {
+func (h hnc) GetAccount(ctx context.Context, productName string, name string) (user *syncer.MachineAccount, err error) {
 	productNamespace, err := h.getNamespace(ctx, productName, productName)
 	if err != nil {
-		return nil, syncer.UserNotFound(err, name)
+		return nil, syncer.AccountNotFound(err, name)
 	}
 	userList := newUserList(productNamespace.Annotations[keyProductUserList])
 	if !userList.hasUser(name) {
-		return nil, syncer.UserNotFound(errors.New(""), name)
+		return nil, syncer.AccountNotFound(errors.New(""), name)
 	}
 
-	namespaces, err := h.listNamespaces(ctx, productName, syncer.ByUser(name), syncer.IgnoreResourceInDeletion())
+	namespaces, err := h.listNamespaces(ctx, productName, byUser(name))
 	if err != nil {
 		return nil, err
 	}
 
-	user = &syncer.User{
-		Resource: syncer.Resource{
-			Product: productName,
-			Name:    name,
-		},
-		Role:     []string{},
-		UserType: syncer.UserTypeMachine,
-		AuthInfo: &syncer.Auth{},
+	user = &syncer.MachineAccount{
+		Name:    name,
+		Product: productName,
+		Spaces:  []string{},
 	}
 
 	for _, ns := range namespaces {
-		user.AuthInfo.Kubernetes = append(user.AuthInfo.Kubernetes, syncer.AuthKubernetes{
-			ServiceAccount: name,
-			Namespace:      ns.Name,
-		})
+		user.Spaces = append(user.Spaces, ns.Name)
 	}
 
 	return user, nil
@@ -560,13 +540,13 @@ func (h hnc) setHNCConfig(ctx context.Context) error {
 			return fmt.Errorf("decode resource type failed")
 		}
 
-		resourceDefination := hncv1alpha2.ResourceSpec{
+		resourceDefinition := hncv1alpha2.ResourceSpec{
 			Group:    elements[0],
 			Resource: elements[1],
 			Mode:     "",
 		}
 
-		syncResources = append(syncResources, resourceDefination)
+		syncResources = append(syncResources, resourceDefinition)
 	}
 
 	hncConfig := &hncv1alpha2.HNCConfiguration{
@@ -636,8 +616,18 @@ func (h hnc) getNamespace(ctx context.Context, productName, name string) (*corev
 	return namespace, nil
 }
 
-func (h hnc) listNamespaces(ctx context.Context, productName string, opts ...syncer.ListOption) ([]corev1.Namespace, error) {
-	listOpts := &syncer.ListOptions{}
+type spaceListOptions struct {
+	User string
+}
+
+type spaceListOption func(*spaceListOptions)
+
+func byUser(name string) spaceListOption {
+	return func(slo *spaceListOptions) { slo.User = name }
+}
+
+func (h hnc) listNamespaces(ctx context.Context, productName string, opts ...spaceListOption) ([]corev1.Namespace, error) {
+	listOpts := &spaceListOptions{}
 	for _, fn := range opts {
 		fn(listOpts)
 	}
@@ -658,10 +648,8 @@ func (h hnc) listNamespaces(ctx context.Context, productName string, opts ...syn
 			}
 		}
 
-		if listOpts.IgnoreDataInDeletion {
-			if ns.DeletionTimestamp != nil {
-				continue
-			}
+		if ns.DeletionTimestamp != nil {
+			continue
 		}
 
 		namespaces = append(namespaces, ns)
@@ -674,16 +662,16 @@ func getSpace(namespace corev1.Namespace) syncer.SpaceStatus {
 	userList := newUserList(namespace.Annotations[keySpaceUserList])
 	spaceStatus := syncer.SpaceStatus{
 		Space: syncer.Space{
-			Resource: syncer.Resource{
+			ResourceMetaData: syncer.ResourceMetaData{
 				Product: namespace.Labels[v1alpha1.LABEL_BELONG_TO_PRODUCT],
 				Name:    namespace.Name,
 			},
 			SpaceType: syncer.SpaceTypeKubernetes,
-			Kubernetes: syncer.SpaceKubernetes{
+			Kubernetes: &syncer.SpaceKubernetes{
 				Namespace: namespace.Name,
 			},
 		},
-		Users: userList.getUsers(),
+		Accounts: userList.getUsers(),
 	}
 	return spaceStatus
 }

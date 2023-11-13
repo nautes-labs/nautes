@@ -21,7 +21,7 @@ import (
 
 	eventsourcev1alpha1 "github.com/argoproj/argo-events/pkg/apis/eventsource/v1alpha1"
 	"github.com/google/uuid"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -46,12 +46,20 @@ type GitlabEventSourceGenerator struct {
 	HostEntrypoint utils.EntryPoint
 	Namespace      string
 	K8sClient      client.Client
-	DB             database.Database
-	User           syncer.User
+	DB             database.Snapshot
+	User           syncer.MachineAccount
 	Space          syncer.Space
+	secMgrAuthInfo *syncer.AuthInfo
 }
 
-func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource syncer.EventSource) error {
+// CreateEventSource creates an event source resource of GitLab type by event source.
+// 1. It builds an event source resource by unique ID.
+// 2. It gets code repos that are used by the event source.
+// 3. It creates the access token and secret by unique ID and code repo for request event source.
+// 4. It deletes the access token and secret by unique ID and code repo for not in request event source.
+// 5. It creates the entrypoint for event listener by unique ID.
+// 6. It creates the event source resource which in Kubernetes.
+func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource syncer.EventSourceSet) error {
 	es := gel.buildBaseEventSource(eventSource.UniqueID)
 
 	var codeRepoList string
@@ -62,7 +70,7 @@ func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, ev
 		codeRepoList = es.Annotations[AnnotationCodeRepoUsage]
 	}
 
-	newCodeRepoSets := gel.getNewCodeRepoSets(eventSource.Events)
+	newCodeRepoSets := gel.getNewCodeRepoSets(eventSource.EventSources)
 	oldCodeRepoSets := newCodeRepoUsage(codeRepoList)
 	deleteCodeRepos := oldCodeRepoSets.Difference(newCodeRepoSets.Set).UnsortedList()
 
@@ -103,9 +111,16 @@ func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, ev
 	return err
 }
 
+// DeleteEventSource deletes an event source by event source collection unique ID.
+// 1. It builds an event source resource by unique ID.
+// 2. It gets code repos that are used by the event source.
+// 3. It deletes the access token and secret by unique ID and code repo.
+// 4. It deletes the entrypoint for event listener by unique ID.
+// 5. It deletes the event source resource which in Kubernetes.
 func (gel *GitlabEventSourceGenerator) DeleteEventSource(ctx context.Context, uniqueID string) error {
 	es := gel.buildBaseEventSource(uniqueID)
 
+	logger.V(1).Info("delete gitlab event source", "UniqueID", uniqueID)
 	var codeRepoList string
 	err := gel.K8sClient.Get(ctx, client.ObjectKeyFromObject(es), es)
 	if err != nil {
@@ -131,10 +146,11 @@ func (gel *GitlabEventSourceGenerator) DeleteEventSource(ctx context.Context, un
 	return gel.K8sClient.Delete(ctx, es)
 }
 
-func (gel *GitlabEventSourceGenerator) createGitlabEventSources(uniqueID string, eventSource syncer.EventSource) (map[string]eventsourcev1alpha1.GitlabEventSource, error) {
+// createGitlabEventSources transforms the event source to Gitlab event source instance.
+func (gel *GitlabEventSourceGenerator) createGitlabEventSources(uniqueID string, eventSource syncer.EventSourceSet) (map[string]eventsourcev1alpha1.GitlabEventSource, error) {
 	gitlabEventSources := map[string]eventsourcev1alpha1.GitlabEventSource{}
 
-	for _, event := range eventSource.Events {
+	for _, event := range eventSource.EventSources {
 		if event.Gitlab == nil {
 			continue
 		}
@@ -148,6 +164,7 @@ func (gel *GitlabEventSourceGenerator) createGitlabEventSources(uniqueID string,
 	return gitlabEventSources, nil
 }
 
+// buildGitlabEventSource builds the event source instance.
 func (gel *GitlabEventSourceGenerator) buildBaseEventSource(uniqueID string) *eventsourcev1alpha1.EventSource {
 	return &eventsourcev1alpha1.EventSource{
 		ObjectMeta: metav1.ObjectMeta{
@@ -168,7 +185,8 @@ func (gel *GitlabEventSourceGenerator) buildBaseEventSource(uniqueID string) *ev
 	}
 }
 
-func (gel *GitlabEventSourceGenerator) buildGitlabEventSource(uniqueID, eventName string, event syncer.EventGitlab) (*eventsourcev1alpha1.GitlabEventSource, error) {
+// buildGitlabEventSource builds the Gitlab event source instance which uses the access token and secret.
+func (gel *GitlabEventSourceGenerator) buildGitlabEventSource(uniqueID, eventName string, event syncer.EventSourceGitlab) (*eventsourcev1alpha1.GitlabEventSource, error) {
 	webhookEvents, err := convertArgoEventSourceEventsFromCodeRepo(event.Events)
 	if err != nil {
 		return nil, err
@@ -213,6 +231,7 @@ func convertArgoEventSourceEventsFromCodeRepo(events []string) ([]string, error)
 	return webhookEvents, nil
 }
 
+// CreateEntryPoint creates an entry point for listening to the event source, the default is the Ingress of Kubernetes.
 func (gel *GitlabEventSourceGenerator) CreateEntryPoint(ctx context.Context, uniqueID string) error {
 	entrypoint := gel.buildEntrypoint(uniqueID)
 	ingress := &networkingv1.Ingress{
@@ -253,6 +272,7 @@ func (gel *GitlabEventSourceGenerator) CreateEntryPoint(ctx context.Context, uni
 	return err
 }
 
+// DeleteEntryPoint deletes the entry point of listening to the event source by event source collection unique ID.
 func (gel *GitlabEventSourceGenerator) DeleteEntryPoint(ctx context.Context, uniqueID string) error {
 	entrypoint := gel.buildEntrypoint(uniqueID)
 	ingress := &networkingv1.Ingress{
@@ -264,6 +284,7 @@ func (gel *GitlabEventSourceGenerator) DeleteEntryPoint(ctx context.Context, uni
 	return client.IgnoreNotFound(gel.K8sClient.Delete(ctx, ingress))
 }
 
+// buildEntrypoint builds access entry using the logic entry point resource by event source collection unique ID.
 func (gel *GitlabEventSourceGenerator) buildEntrypoint(uniqueID string) syncer.EntryPoint {
 	return syncer.EntryPoint{
 		Name: buildGatewayName(uniqueID),
@@ -290,6 +311,7 @@ const (
 	gitlabCAMountPath           = "/etc/ssl/certs"
 )
 
+// buildSpecTemplate builds template resources for the event source.
 func (gel *GitlabEventSourceGenerator) buildSpecTemplate() *eventsourcev1alpha1.Template {
 	return &eventsourcev1alpha1.Template{
 		Container: &corev1.Container{
@@ -315,6 +337,8 @@ func (gel *GitlabEventSourceGenerator) buildSpecTemplate() *eventsourcev1alpha1.
 	}
 }
 
+// createOrUpdateSecretToken creates or updates secret which was used to GitLab webhook.
+// It generates a random for the secret by uuid.
 func (gel *GitlabEventSourceGenerator) createOrUpdateSecretToken(ctx context.Context, uniqueID, repoName string) error {
 	name := buildSecretTokenName(uniqueID, repoName)
 
@@ -342,6 +366,7 @@ func (gel *GitlabEventSourceGenerator) createOrUpdateSecretToken(ctx context.Con
 	return err
 }
 
+// deleteSecretToken deletes the secret that was used to GitLab webhook.
 func (gel *GitlabEventSourceGenerator) deleteSecretToken(ctx context.Context, uniqueID, repoName string) error {
 	name := buildSecretTokenName(uniqueID, repoName)
 
@@ -356,6 +381,10 @@ func (gel *GitlabEventSourceGenerator) deleteSecretToken(ctx context.Context, un
 	return client.IgnoreNotFound(err)
 }
 
+// createOrUpdateAccessToken creates or updates access token in Kubernetes and grants secret policy from the vault, which was used to GitLab webhook.
+// 1. It builds a secret request body by event source collection unique ID and repo name.
+// 2. It grants repo permission for argo event user.
+// 3. It syncs an access token to argo event namespace, which the access token is used to access the repository.
 func (gel *GitlabEventSourceGenerator) createOrUpdateAccessToken(ctx context.Context, uniqueID, repoName string) error {
 	secReq, err := gel.buildCodeRepoRequest(uniqueID, repoName)
 	if err != nil {
@@ -369,6 +398,10 @@ func (gel *GitlabEventSourceGenerator) createOrUpdateAccessToken(ctx context.Con
 	return gel.Components.SecretSync.CreateSecret(ctx, *secReq)
 }
 
+// deleteAccessToken deletes access token in Kubernetes, which was used for GitLab webhook.
+// 1. It builds a secret request body by event source collection unique ID and repo name.
+// 2. It revokes repo permission for argo-event user.
+// 3. It removes the access token which is used to access the repository.
 func (gel *GitlabEventSourceGenerator) deleteAccessToken(ctx context.Context, uniqueID, repoName string) error {
 	secReq, err := gel.buildCodeRepoRequest(uniqueID, repoName)
 	if err != nil {
@@ -382,7 +415,8 @@ func (gel *GitlabEventSourceGenerator) deleteAccessToken(ctx context.Context, un
 	return gel.Components.SecretSync.RemoveSecret(ctx, *secReq)
 }
 
-func (gel *GitlabEventSourceGenerator) getNewCodeRepoSets(events []syncer.Event) codeRepoUsage {
+// getNewCodeRepoSets transforms an array of the Event to Set.
+func (gel *GitlabEventSourceGenerator) getNewCodeRepoSets(events []syncer.EventSource) codeRepoUsage {
 	newSet := sets.New[string]()
 	for i := range events {
 		if events[i].Gitlab == nil {
@@ -393,14 +427,15 @@ func (gel *GitlabEventSourceGenerator) getNewCodeRepoSets(events []syncer.Event)
 	return codeRepoUsage{newSet}
 }
 
+// buildCodeRepoRequest builds a secret request body that was used to create or delete a secret in secret management.
 func (gel *GitlabEventSourceGenerator) buildCodeRepoRequest(uniqueID, repoName string) (*syncer.SecretRequest, error) {
 	name := buildAccessTokenName(uniqueID, repoName)
 
-	coderepo, err := gel.DB.GetCodeRepo(repoName)
+	codeRepo, err := gel.DB.GetCodeRepo(repoName)
 	if err != nil {
 		return nil, fmt.Errorf("get code repo failed: %w", err)
 	}
-	provider, err := gel.DB.GetCodeRepoProvider(coderepo.Spec.CodeRepoProvider)
+	provider, err := gel.DB.GetCodeRepoProvider(codeRepo.Spec.CodeRepoProvider)
 	if err != nil {
 		return nil, fmt.Errorf("get code repo provider failed: %w", err)
 	}
@@ -411,16 +446,16 @@ func (gel *GitlabEventSourceGenerator) buildCodeRepoRequest(uniqueID, repoName s
 			Type: syncer.SecretTypeCodeRepo,
 			CodeRepo: &syncer.CodeRepo{
 				ProviderType: provider.Spec.ProviderType,
-				ID:           coderepo.Name,
+				ID:           codeRepo.Name,
 				User:         "default",
 				Permission:   syncer.CodeRepoPermissionAccessToken,
 			},
 		},
-		User: gel.User,
+		AuthInfo: gel.secMgrAuthInfo,
 		Destination: syncer.SecretRequestDestination{
 			Name:   name,
 			Space:  gel.Space,
-			Format: "",
+			Format: `token: '{{ .accesstoken | toString }}'`,
 		},
 	}, nil
 }

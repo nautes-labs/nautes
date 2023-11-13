@@ -23,7 +23,7 @@ import (
 
 	sensorv1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -35,8 +35,11 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// init indicates will use these resources.
 func init() {
 	utilruntime.Must(networkingv1.AddToScheme(scheme))
 	utilruntime.Must(eventsourcev1alpha1.AddToScheme(scheme))
@@ -48,10 +51,17 @@ var (
 	scheme = runtime.NewScheme()
 )
 
+var (
+	logger = logf.Log.WithName("argoEvent")
+)
+
+// CacheName indicates the name of the ConfigMap.
 const CacheName = "nautes-argo-event-cache"
 
 const (
-	ServiceAccountName      = "nautes-argo-event-sa"
+	// ServiceAccountName indicates the name of the service account for the argo event.
+	ServiceAccountName = "nautes-argo-event-sa"
+	// AnnotationCodeRepoUsage defines the name of the key for event source annotation.
 	AnnotationCodeRepoUsage = "code-repos"
 )
 
@@ -59,13 +69,14 @@ type ArgoEvent struct {
 	components            *syncer.ComponentList
 	clusterName           string
 	namespace             string
-	db                    database.Database
+	db                    database.Snapshot
 	k8sClient             client.Client
-	user                  syncer.User
+	machineAccount        syncer.MachineAccount
 	space                 syncer.Space
 	entryPoint            utils.EntryPoint
-	eventSourceGenerators map[syncer.EventType]eventSourceGenerator
+	eventSourceGenerators map[syncer.EventSourceType]eventSourceGenerator
 	sensorGenerator       SensorGenerator
+	secMgrAuthInfo        *syncer.AuthInfo
 }
 
 type EventManager interface {
@@ -79,8 +90,8 @@ type EventManager interface {
 //+kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=get;list;create;update;delete
 
 func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.EventListener, error) {
-	if info.ClusterConnectInfo.Type != v1alpha1.CLUSTER_KIND_KUBERNETES {
-		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.Type)
+	if info.ClusterConnectInfo.ClusterKind != v1alpha1.CLUSTER_KIND_KUBERNETES {
+		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
 	}
 
 	k8sClient, err := client.New(info.ClusterConnectInfo.Kubernetes.Config, client.Options{Scheme: scheme})
@@ -88,13 +99,13 @@ func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (synce
 		return nil, err
 	}
 
-	cluster, err := info.NautesDB.GetCluster(info.ClusterName)
+	cluster, err := info.NautesResourceSnapshot.GetCluster(info.ClusterName)
 	if err != nil {
 		return nil, err
 	}
 	var hostCluster *v1alpha1.Cluster
 	if cluster.Spec.ClusterType == v1alpha1.CLUSTER_TYPE_VIRTUAL {
-		hostCluster, err = info.NautesDB.GetCluster(cluster.Spec.HostCluster)
+		hostCluster, err = info.NautesResourceSnapshot.GetCluster(cluster.Spec.HostCluster)
 		if err != nil {
 			return nil, err
 		}
@@ -115,18 +126,28 @@ func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (synce
 		},
 	}
 	if err := k8sClient.Create(context.TODO(), serviceAccount); client.IgnoreAlreadyExists(err) != nil {
-		return nil, fmt.Errorf("create argo event aservice account failed: %w", err)
+		return nil, fmt.Errorf("create argo event service account failed: %w", err)
+	}
+
+	account := buildArgoEventAccount(namespace)
+
+	authInfo, err := info.Components.SecretManagement.CreateAccount(context.TODO(), account)
+	if err != nil {
+		return nil, fmt.Errorf("create role in secret management failed: %w", err)
 	}
 
 	ae := &ArgoEvent{
-		components:  info.Components,
-		clusterName: info.ClusterName,
-		namespace:   namespace,
-		db:          info.NautesDB,
-		k8sClient:   k8sClient,
-		user:        buildArgoEventUser(namespace),
-		space:       buildArgoEventSpace(namespace),
-		entryPoint:  *entryPoint,
+		components:            info.Components,
+		clusterName:           info.ClusterName,
+		namespace:             namespace,
+		db:                    info.NautesResourceSnapshot,
+		k8sClient:             k8sClient,
+		machineAccount:        account,
+		space:                 buildArgoEventSpace(namespace),
+		entryPoint:            *entryPoint,
+		eventSourceGenerators: map[syncer.EventSourceType]eventSourceGenerator{},
+		sensorGenerator:       SensorGenerator{},
+		secMgrAuthInfo:        authInfo,
 	}
 
 	ae.createEventSourceGenerators()
@@ -134,50 +155,45 @@ func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (synce
 	return ae, nil
 }
 
-func buildArgoEventUser(namespace string) syncer.User {
-	user := syncer.User{
-		Resource: syncer.Resource{
-			Product: "",
-			Name:    ServiceAccountName,
-		},
-		UserType: syncer.UserTypeMachine,
-		AuthInfo: &syncer.Auth{
-			Kubernetes: []syncer.AuthKubernetes{
-				{
-					ServiceAccount: ServiceAccountName,
-					Namespace:      namespace,
-				},
-			},
-		},
+// buildArgoEventAccount returns a machine account instance.
+func buildArgoEventAccount(namespace string) syncer.MachineAccount {
+	user := syncer.MachineAccount{
+		Name:   ServiceAccountName,
+		Spaces: []string{namespace},
 	}
 	return user
 }
 
+// buildArgoEventSpace returns a space that uses the Kubernetes namespace.
 func buildArgoEventSpace(namespace string) syncer.Space {
 	space := syncer.Space{
-		Resource: syncer.Resource{
+		ResourceMetaData: syncer.ResourceMetaData{
 			Product: "",
 			Name:    namespace,
 		},
 		SpaceType: syncer.SpaceTypeKubernetes,
-		Kubernetes: syncer.SpaceKubernetes{
+		Kubernetes: &syncer.SpaceKubernetes{
 			Namespace: namespace,
 		},
 	}
 	return space
 }
 
-// When the component generates cache information, implement this method to clean datas.
+// CleanUp represents when the component generates cache information, implement this method to clean data.
 // This method will be automatically called by the syncer after each tuning is completed.
 func (ae *ArgoEvent) CleanUp() error {
 	return nil
 }
 
-func (ae *ArgoEvent) CreateEventSource(ctx context.Context, eventSource syncer.EventSource) error {
-	if err := ae.components.SecretManagement.CreateUser(ctx, ae.user); err != nil {
-		return fmt.Errorf("create role in secret database failed: %w", err)
-	}
+func (ae *ArgoEvent) GetComponentMachineAccount() *syncer.MachineAccount {
+	return &ae.machineAccount
+}
 
+// CreateEventSource creates the event source to listen to events, that support to create multi-event source.
+// 1. It creates a cache by event from event sources are in requests event sources.
+// 2. It deletes the event sources that are not in the requested event sources.
+// 3. It adds the request event sources to the cache.
+func (ae *ArgoEvent) CreateEventSource(ctx context.Context, eventSource syncer.EventSourceSet) error {
 	newCache := ae.createCacheFromEventSource(eventSource)
 	cache, err := ae.getCache(ctx, eventSource.UniqueID)
 	if err != nil {
@@ -205,6 +221,10 @@ func (ae *ArgoEvent) CreateEventSource(ctx context.Context, eventSource syncer.E
 	return nil
 }
 
+// DeleteEventSource deletes an event source by event source collection unique ID.
+// 1. It checks the old event source in the cache by unique ID.
+// 2. It deletes the old event source.
+// 3. It deletes the old event source in the cache by unique ID.
 func (ae *ArgoEvent) DeleteEventSource(ctx context.Context, uniqueID string) error {
 	cache, err := ae.getCache(ctx, uniqueID)
 	if err != nil {
@@ -225,10 +245,12 @@ func (ae *ArgoEvent) DeleteEventSource(ctx context.Context, uniqueID string) err
 	return nil
 }
 
-func (ae *ArgoEvent) CreateConsumer(ctx context.Context, consumers syncer.Consumers) error {
+// CreateConsumer calls the implementation of creating consumers.
+func (ae *ArgoEvent) CreateConsumer(ctx context.Context, consumers syncer.ConsumerSet) error {
 	return ae.sensorGenerator.CreateSensor(ctx, consumers)
 }
 
+// DeleteConsumer calls the implementation of deleting consumers.
 func (ae *ArgoEvent) DeleteConsumer(ctx context.Context, productName, name string) error {
 	return ae.sensorGenerator.DeleteSensor(ctx, productName, name)
 }
@@ -238,15 +260,17 @@ type Cache struct {
 	Calendar utils.StringSet `yaml:"calendar"`
 }
 
-func (c *Cache) GetMissingEventTypes(pairCache Cache) []syncer.EventType {
-	currentEventTypes := sets.New[syncer.EventType](c.GetEventType()...)
-	pairEventTypes := sets.New[syncer.EventType](pairCache.GetEventType()...)
+// GetMissingEventTypes returns the difference between the current saving cache and the request cache.
+func (c *Cache) GetMissingEventTypes(pairCache Cache) []syncer.EventSourceType {
+	currentEventTypes := sets.New[syncer.EventSourceType](c.GetEventType()...)
+	pairEventTypes := sets.New[syncer.EventSourceType](pairCache.GetEventType()...)
 
 	return currentEventTypes.Difference(pairEventTypes).UnsortedList()
 }
 
-func (c *Cache) GetEventType() []syncer.EventType {
-	var evTypes []syncer.EventType
+// GetEventType gets the event source type of current cache.
+func (c *Cache) GetEventType() []syncer.EventSourceType {
+	var evTypes []syncer.EventSourceType
 	if c.Gitlab.Len() != 0 {
 		evTypes = append(evTypes, syncer.EventTypeGitlab)
 	}
@@ -256,6 +280,7 @@ func (c *Cache) GetEventType() []syncer.EventType {
 	return evTypes
 }
 
+// updateCache updates the cache to the ConfigMap in Kubernetes.
 func (ae *ArgoEvent) updateCache(ctx context.Context, uuid string, cache Cache) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -279,6 +304,7 @@ func (ae *ArgoEvent) updateCache(ctx context.Context, uuid string, cache Cache) 
 	return err
 }
 
+// deleteCache deletes the cache form the ConfigMap in Kubernetes.
 func (ae *ArgoEvent) deleteCache(ctx context.Context, uuid string) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -295,14 +321,15 @@ func (ae *ArgoEvent) deleteCache(ctx context.Context, uuid string) error {
 	return err
 }
 
-func (ae *ArgoEvent) createCacheFromEventSource(es syncer.EventSource) Cache {
+// createCacheFromEventSource returns a cache instance built by the string set.
+func (ae *ArgoEvent) createCacheFromEventSource(es syncer.EventSourceSet) Cache {
 	cache := newCache()
-	for i := range es.Events {
-		if es.Events[i].Gitlab != nil {
-			cache.Gitlab.Insert(es.Events[i].Name)
+	for i := range es.EventSources {
+		if es.EventSources[i].Gitlab != nil {
+			cache.Gitlab.Insert(es.EventSources[i].Name)
 		}
-		if es.Events[i].Calendar != nil {
-			cache.Calendar.Insert(es.Events[i].Name)
+		if es.EventSources[i].Calendar != nil {
+			cache.Calendar.Insert(es.EventSources[i].Name)
 		}
 	}
 
@@ -316,6 +343,7 @@ func newCache() Cache {
 	}
 }
 
+// getCache gets cache from the ConfigMap in Kubernetes.
 func (ae *ArgoEvent) getCache(ctx context.Context, uuid string) (Cache, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -340,17 +368,19 @@ func (ae *ArgoEvent) getCache(ctx context.Context, uuid string) (Cache, error) {
 }
 
 type eventSourceGenerator interface {
-	CreateEventSource(context.Context, syncer.EventSource) error
+	CreateEventSource(context.Context, syncer.EventSourceSet) error
 	DeleteEventSource(ctx context.Context, uniqueID string) error
 }
 
+// createEventSourceGenerators creates a map to store implementation instance.
 func (ae *ArgoEvent) createEventSourceGenerators() {
-	generators := map[syncer.EventType]eventSourceGenerator{}
+	generators := map[syncer.EventSourceType]eventSourceGenerator{}
 	generators[syncer.EventTypeGitlab] = ae.newGitlabEventSourceGenerator()
 	generators[syncer.EventTypeCalendar] = ae.newCalendarEventSourceGenerator()
 	ae.eventSourceGenerators = generators
 }
 
+// newGitlabEventSourceGenerator returns an instance of GitLab event source generator.
 func (ae *ArgoEvent) newGitlabEventSourceGenerator() *GitlabEventSourceGenerator {
 	esGenerator := &GitlabEventSourceGenerator{
 		Components:     ae.components,
@@ -358,12 +388,14 @@ func (ae *ArgoEvent) newGitlabEventSourceGenerator() *GitlabEventSourceGenerator
 		Namespace:      ae.namespace,
 		K8sClient:      ae.k8sClient,
 		DB:             ae.db,
-		User:           ae.user,
+		User:           ae.machineAccount,
 		Space:          ae.space,
+		secMgrAuthInfo: ae.secMgrAuthInfo,
 	}
 	return esGenerator
 }
 
+// newCalendarEventSourceGenerator returns an instance of calendar event source generator.
 func (ae *ArgoEvent) newCalendarEventSourceGenerator() *CalendarEventSourceGenerator {
 	return &CalendarEventSourceGenerator{
 		Components:     ae.components,
@@ -371,11 +403,12 @@ func (ae *ArgoEvent) newCalendarEventSourceGenerator() *CalendarEventSourceGener
 		Namespace:      ae.namespace,
 		K8sClient:      ae.k8sClient,
 		DB:             ae.db,
-		User:           ae.user,
+		User:           ae.machineAccount,
 		Space:          ae.space,
 	}
 }
 
+// newSensorGenerator returns an instance of sensor generator.
 func (ae *ArgoEvent) newSensorGenerator() SensorGenerator {
 	return SensorGenerator{
 		Namespace: ae.namespace,

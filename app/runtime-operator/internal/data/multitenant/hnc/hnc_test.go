@@ -20,7 +20,7 @@ import (
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/multitenant/hnc"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -92,15 +92,14 @@ var _ = Describe("HNC", func() {
 
 		initInfo := syncer.ComponentInitInfo{
 			ClusterConnectInfo: syncer.ClusterConnectInfo{
-				Type: v1alpha1.CLUSTER_KIND_KUBERNETES,
+				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
 				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
-			ClusterName:  "",
-			RuntimeType:  "",
-			NautesDB:     db,
-			NautesConfig: configs.Config{},
+			ClusterName:            "",
+			NautesResourceSnapshot: db,
+			NautesConfig:           configs.Config{},
 			Components: &syncer.ComponentList{
 				Deployment: &mockDeployer{},
 			},
@@ -200,12 +199,12 @@ var _ = Describe("HNC", func() {
 		err = mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
-		err = mt.CreateUser(ctx, productName, users[0])
+		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		err = mt.AddSpaceUser(ctx, syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeUser,
-			Resource: syncer.Resource{
+			RequestScope: syncer.RequestScopeAccount,
+			Resource: syncer.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
@@ -243,12 +242,12 @@ var _ = Describe("HNC", func() {
 		err = mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
-		err = mt.CreateUser(ctx, productName, users[0])
+		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		request := syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeUser,
-			Resource: syncer.Resource{
+			RequestScope: syncer.RequestScopeAccount,
+			Resource: syncer.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
@@ -307,12 +306,12 @@ var _ = Describe("HNC", func() {
 		err = k8sClient.Update(ctx, hncParentConfig)
 		Expect(err).Should(BeNil())
 
-		err = mt.CreateUser(ctx, productName, users[0])
+		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		request := syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeUser,
-			Resource: syncer.Resource{
+			RequestScope: syncer.RequestScopeAccount,
+			Resource: syncer.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
@@ -323,7 +322,7 @@ var _ = Describe("HNC", func() {
 		err = mt.AddSpaceUser(ctx, request)
 		Expect(err).Should(BeNil())
 
-		err = mt.DeleteUser(ctx, productName, users[0])
+		err = mt.DeleteAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		ns := &corev1.Namespace{
@@ -361,12 +360,12 @@ var _ = Describe("HNC", func() {
 		err = mt.CreateSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
-		err = mt.CreateUser(ctx, productName, users[0])
+		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
 		request := syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeUser,
-			Resource: syncer.Resource{
+			RequestScope: syncer.RequestScopeAccount,
+			Resource: syncer.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
@@ -379,16 +378,16 @@ var _ = Describe("HNC", func() {
 
 		spaceStatus, err := mt.ListSpaces(ctx, productName)
 		Expect(len(spaceStatus)).Should(Equal(2))
-		Expect(spaceStatus[1].Users[0]).Should(Equal(users[0]))
+		Expect(spaceStatus[1].Accounts[0]).Should(Equal(users[0]))
 
-		spaceStatus, err = mt.ListSpaces(ctx, productName, syncer.ByUser(users[0]))
-		Expect(len(spaceStatus)).Should(Equal(1))
-		Expect(spaceStatus[0].Name).Should(Equal(spaces[0]))
+		account, err := mt.GetAccount(ctx, productName, users[0])
+		Expect(len(account.Spaces)).Should(Equal(1))
+		Expect(account.Spaces[0]).Should(Equal(spaces[0]))
 
 		err = mt.DeleteSpace(ctx, productName, spaces[0])
 		Expect(err).Should(BeNil())
 
-		spaceStatus, err = mt.ListSpaces(ctx, productName, syncer.IgnoreResourceInDeletion())
+		spaceStatus, err = mt.ListSpaces(ctx, productName)
 		Expect(len(spaceStatus)).Should(Equal(1))
 		Expect(spaceStatus[0].Name).Should(Equal(productName))
 	})

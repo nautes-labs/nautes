@@ -22,7 +22,7 @@ import (
 	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/deployment/argocd"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -112,64 +112,67 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-// Generate by m *mockSecMgr syncer.SecretManagement
+// Generate by m *mockSecMgr component.SecretManagement
 type mockSecMgr struct{}
 
-func (m *mockSecMgr) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+func (m *mockSecMgr) GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	return nil
 }
 
-func (m *mockSecMgr) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+func (m *mockSecMgr) RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	return nil
 }
 
-// When the component generates cache information, implement this method to clean datas.
-// This method will be automatically called by the syncer after each tuning is completed.
 func (m *mockSecMgr) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-// GetAccessInfo should return the infomation on how to access the cluster
+func (m *mockSecMgr) GetComponentMachineAccount() *syncer.MachineAccount {
+	panic("not implemented") // TODO: Implement
+}
+
 func (m *mockSecMgr) GetAccessInfo(ctx context.Context) (string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) CreateUser(ctx context.Context, user syncer.User) error {
+func (m *mockSecMgr) CreateAccount(ctx context.Context, account syncer.MachineAccount) (*syncer.AuthInfo, error) {
+	return nil, nil
+}
+
+func (m *mockSecMgr) DeleteAccount(ctx context.Context, account syncer.MachineAccount) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) DeleteUser(ctx context.Context, user syncer.User) error {
-	panic("not implemented") // TODO: Implement
-}
-
-// Generate by m *mockMultiTenant syncer.MultiTenant
+// Generate by m *mockMultiTenant component.MultiTenant
 type mockMultiTenant struct {
 	spaces []string
 }
 
-func (m *mockMultiTenant) ListSpaces(ctx context.Context, productName string, opts ...syncer.ListOption) ([]syncer.SpaceStatus, error) {
+func (m *mockMultiTenant) ListSpaces(ctx context.Context, productName string) ([]syncer.SpaceStatus, error) {
 	spaces := make([]syncer.SpaceStatus, len(m.spaces))
 	for i := 0; i < len(m.spaces); i++ {
 		spaces[i] = syncer.SpaceStatus{
 			Space: syncer.Space{
-				Resource: syncer.Resource{
+				ResourceMetaData: syncer.ResourceMetaData{
 					Product: productName,
 					Name:    m.spaces[i],
 				},
 				SpaceType: "",
-				Kubernetes: syncer.SpaceKubernetes{
+				Kubernetes: &syncer.SpaceKubernetes{
 					Namespace: m.spaces[i],
 				},
 			},
-			Users: []string{},
+			Accounts: []string{},
 		}
 	}
 	return spaces, nil
 }
 
-// When the component generates cache information, implement this method to clean datas.
-// This method will be automatically called by the syncer after each tuning is completed.
 func (m *mockMultiTenant) CleanUp() error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockMultiTenant) GetComponentMachineAccount() *syncer.MachineAccount {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -181,11 +184,6 @@ func (m *mockMultiTenant) DeleteProduct(ctx context.Context, name string) error 
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockMultiTenant) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus, error) {
-	panic("not implemented") // TODO: Implement
-}
-
-// Space use to manager a logical space in environment.
 func (m *mockMultiTenant) CreateSpace(ctx context.Context, productName string, name string) error {
 	panic("not implemented") // TODO: Implement
 }
@@ -206,14 +204,14 @@ func (m *mockMultiTenant) DeleteSpaceUser(ctx context.Context, request syncer.Pe
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockMultiTenant) CreateUser(ctx context.Context, productName string, name string) error {
+func (m *mockMultiTenant) CreateAccount(ctx context.Context, productName string, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockMultiTenant) DeleteUser(ctx context.Context, productName string, name string) error {
+func (m *mockMultiTenant) DeleteAccount(ctx context.Context, productName string, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockMultiTenant) GetUser(ctx context.Context, productName string, name string) (*syncer.User, error) {
+func (m *mockMultiTenant) GetAccount(ctx context.Context, productName string, name string) (*syncer.MachineAccount, error) {
 	panic("not implemented") // TODO: Implement
 }

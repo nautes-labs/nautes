@@ -18,7 +18,9 @@ import (
 	"context"
 
 	eventsourcev1alpha1 "github.com/argoproj/argo-events/pkg/apis/eventsource/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,12 +33,13 @@ type CalendarEventSourceGenerator struct {
 	HostEntrypoint utils.EntryPoint
 	Namespace      string
 	K8sClient      client.Client
-	DB             database.Database
-	User           syncer.User
+	DB             database.Snapshot
+	User           syncer.MachineAccount
 	Space          syncer.Space
 }
 
-func (cg *CalendarEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource syncer.EventSource) error {
+// CreateEventSource creates an event source resource of calendar type by event source collection unique ID.
+func (cg *CalendarEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource syncer.EventSourceSet) error {
 	es := cg.buildBaseEventSource(eventSource.UniqueID)
 
 	_, err := controllerutil.CreateOrUpdate(ctx, cg.K8sClient, es, func() error {
@@ -46,12 +49,14 @@ func (cg *CalendarEventSourceGenerator) CreateEventSource(ctx context.Context, e
 	return err
 }
 
+// DeleteEventSource deletes an event source resource of calendar type by event source collection unique ID.
 func (cg *CalendarEventSourceGenerator) DeleteEventSource(ctx context.Context, uniqueID string) error {
 	es := cg.buildBaseEventSource(uniqueID)
 
 	return cg.K8sClient.Delete(ctx, es)
 }
 
+// buildBaseEventSource returns an event source resource instance by event source collection unique ID.
 func (cg *CalendarEventSourceGenerator) buildBaseEventSource(uniqueID string) *eventsourcev1alpha1.EventSource {
 	return &eventsourcev1alpha1.EventSource{
 		ObjectMeta: metav1.ObjectMeta{
@@ -61,10 +66,11 @@ func (cg *CalendarEventSourceGenerator) buildBaseEventSource(uniqueID string) *e
 	}
 }
 
-func (cg *CalendarEventSourceGenerator) createCalendarSources(eventSource syncer.EventSource) map[string]eventsourcev1alpha1.CalendarEventSource {
+// createCalendarSources creates a cache which records calendar event sources.
+func (cg *CalendarEventSourceGenerator) createCalendarSources(eventSource syncer.EventSourceSet) map[string]eventsourcev1alpha1.CalendarEventSource {
 	esMap := map[string]eventsourcev1alpha1.CalendarEventSource{}
 
-	for _, event := range eventSource.Events {
+	for _, event := range eventSource.EventSources {
 		if event.Calendar == nil {
 			continue
 		}
@@ -75,7 +81,8 @@ func (cg *CalendarEventSourceGenerator) createCalendarSources(eventSource syncer
 	return esMap
 }
 
-func (cg *CalendarEventSourceGenerator) buildCalendarEventSource(event syncer.EventCalendar) eventsourcev1alpha1.CalendarEventSource {
+// buildCalendarEventSource returns a calendar event source instance.
+func (cg *CalendarEventSourceGenerator) buildCalendarEventSource(event syncer.EventSourceCalendar) eventsourcev1alpha1.CalendarEventSource {
 	return eventsourcev1alpha1.CalendarEventSource{
 		Schedule:       event.Schedule,
 		Interval:       event.Interval,

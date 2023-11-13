@@ -17,11 +17,11 @@ package argoevent
 import (
 	"fmt"
 
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 )
 
-func buildServiceName(uniqueID string, eventType syncer.EventType) string {
-	return fmt.Sprintf("%s-%s-eventsource-svc", uniqueID, eventType)
+func buildServiceName(uniqueID string, eventSourceType syncer.EventSourceType) string {
+	return fmt.Sprintf("%s-%s-eventsource-svc", uniqueID, eventSourceType)
 }
 
 func buildGatewayName(uniqueID string) string {
@@ -40,20 +40,20 @@ func buildSensorName(productName, name string, num int) string {
 	return fmt.Sprintf("%s-%s-%d", productName, name, num)
 }
 
-func buildEventSourceName(uniqueID string, eventType syncer.EventType) string {
-	return fmt.Sprintf("%s-%s", uniqueID, eventType)
+func buildEventSourceName(uniqueID string, eventSourceType syncer.EventSourceType) string {
+	return fmt.Sprintf("%s-%s", uniqueID, eventSourceType)
 }
 
-func buildWebhookPath(basePath, eventName string) string {
-	return fmt.Sprintf("/%s/%s", basePath, eventName)
+func buildWebhookPath(basePath, eventSourceName string) string {
+	return fmt.Sprintf("/%s/%s", basePath, eventSourceName)
 }
 
 func buildBasePath(basePath string) string {
 	return fmt.Sprintf("/%s", basePath)
 }
 
-func buildDependencyName(uniqueID, eventName string, eventType syncer.EventType) string {
-	return fmt.Sprintf("%s-%s-%s", uniqueID, eventName, eventType)
+func buildDependencyName(uniqueID, eventSourceName string, eventSourceType syncer.EventSourceType) string {
+	return fmt.Sprintf("%s-%s-%s", uniqueID, eventSourceName, eventSourceType)
 }
 
 func buildConsumerLabel(productName, name string) string {

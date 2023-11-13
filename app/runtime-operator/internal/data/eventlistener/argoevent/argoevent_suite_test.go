@@ -22,7 +22,8 @@ import (
 
 	eventsourcev1alpha1 "github.com/argoproj/argo-events/pkg/apis/eventsource/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -178,15 +179,19 @@ func (m *mockSecMgr) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) CreateUser(ctx context.Context, user syncer.User) error {
+func (m *mockSecMgr) GetComponentMachineAccount() *syncer.MachineAccount {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockSecMgr) CreateAccount(ctx context.Context, user syncer.MachineAccount) (*syncer.AuthInfo, error) {
+	return &syncer.AuthInfo{}, nil
+}
+
+func (m *mockSecMgr) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.MachineAccount) error {
 	return nil
 }
 
-func (m *mockSecMgr) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
-	return nil
-}
-
-func (m *mockSecMgr) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+func (m *mockSecMgr) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.MachineAccount) error {
 	return nil
 }
 
@@ -195,19 +200,22 @@ func (m *mockSecMgr) GetAccessInfo(ctx context.Context) (string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) DeleteUser(ctx context.Context, user syncer.User) error {
+func (m *mockSecMgr) DeleteAccount(ctx context.Context, user syncer.MachineAccount) error {
 	panic("not implemented") // TODO: Implement
 }
 
 type mockSecSyncer struct{}
 
-// When the component generates cache information, implement this method to clean datas.
+// When the component generates cache information, implement this method to clean data.
 // This method will be automatically called by the syncer after each tuning is completed.
 func (m *mockSecSyncer) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-// CreateSecret will create a secret object (sercret in kubernetes, file in host) from secret database to dest environment.
+func (m *mockSecSyncer) GetComponentMachineAccount() *syncer.MachineAccount {
+	panic("not implemented") // TODO: Implement
+}
+
 func (m *mockSecSyncer) CreateSecret(ctx context.Context, secretReq syncer.SecretRequest) error {
 	return nil
 }
@@ -218,9 +226,13 @@ func (m *mockSecSyncer) RemoveSecret(ctx context.Context, secretReq syncer.Secre
 
 type mockGateway struct{}
 
-// When the component generates cache information, implement this method to clean datas.
+// When the component generates cache information, implement this method to clean data.
 // This method will be automatically called by the syncer after each tuning is completed.
 func (m *mockGateway) CleanUp() error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *mockGateway) GetComponentMachineAccount() *syncer.MachineAccount {
 	panic("not implemented") // TODO: Implement
 }
 
