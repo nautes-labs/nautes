@@ -23,7 +23,7 @@ import (
 	externalsecretv1alpha1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretsync/externalsecret"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
@@ -84,30 +84,21 @@ vw==
 					Permission:   "4",
 				},
 			},
-			User: syncer.User{
-				Resource: syncer.Resource{
-					Product: productName,
-					Name:    userName,
-				},
-				UserType: syncer.UserTypeMachine,
-				AuthInfo: &syncer.Auth{
-					Kubernetes: []syncer.AuthKubernetes{
-						{
-							ServiceAccount: userName,
-							Namespace:      nsName,
-						},
-					},
-				},
+			AuthInfo: &syncer.AuthInfo{
+				OriginName:      "vault",
+				AccountName:     userName,
+				AuthType:        syncer.AuthTypeKubernetesServiceAccount,
+				ServiceAccounts: []syncer.AuthInfoServiceAccount{},
 			},
 			Destination: syncer.SecretRequestDestination{
 				Name: fmt.Sprintf("secret-%s", seed),
 				Space: syncer.Space{
-					Resource: syncer.Resource{
+					ResourceMetaData: syncer.ResourceMetaData{
 						Product: productName,
 						Name:    nsName,
 					},
 					SpaceType: syncer.SpaceTypeKubernetes,
-					Kubernetes: syncer.SpaceKubernetes{
+					Kubernetes: &syncer.SpaceKubernetes{
 						Namespace: nsName,
 					},
 				},
@@ -120,7 +111,7 @@ vw==
 
 		initInfo := &syncer.ComponentInitInfo{
 			ClusterConnectInfo: syncer.ClusterConnectInfo{
-				Type: v1alpha1.CLUSTER_KIND_KUBERNETES,
+				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
 				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},

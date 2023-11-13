@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	vaultproxy "github.com/nautes-labs/nautes/pkg/client/vaultproxy"
 )
 
@@ -27,20 +27,22 @@ type codeRepoManager struct {
 	clusterName string
 }
 
-func (c *codeRepoManager) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+// GrantPermission grants the machine account access to the secret of code repo type.
+func (c *codeRepoManager) GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	if repo.CodeRepo == nil {
 		return fmt.Errorf("coderepo info is missing")
 	}
 
-	req := c.getCodeRepoRequest(user, repo)
+	req := c.getCodeRepoRequest(account, repo)
 	_, err := c.GrantAuthroleGitPolicy(ctx, req)
 	return err
 }
 
-func (c *codeRepoManager) getCodeRepoRequest(user syncer.User, repo syncer.SecretInfo) *vaultproxy.AuthroleGitPolicyRequest {
+// getCodeRepoRequest builds a request body of the secret of git repo type for the Vault proxy.
+func (c *codeRepoManager) getCodeRepoRequest(account syncer.MachineAccount, repo syncer.SecretInfo) *vaultproxy.AuthroleGitPolicyRequest {
 	req := &vaultproxy.AuthroleGitPolicyRequest{
 		ClusterName: c.clusterName,
-		DestUser:    user.Name,
+		DestUser:    account.Name,
 		Secret: &vaultproxy.GitMeta{
 			ProviderType: repo.CodeRepo.ProviderType,
 			Id:           repo.CodeRepo.ID,
@@ -51,12 +53,13 @@ func (c *codeRepoManager) getCodeRepoRequest(user syncer.User, repo syncer.Secre
 	return req
 }
 
-func (c *codeRepoManager) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+// RevokePermission revokes the machine account access to the secret of code repo type.
+func (c *codeRepoManager) RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	if repo.CodeRepo == nil {
 		return fmt.Errorf("coderepo info is missing")
 	}
 
-	req := c.getCodeRepoRequest(user, repo)
+	req := c.getCodeRepoRequest(account, repo)
 	_, err := c.RevokeAuthroleGitPolicy(ctx, req)
 	return err
 }
@@ -66,28 +69,31 @@ type artifactRepoManager struct {
 	clusterName string
 }
 
-func (a *artifactRepoManager) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+// GrantPermission grants the machine account access to the secret of artifact repo type.
+func (a *artifactRepoManager) GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	if repo.ArtifactAccount == nil {
 		return fmt.Errorf("artifact account info is missing")
 	}
-	req := a.getRepoAccountRequest(user, repo)
+	req := a.getRepoAccountRequest(account, repo)
 	_, err := a.GrantAuthroleRepoPolicy(ctx, req)
 	return err
 }
 
-func (a *artifactRepoManager) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+// RevokePermission revokes the machine account access to the secret of artifact repo type.
+func (a *artifactRepoManager) RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	if repo.ArtifactAccount == nil {
 		return fmt.Errorf("artifact account info is missing")
 	}
-	req := a.getRepoAccountRequest(user, repo)
+	req := a.getRepoAccountRequest(account, repo)
 	_, err := a.RevokeAuthroleRepoPolicy(ctx, req)
 	return err
 }
 
-func (a *artifactRepoManager) getRepoAccountRequest(user syncer.User, repo syncer.SecretInfo) *vaultproxy.AuthroleRepoPolicyRequest {
+// getRepoAccountRequest builds a request body of the secret of artifact repo type for the Vault proxy.
+func (a *artifactRepoManager) getRepoAccountRequest(account syncer.MachineAccount, repo syncer.SecretInfo) *vaultproxy.AuthroleRepoPolicyRequest {
 	req := &vaultproxy.AuthroleRepoPolicyRequest{
 		ClusterName: a.clusterName,
-		DestUser:    user.Name,
+		DestUser:    account.Name,
 		Secret: &vaultproxy.RepoMeta{
 			ProviderId: repo.ArtifactAccount.ProviderName,
 			Product:    repo.ArtifactAccount.Product,

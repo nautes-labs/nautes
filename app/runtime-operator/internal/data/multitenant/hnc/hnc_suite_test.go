@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -162,15 +162,15 @@ func (md *mockDeployer) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
+func (m *mockDeployer) GetComponentMachineAccount() *syncer.MachineAccount {
+	panic("not implemented") // TODO: Implement
+}
+
 func (md *mockDeployer) CreateProduct(ctx context.Context, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 
 func (md *mockDeployer) DeleteProduct(ctx context.Context, name string) error {
-	panic("not implemented") // TODO: Implement
-}
-
-func (md *mockDeployer) GetProduct(ctx context.Context, name string) (*syncer.ProductStatus, error) {
 	panic("not implemented") // TODO: Implement
 }
 

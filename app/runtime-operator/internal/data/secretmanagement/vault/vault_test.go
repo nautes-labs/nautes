@@ -20,7 +20,7 @@ import (
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagement/vault"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +32,7 @@ var _ = Describe("Vault", func() {
 	var ctx context.Context
 	var kubeconfig = "thisisconfig"
 	var seed string
-	var user syncer.User
+	var user syncer.MachineAccount
 	BeforeEach(func() {
 		var err error
 		seed = RandNum()
@@ -47,31 +47,19 @@ var _ = Describe("Vault", func() {
 		initVault(data, roleBinding)
 		initMock()
 
-		user = syncer.User{
-			Resource: syncer.Resource{
-				Product: "",
-				Name:    fmt.Sprintf("user-%s", seed),
-			},
-			UserType: syncer.UserTypeMachine,
-			AuthInfo: &syncer.Auth{
-				Kubernetes: []syncer.AuthKubernetes{
-					{
-						ServiceAccount: fmt.Sprintf("sa-%s", seed),
-						Namespace:      fmt.Sprintf("ns-%s", seed),
-					},
-				},
-			},
+		user = syncer.MachineAccount{
+			Name:   fmt.Sprintf("user-%s", seed),
+			Spaces: []string{fmt.Sprintf("ns-%s", seed)},
 		}
 
 		opt := v1alpha1.Component{}
 		initInfo := syncer.ComponentInitInfo{
 			ClusterConnectInfo: syncer.ClusterConnectInfo{
-				Type:       v1alpha1.CLUSTER_KIND_KUBERNETES,
-				Kubernetes: nil,
+				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
+				Kubernetes:  nil,
 			},
-			ClusterName: authName,
-			RuntimeType: "",
-			NautesDB:    nil,
+			ClusterName:            authName,
+			NautesResourceSnapshot: nil,
 			NautesConfig: configs.Config{
 				Secret: configs.SecretRepo{
 					RepoType: "",
@@ -101,24 +89,23 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("can create user", func() {
-		err := secMgr.CreateUser(ctx, user)
+		authInfo, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
 		path := fmt.Sprintf("auth/%s/role/%s", authName, user.Name)
 		sec, err := vaultClientRoot.Logical().Read(path)
 		Expect(err).Should(BeNil())
 		sa := sec.Data["bound_service_account_names"].([]interface{})[0].(string)
-		Expect(sa).Should(Equal(user.AuthInfo.Kubernetes[0].ServiceAccount))
+		Expect(sa).Should(Equal(authInfo.ServiceAccounts[0].ServiceAccount))
 		namespace := sec.Data["bound_service_account_namespaces"].([]interface{})[0].(string)
-		Expect(namespace).Should(Equal(user.AuthInfo.Kubernetes[0].Namespace))
-
+		Expect(namespace).Should(Equal(authInfo.ServiceAccounts[0].Namespace))
 	})
 
 	It("can delete user", func() {
-		err := secMgr.CreateUser(ctx, user)
+		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
-		err = secMgr.DeleteUser(ctx, user)
+		err = secMgr.DeleteAccount(ctx, user)
 		Expect(err).Should(BeNil())
 		path := fmt.Sprintf("auth/%s/role/%s", authName, user.Name)
 		sec, err := vaultClientRoot.Logical().Read(path)
@@ -128,7 +115,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("grant code repo permission to user", func() {
-		err := secMgr.CreateUser(ctx, user)
+		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{
@@ -156,7 +143,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("revoke code repo permission from user", func() {
-		err := secMgr.CreateUser(ctx, user)
+		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{
@@ -182,7 +169,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("grant artifact account permission to user", func() {
-		err := secMgr.CreateUser(ctx, user)
+		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{
@@ -209,7 +196,7 @@ var _ = Describe("Vault", func() {
 	})
 
 	It("revoke artifact account permission from user", func() {
-		err := secMgr.CreateUser(ctx, user)
+		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
 		repo := syncer.SecretInfo{

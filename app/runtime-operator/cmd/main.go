@@ -36,9 +36,10 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/deployment/argocd"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/eventlistener/argoevent"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/multitenant/hnc"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/pipeline/tekton"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagement/vault"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretsync/externalsecret"
-	syncerv2 "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncerv2 "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -58,6 +59,7 @@ func init() {
 	syncerv2.NewFunctionMapSecretManagement["vault"] = vault.NewSecretManagement
 	syncerv2.NewFunctionMapEventListener["argo-events"] = argoevent.NewArgoEvent
 	syncerv2.NewFunctionMapSecretSync["external-secrets"] = externalsecret.NewExternalSecret
+	syncerv2.ComponentFactoryMapPipeline["tekton"] = tekton.TektonFactory
 
 	//+kubebuilder:scaffold:scheme
 }

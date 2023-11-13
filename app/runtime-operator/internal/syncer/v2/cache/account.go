@@ -15,55 +15,19 @@
 package cache
 
 import (
-	"fmt"
-
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	component "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type GetRuntimeResourceFunction func(runtime v1alpha1.Runtime) (RuntimeResource, error)
-
-var (
-	GetRuntimeResourceFunctionMap = map[v1alpha1.RuntimeType]GetRuntimeResourceFunction{
-		v1alpha1.RuntimeTypeDeploymentRuntime: GetRuntimeResourceFromDeploymentRuntime,
-		v1alpha1.RuntimeTypePipelineRuntime:   GetRuntimeResourceFromPipelineRuntime,
-	}
-)
-
-func GetRuntimeResourceFromDeploymentRuntime(runtime v1alpha1.Runtime) (RuntimeResource, error) {
-	deploymentRuntime, ok := runtime.(*v1alpha1.DeploymentRuntime)
-	if !ok {
-		return RuntimeResource{}, fmt.Errorf("runtime is not a deployment runtime")
-	}
-
-	return RuntimeResource{
-		Spaces:    utils.NewStringSet(deploymentRuntime.GetNamespaces()...),
-		CodeRepos: utils.NewStringSet(deploymentRuntime.Spec.ManifestSource.CodeRepo),
-	}, nil
-}
-
-func GetRuntimeResourceFromPipelineRuntime(runtime v1alpha1.Runtime) (RuntimeResource, error) {
-	pipelineRuntime, ok := runtime.(*v1alpha1.ProjectPipelineRuntime)
-	if !ok {
-		return RuntimeResource{}, fmt.Errorf("runtime is not a pipeline runtime")
-	}
-
-	return RuntimeResource{
-		Spaces:    utils.NewStringSet(pipelineRuntime.GetNamespaces()...),
-		CodeRepos: utils.NewStringSet(pipelineRuntime.Spec.PipelineSource),
-	}, nil
-}
 
 type AccountUsage struct {
 	Accounts map[string]AccountResource `yaml:"accounts"`
 }
 
-func (au *AccountUsage) AddOrUpdateRuntime(accountName string, runtime v1alpha1.Runtime) error {
-	runtimeResource, err := GetRuntimeResourceFunctionMap[runtime.GetRuntimeType()](runtime)
-	if err != nil {
-		return fmt.Errorf("get runtime resource failed: %w", err)
-	}
-
+func (au *AccountUsage) AddRuntime(accountName, runtimeName string) {
 	if au.Accounts == nil {
 		au.Accounts = map[string]AccountResource{}
 	}
@@ -75,11 +39,18 @@ func (au *AccountUsage) AddOrUpdateRuntime(accountName string, runtime v1alpha1.
 		}
 	}
 
-	au.Accounts[accountName].Runtimes[runtime.GetName()] = runtimeResource
-	return nil
+	_, ok = au.Accounts[accountName].Runtimes[runtimeName]
+	if ok {
+		return
+	}
+
+	au.Accounts[accountName].Runtimes[runtimeName] = RuntimeResource{
+		Spaces:      utils.StringSet{},
+		Permissions: []component.SecretInfo{},
+	}
 }
 
-func (au *AccountUsage) DeleteRuntime(accountName string, runtime v1alpha1.Runtime) {
+func (au *AccountUsage) DeleteRuntime(accountName, runtimeName string) {
 	if au.Accounts == nil {
 		return
 	}
@@ -87,11 +58,25 @@ func (au *AccountUsage) DeleteRuntime(accountName string, runtime v1alpha1.Runti
 	if !ok {
 		return
 	}
-	delete(au.Accounts[accountName].Runtimes, runtime.GetName())
+	delete(au.Accounts[accountName].Runtimes, runtimeName)
 
 	if len(au.Accounts[accountName].Runtimes) == 0 {
 		delete(au.Accounts, accountName)
 	}
+}
+
+func (au *AccountUsage) UpdateSpaces(accountName, runtimeName string, spaces utils.StringSet) {
+	au.AddRuntime(accountName, runtimeName)
+	runtimeUsage := au.Accounts[accountName].Runtimes[runtimeName]
+	runtimeUsage.Spaces = spaces
+	au.Accounts[accountName].Runtimes[runtimeName] = runtimeUsage
+}
+
+func (au *AccountUsage) UpdatePermissions(accountName, runtimeName string, permissions []component.SecretInfo) {
+	au.AddRuntime(accountName, runtimeName)
+	runtimeUsage := au.Accounts[accountName].Runtimes[runtimeName]
+	runtimeUsage.Permissions = permissions
+	au.Accounts[accountName].Runtimes[runtimeName] = runtimeUsage
 }
 
 type AccountResource struct {
@@ -99,8 +84,8 @@ type AccountResource struct {
 }
 
 type RuntimeResource struct {
-	Spaces    utils.StringSet `yaml:"spaces"`
-	CodeRepos utils.StringSet `yaml:"codeRepos"`
+	Spaces      utils.StringSet        `yaml:"spaces,omitempty"`
+	Permissions []component.SecretInfo `yaml:"permissions,omitempty"`
 }
 
 type listOptions struct {
@@ -108,31 +93,31 @@ type listOptions struct {
 }
 
 func newListOptions(opts ...ListOption) listOptions {
-	getOpts := &listOptions{
+	listOpts := &listOptions{
 		ExcludedRuntimeNames: utils.NewStringSet(),
 	}
 
 	for _, fn := range opts {
-		fn(getOpts)
+		fn(listOpts)
 	}
 
-	return *getOpts
+	return *listOpts
 }
 
 type ListOption func(*listOptions)
 
-func ExcludedRuntimeNames(runtimeNames []string) ListOption {
-	return func(gopt *listOptions) {
-		gopt.ExcludedRuntimeNames = utils.NewStringSet(runtimeNames...)
+func ExcludedRuntimes(runtimeNames []string) ListOption {
+	return func(lopt *listOptions) {
+		lopt.ExcludedRuntimeNames = utils.NewStringSet(runtimeNames...)
 	}
 }
 
 func (ar AccountResource) ListAccountSpaces(opts ...ListOption) utils.StringSet {
-	getOpts := newListOptions(opts...)
+	listOpts := newListOptions(opts...)
 
 	spaceSet := utils.NewStringSet()
 	for name, runtime := range ar.Runtimes {
-		if getOpts.ExcludedRuntimeNames.Has(name) {
+		if listOpts.ExcludedRuntimeNames.Has(name) {
 			continue
 		}
 		spaceSet.Set = spaceSet.Union(runtime.Spaces.Set)
@@ -140,15 +125,26 @@ func (ar AccountResource) ListAccountSpaces(opts ...ListOption) utils.StringSet 
 	return spaceSet
 }
 
-func (ar *AccountResource) ListAccountCodeRepos(opts ...ListOption) utils.StringSet {
-	getOpts := newListOptions(opts...)
+func (ar AccountResource) ListPermissions(opts ...ListOption) []component.SecretInfo {
+	listOpts := newListOptions(opts...)
 
-	codeRepoSet := utils.NewStringSet()
-	for name, runtime := range ar.Runtimes {
-		if getOpts.ExcludedRuntimeNames.Has(name) {
+	var permissions []component.SecretInfo
+	hashSet := sets.New[uint32]()
+	for name := range ar.Runtimes {
+		if listOpts.ExcludedRuntimeNames.Has(name) {
 			continue
 		}
-		codeRepoSet.Set = codeRepoSet.Union(runtime.CodeRepos.Set)
+
+		for i, permission := range ar.Runtimes[name].Permissions {
+			hash := utils.GetStructHash(permission)
+			if hashSet.Has(hash) {
+				continue
+			}
+
+			hashSet.Insert(hash)
+			permissions = append(permissions, ar.Runtimes[name].Permissions[i])
+		}
 	}
-	return codeRepoSet
+
+	return permissions
 }

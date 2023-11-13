@@ -28,17 +28,17 @@ import (
 	vaultapi "github.com/hashicorp/vault/api"
 	vaultauthkubernetes "github.com/hashicorp/vault/api/auth/kubernetes"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	vaultproxy "github.com/nautes-labs/nautes/pkg/client/vaultproxy"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	loadcert "github.com/nautes-labs/nautes/pkg/util/loadcerts"
-	"k8s.io/apimachinery/pkg/util/sets"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// secretManager grants the machine account access to the secret or revokes the machine account access to the secret.
 type secretManager interface {
-	GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error
-	RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error
+	GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error
+	RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error
 }
 
 type vault struct {
@@ -54,6 +54,7 @@ func NewSecretManagement(opt v1alpha1.Component, info *syncer.ComponentInitInfo)
 	return NewVaultClient(opt, info)
 }
 
+// NewVaultProxy defines a function of Vault proxy.
 type NewVaultProxy func(url string) (vaultproxy.SecretHTTPClient, vaultproxy.AuthHTTPClient, vaultproxy.AuthGrantHTTPClient, error)
 
 type newOptions struct {
@@ -66,6 +67,7 @@ func SetNewVaultProxyClientFunction(fn NewVaultProxy) NewOption {
 	return func(no *newOptions) { no.newVaultProxyClient = fn }
 }
 
+// NewVaultClient builds a client instance to access the Vault, including read and write operations.
 func NewVaultClient(_ v1alpha1.Component, info *syncer.ComponentInitInfo, opts ...NewOption) (syncer.SecretManagement, error) {
 	options := &newOptions{
 		newVaultProxyClient: newVaultProxyClient,
@@ -112,6 +114,7 @@ const (
 	clusterKubeconfigKey = "kubeconfig"
 )
 
+// CleanUp revokes a connection with Vault.
 func (v *vault) CleanUp() error {
 	err := v.client.Auth().Token().RevokeSelf("")
 	if err != nil {
@@ -121,52 +124,66 @@ func (v *vault) CleanUp() error {
 	return nil
 }
 
-// GetAccessInfo should return the information on how to access the cluster
+func (v *vault) GetComponentMachineAccount() *syncer.MachineAccount {
+	return nil
+}
+
+// GetAccessInfo returns the access information of the cluster.
 func (v *vault) GetAccessInfo(ctx context.Context) (string, error) {
 	path := fmt.Sprintf(clusterPathTemplate, v.clusterName)
 	secret, err := v.client.KVv2(clusterEngineName).Get(ctx, path)
 	if err != nil {
 		return "", err
 	}
-	kubeconfig, ok := secret.Data[clusterKubeconfigKey]
+	kubeConfig, ok := secret.Data[clusterKubeconfigKey]
 	if !ok {
 		return "", fmt.Errorf("can not find kubeconfig in secret store. instance name %s", v.clusterName)
 	}
-	return kubeconfig.(string), nil
+	return kubeConfig.(string), nil
 }
 
-func (v *vault) CreateUser(ctx context.Context, user syncer.User) error {
+const OriginName = "vault"
+
+// CreateAccount creates the machine account in Vault by the specified Kubernetes authentication method.
+func (v *vault) CreateAccount(ctx context.Context, account syncer.MachineAccount) (*syncer.AuthInfo, error) {
 	roleInfo := &vaultproxy.AuthroleRequest_Kubernetes{
 		Kubernetes: &vaultproxy.KubernetesAuthRoleMeta{},
 	}
-
-	if user.AuthInfo != nil && user.AuthInfo.Kubernetes != nil {
-		serviceAccountSet := sets.New[string]()
-		namespaceSet := sets.New[string]()
-		for _, authInfo := range user.AuthInfo.Kubernetes {
-			serviceAccountSet.Insert(authInfo.ServiceAccount)
-			namespaceSet.Insert(authInfo.Namespace)
-		}
-		roleInfo.Kubernetes.Namespaces = namespaceSet.UnsortedList()
-		roleInfo.Kubernetes.ServiceAccounts = serviceAccountSet.UnsortedList()
-	}
+	roleInfo.Kubernetes.Namespaces = account.Spaces
+	roleInfo.Kubernetes.ServiceAccounts = []string{account.Name}
 
 	req := &vaultproxy.AuthroleRequest{
 		ClusterName: v.clusterName,
-		DestUser:    user.Name,
+		DestUser:    account.Name,
 		Role:        roleInfo,
 	}
 
 	if _, err := v.AuthHTTPClient.CreateAuthrole(ctx, req); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+
+	authInfo := &syncer.AuthInfo{
+		OriginName:      OriginName,
+		AccountName:     account.Name,
+		AuthType:        syncer.AuthTypeKubernetesServiceAccount,
+		ServiceAccounts: []syncer.AuthInfoServiceAccount{},
+	}
+
+	for _, ns := range roleInfo.Kubernetes.Namespaces {
+		authInfo.ServiceAccounts = append(authInfo.ServiceAccounts, syncer.AuthInfoServiceAccount{
+			ServiceAccount: account.Name,
+			Namespace:      ns,
+		})
+	}
+
+	return authInfo, nil
 }
 
-func (v *vault) DeleteUser(ctx context.Context, user syncer.User) error {
+// DeleteAccount deletes the machine account in Vault.
+func (v *vault) DeleteAccount(ctx context.Context, account syncer.MachineAccount) error {
 	req := &vaultproxy.AuthroleRequest{
 		ClusterName: v.clusterName,
-		DestUser:    user.Name,
+		DestUser:    account.Name,
 	}
 
 	if _, err := v.AuthHTTPClient.DeleteAuthrole(ctx, req); err != nil {
@@ -175,22 +192,27 @@ func (v *vault) DeleteUser(ctx context.Context, user syncer.User) error {
 	return nil
 }
 
-func (v *vault) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+// GrantPermission grants the machine account access to the secret.
+// It's implemented differently depending on the secret type.
+func (v *vault) GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	mgr, ok := v.secMgrMap[repo.Type]
 	if !ok {
 		return fmt.Errorf("unknow secret type %s", repo.Type)
 	}
-	return mgr.GrantPermission(ctx, repo, user)
+	return mgr.GrantPermission(ctx, repo, account)
 }
 
-func (v *vault) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.User) error {
+// RevokePermission revokes the machine account access to the secret.
+// It's implemented differently depending on the secret type.
+func (v *vault) RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
 	mgr, ok := v.secMgrMap[repo.Type]
 	if !ok {
 		return fmt.Errorf("unknow secret type %s", repo.Type)
 	}
-	return mgr.RevokePermission(ctx, repo, user)
+	return mgr.RevokePermission(ctx, repo, account)
 }
 
+// newVaultRawClient returns a read-only client to access Vault.
 func newVaultRawClient(cfg configs.SecretRepo) (*vaultapi.Client, error) {
 	config := vaultapi.DefaultConfig()
 	config.Address = cfg.Vault.Addr
@@ -249,6 +271,7 @@ const (
 	vaultProxyClientKeypairPath = "/opt/nautes/keypair"
 )
 
+// newVaultProxyClient returns three read-write clients to access Vault.
 func newVaultProxyClient(url string) (vaultproxy.SecretHTTPClient, vaultproxy.AuthHTTPClient, vaultproxy.AuthGrantHTTPClient, error) {
 	certPool, err := loadcert.GetCertPool()
 	if err != nil {

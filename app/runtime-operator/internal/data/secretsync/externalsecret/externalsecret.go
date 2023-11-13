@@ -19,9 +19,10 @@ import (
 	"fmt"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,9 +48,10 @@ type ExternalSecret struct {
 	clusterName string
 }
 
+// NewExternalSecret returns a new instance for secret synchronization.
 func NewExternalSecret(_ v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.SecretSync, error) {
-	if info.ClusterConnectInfo.Type != v1alpha1.CLUSTER_KIND_KUBERNETES {
-		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.Type)
+	if info.ClusterConnectInfo.ClusterKind != v1alpha1.CLUSTER_KIND_KUBERNETES {
+		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
 	}
 
 	k8sClient, err := client.New(info.ClusterConnectInfo.Kubernetes.Config, client.Options{Scheme: scheme})
@@ -66,13 +68,18 @@ func NewExternalSecret(_ v1alpha1.Component, info *syncer.ComponentInitInfo) (sy
 	return es, nil
 }
 
-// When the component generates cache information, implement this method to clean datas.
+// CleanUp represents when the component generates cache information, implement this method to clean datas.
 // This method will be automatically called by the syncer after each tuning is completed.
 func (es *ExternalSecret) CleanUp() error {
 	return nil
 }
 
-// CreateSecret will create a secret object (sercret in kubernetes, file in host) from secret database to dest environment.
+func (es *ExternalSecret) GetComponentMachineAccount() *syncer.MachineAccount {
+	return nil
+}
+
+// CreateSecret creates the secret synchronization object, the synchronization result of the secret depends on the space type in the destination environment.
+// If the space type of the request is Kubernetes then is a Secret name else is a folder name on Host.
 func (es *ExternalSecret) CreateSecret(ctx context.Context, secretReq syncer.SecretRequest) error {
 	secretStore, err := buildBaseSecretStore(secretReq)
 	if err != nil {
@@ -95,7 +102,10 @@ func (es *ExternalSecret) CreateSecret(ctx context.Context, secretReq syncer.Sec
 		return fmt.Errorf("build external secret failed: %w", err)
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, es.k8sClient, externalSecret, func() error {
-		spec := es.convertReqToExternalSecretSpec(secretReq)
+		spec, err := es.convertReqToExternalSecretSpec(secretReq)
+		if err != nil {
+			return err
+		}
 		externalSecret.Spec = *spec
 		return nil
 	})
@@ -106,6 +116,7 @@ func (es *ExternalSecret) CreateSecret(ctx context.Context, secretReq syncer.Sec
 	return nil
 }
 
+// RemoveSecret removes the secret object from the dest environment of the request.
 func (es *ExternalSecret) RemoveSecret(ctx context.Context, secretReq syncer.SecretRequest) error {
 	secretStore, err := buildBaseSecretStore(secretReq)
 	if err != nil {
@@ -126,6 +137,7 @@ func (es *ExternalSecret) RemoveSecret(ctx context.Context, secretReq syncer.Sec
 	return nil
 }
 
+// buildBaseSecretStore builds a secret store instance for secret synchronization.
 func buildBaseSecretStore(req syncer.SecretRequest) (*externalsecretv1alpha1.SecretStore, error) {
 	if req.Destination.Space.SpaceType != syncer.SpaceTypeKubernetes {
 		return nil, fmt.Errorf("space type %s is not supported", req.Destination.Space.SpaceType)
@@ -139,6 +151,7 @@ func buildBaseSecretStore(req syncer.SecretRequest) (*externalsecretv1alpha1.Sec
 	}, nil
 }
 
+// buildBaseExternalSecret builds an external secret instance for secret synchronization.
 func buildBaseExternalSecret(req syncer.SecretRequest) (*externalsecretv1alpha1.ExternalSecret, error) {
 	if req.Destination.Space.SpaceType != syncer.SpaceTypeKubernetes {
 		return nil, fmt.Errorf("space type %s is not supported", req.Destination.Space.SpaceType)
@@ -153,10 +166,20 @@ func buildBaseExternalSecret(req syncer.SecretRequest) (*externalsecretv1alpha1.
 	}, nil
 }
 
+// convertReqToSecretStoreSpec builds a secret store spec instance for secret synchronization.
 func (es *ExternalSecret) convertReqToSecretStoreSpec(req syncer.SecretRequest) (*externalsecretv1alpha1.SecretStoreSpec, error) {
+	// The GetCABundle gets CA cert to access Vault.
 	caBundle, err := utils.GetCABundle(es.nautesCFG.Secret.Vault.Addr)
 	if err != nil {
 		return nil, err
+	}
+
+	sa := ""
+	for _, serviceAccount := range req.AuthInfo.ServiceAccounts {
+		if serviceAccount.Namespace == req.Destination.Space.Kubernetes.Namespace {
+			sa = serviceAccount.ServiceAccount
+			break
+		}
 	}
 
 	ssSpec := &externalsecretv1alpha1.SecretStoreSpec{
@@ -166,12 +189,14 @@ func (es *ExternalSecret) convertReqToSecretStoreSpec(req syncer.SecretRequest) 
 					Kubernetes: &externalsecretv1alpha1.VaultKubernetesAuth{
 						Path: es.clusterName,
 						ServiceAccountRef: &v1.ServiceAccountSelector{
-							Name: req.User.Name,
+							Name: sa,
 						},
-						Role: req.User.Name,
+						Role: req.AuthInfo.AccountName,
 					},
 				},
-				Server:   es.nautesCFG.Secret.Vault.Addr,
+				// The Server is the Vault server's address.
+				Server: es.nautesCFG.Secret.Vault.Addr,
+				// The Path is the secret path in the Vault.
 				Path:     getVaultSecretPath(req.Source.Type),
 				Version:  "v2",
 				CABundle: caBundle,
@@ -182,11 +207,25 @@ func (es *ExternalSecret) convertReqToSecretStoreSpec(req syncer.SecretRequest) 
 }
 
 const (
-	vaultSecretEngineGitAcessTokenKey = "accesstoken"
-	externalSecretRefSecretStoreKind  = "SecretStore"
+	vaultSecretEngineGitAccessTokenKey = "accesstoken"
+	vaultSecretEngineGitReadOnlyKey    = "deploykey"
+	vaultSecretEngineGitReadWriteKey   = "deploykey"
+	externalSecretRefSecretStoreKind   = "SecretStore"
 )
 
-func (es *ExternalSecret) convertReqToExternalSecretSpec(req syncer.SecretRequest) *externalsecretv1alpha1.ExternalSecretSpec {
+// convertReqToExternalSecretSpec builds an external secret spec instance for secret synchronization.
+func (es *ExternalSecret) convertReqToExternalSecretSpec(req syncer.SecretRequest) (*externalsecretv1alpha1.ExternalSecretSpec, error) {
+	var key string
+	switch req.Source.CodeRepo.Permission {
+	case syncer.CodeRepoPermissionAccessToken:
+		key = vaultSecretEngineGitAccessTokenKey
+	case syncer.CodeRepoPermissionReadOnly:
+		key = vaultSecretEngineGitReadOnlyKey
+	case syncer.CodeRepoPermissionReadWrite:
+		key = vaultSecretEngineGitReadWriteKey
+	}
+
+	format := req.Destination.Format
 	secPath := es.getVaultSecretPath(req.Source)
 	esSpec := &externalsecretv1alpha1.ExternalSecretSpec{
 		SecretStoreRef: externalsecretv1alpha1.SecretStoreRef{
@@ -199,18 +238,29 @@ func (es *ExternalSecret) convertReqToExternalSecretSpec(req syncer.SecretReques
 		},
 		Data: []externalsecretv1alpha1.ExternalSecretData{
 			{
-				SecretKey: "token",
+				SecretKey: key,
 				RemoteRef: externalsecretv1alpha1.ExternalSecretDataRemoteRef{
 					Key:                secPath,
-					Property:           vaultSecretEngineGitAcessTokenKey,
+					Property:           key,
 					ConversionStrategy: externalsecretv1alpha1.ExternalSecretConversionDefault,
 				},
 			},
 		},
 	}
-	return esSpec
+
+	if format != "" {
+		data := map[string]string{}
+		if err := yaml.Unmarshal([]byte(format), data); err != nil {
+			return nil, fmt.Errorf("format analysis failed: %w", err)
+		}
+		esSpec.Target.Template = &externalsecretv1alpha1.ExternalSecretTemplate{
+			Data: data,
+		}
+	}
+	return esSpec, nil
 }
 
+// getVaultSecretPath returns a key of secret in Vault.
 func (es *ExternalSecret) getVaultSecretPath(secInfo syncer.SecretInfo) string {
 	return fmt.Sprintf("%s/%s/%s/%s", secInfo.CodeRepo.ProviderType,
 		secInfo.CodeRepo.ID,

@@ -310,9 +310,11 @@ spec:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               componentsStatus:
+                additionalProperties:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 description: ComponentsStatus is the status where components are stored.
                 type: object
-                x-kubernetes-preserve-unknown-fields: true
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current

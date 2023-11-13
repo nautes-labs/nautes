@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
 	// Required for Watching
 )
 
@@ -75,9 +75,6 @@ var errorMsgUpdateStatusFailed = "update status failed"
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -87,7 +84,7 @@ func (r *DeploymentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	task, err := r.Syncer.NewTasks(ctx, dr, dr.Status.DeployStatus)
+	task, err := r.Syncer.NewTask(ctx, dr, dr.Status.DeployStatus)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("init runtime deployment task failed: %w", err)
 	}

@@ -21,7 +21,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 )
 
-type NewDeployer func(namespace string, task initinfo.ComponentInitInfo, db database.Database) (Deployer, error)
+type NewDeployer func(namespace string, task initinfo.ComponentInitInfo, db database.Snapshot) (Deployer, error)
 
 type Deployer interface {
 	// GetNewResource() {resources}

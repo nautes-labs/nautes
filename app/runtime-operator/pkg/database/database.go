@@ -527,7 +527,7 @@ func (db *RuntimeDataBase) listPipelineRuntimeUsedCodeRepos(options ListOptions)
 	return repos, nil
 }
 
-func NewRuntimeDataSource(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Database, error) {
+func NewRuntimeSnapshot(ctx context.Context, k8sClient client.Client, productName string, nautesNamespace string) (Snapshot, error) {
 	return newRuntimeDataSource(ctx, k8sClient, productName, nautesNamespace)
 }
 

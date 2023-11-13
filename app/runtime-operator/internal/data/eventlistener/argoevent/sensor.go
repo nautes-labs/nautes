@@ -17,13 +17,13 @@ package argoevent
 import (
 	"context"
 	"fmt"
-	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/argoproj/argo-events/pkg/apis/common"
 	sensorv1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2"
-	"gopkg.in/yaml.v2"
+	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -38,24 +38,38 @@ type SensorGenerator struct {
 }
 
 type ConsumerCache struct {
-	syncer.Consumers
+	syncer.ResourceMetaData
+	Hash uint32 `json:"hash"`
+}
+
+func NewConsumerCache(consumerSet syncer.ConsumerSet) ConsumerCache {
+	return ConsumerCache{
+		ResourceMetaData: consumerSet.ResourceMetaData,
+		Hash:             utils.GetStructHash(consumerSet),
+	}
+}
+
+func (c *ConsumerCache) isSame(consumerSet syncer.ConsumerSet) bool {
+	hash := utils.GetStructHash(consumerSet)
+	return c.Hash == hash
 }
 
 const LabelConsumer = "nautes.argoevents.consumer"
 const ConfigMapNameConsumerCache = "nautes-consumer-cache"
 const ServiceAccountArgoEvents = "argo-events-sa"
 
-func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer syncer.Consumers) error {
-	if consumer.User.AuthInfo == nil {
-		return fmt.Errorf("can not find service account in user info")
-	}
+// CreateSensor creates the consumer to trigger the init pipeline.
+// The consumers listen to different types of event sources that generate events.
+// 1. It checks the cache that finding if the consumer is changed then deleted.
+// 2. It creates or updates all the Sensors by the consumer.
+// 3. Tt updates the consumer to the cache.
+func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer syncer.ConsumerSet) error {
 	cache, err := sg.getConsumerCache(ctx, buildConsumerLabel(consumer.Product, consumer.Name))
 	if err != nil {
 		return fmt.Errorf("load consumer cache failed: %w", err)
 	}
-	isSame := reflect.DeepEqual(cache, &ConsumerCache{consumer})
 
-	if !isSame {
+	if cache == nil || !cache.isSame(consumer) {
 		if err := sg.deleteSensor(ctx, consumer.Product, consumer.Name); err != nil {
 			return fmt.Errorf("clean sensor failed: %w", err)
 		}
@@ -93,6 +107,7 @@ func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer syncer.Con
 	return nil
 }
 
+// DeleteSensor deletes all consumers by product name and name of consumer collection.
 func (sg *SensorGenerator) DeleteSensor(ctx context.Context, productName, name string) error {
 	if err := sg.deleteSensor(ctx, productName, name); err != nil {
 		return fmt.Errorf("delete sensor failed: %w", err)
@@ -104,7 +119,9 @@ func (sg *SensorGenerator) DeleteSensor(ctx context.Context, productName, name s
 	return nil
 }
 
+// deleteSensor deletes the sensor by product name and consumer name.
 func (sg *SensorGenerator) deleteSensor(ctx context.Context, productName, name string) error {
+	logger.V(1).Info("delete sensor set", "name", name)
 	deleteOpts := []client.DeleteAllOfOption{
 		client.InNamespace(sg.Namespace),
 		client.MatchingLabels{LabelConsumer: buildConsumerLabel(productName, name)},
@@ -115,6 +132,7 @@ func (sg *SensorGenerator) deleteSensor(ctx context.Context, productName, name s
 	return nil
 }
 
+// getConsumerCache gets the consumers by product name and consumer name.
 func (sg *SensorGenerator) getConsumerCache(ctx context.Context, consumerLabel string) (*ConsumerCache, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -136,15 +154,21 @@ func (sg *SensorGenerator) getConsumerCache(ctx context.Context, consumerLabel s
 		return nil, nil
 	}
 
-	var consumer *ConsumerCache
-	if err := yaml.Unmarshal([]byte(consumerStr), &consumer); err != nil {
-		return nil, fmt.Errorf("umarshal consumer cache failed: %w", err)
+	num, err := strconv.Atoi(consumerStr)
+	if err != nil {
+		logger.Error(err, "parse consumer cache failed", "name", consumerLabel)
+		num = 0
+	}
+
+	consumer := &ConsumerCache{
+		Hash: uint32(num),
 	}
 
 	return consumer, nil
 }
 
-func (sg *SensorGenerator) updateConsumerCache(ctx context.Context, consumer syncer.Consumers) error {
+// updateConsumerCache updates the consumer by product name and consumer name.
+func (sg *SensorGenerator) updateConsumerCache(ctx context.Context, consumer syncer.ConsumerSet) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConfigMapNameConsumerCache,
@@ -152,23 +176,19 @@ func (sg *SensorGenerator) updateConsumerCache(ctx context.Context, consumer syn
 		},
 	}
 
-	cache, err := yaml.Marshal(ConsumerCache{
-		Consumers: consumer,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal cache failed: %w", err)
-	}
-	_, err = controllerutil.CreateOrPatch(ctx, sg.k8sClient, cm, func() error {
+	cache := NewConsumerCache(consumer)
+	_, err := controllerutil.CreateOrPatch(ctx, sg.k8sClient, cm, func() error {
 		if cm.Data == nil {
 			cm.Data = map[string]string{}
 		}
-		cm.Data[buildConsumerLabel(consumer.Product, consumer.Name)] = string(cache)
+		cm.Data[buildConsumerLabel(consumer.Product, consumer.Name)] = fmt.Sprintf("%d", cache.Hash)
 		return nil
 	})
 
 	return err
 }
 
+// deleteConsumerCache deletes the consumer by product name and consumer name.
 func (sg *SensorGenerator) deleteConsumerCache(ctx context.Context, consumerLabel string) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -184,6 +204,7 @@ func (sg *SensorGenerator) deleteConsumerCache(ctx context.Context, consumerLabe
 	return err
 }
 
+// buildSensor return an instance of the sensor which is custom resource in Kubernetes.
 func (sg *SensorGenerator) buildSensor(productName, name string, num int) *sensorv1alpha1.Sensor {
 	return &sensorv1alpha1.Sensor{
 		ObjectMeta: metav1.ObjectMeta{
@@ -200,6 +221,7 @@ func (sg *SensorGenerator) buildSensor(productName, name string, num int) *senso
 	}
 }
 
+// Transform custom comparable symbol to sensor comparable symbol.
 var (
 	comparatorMap = map[syncer.Comparator]sensorv1alpha1.Comparator{
 		syncer.GreaterThanOrEqualTo: sensorv1alpha1.GreaterThanOrEqualTo,
@@ -211,21 +233,23 @@ var (
 	}
 )
 
+// buildDependencies return an instance of event dependency as sub of the sensor which is custom resource in Kubernetes.
+// Transform consumer event trigger condition to the event dependency.
 func buildDependencies(consumer syncer.Consumer) sensorv1alpha1.EventDependency {
 	eventDependency := sensorv1alpha1.EventDependency{
-		Name:            buildDependencyName(consumer.UniqueID, consumer.EventName, consumer.EventType),
-		EventSourceName: buildEventSourceName(consumer.UniqueID, consumer.EventType),
-		EventName:       consumer.EventName,
+		Name:            buildDependencyName(consumer.UniqueID, consumer.EventSourceName, consumer.EventSourceType),
+		EventSourceName: buildEventSourceName(consumer.UniqueID, consumer.EventSourceType),
+		EventName:       consumer.EventSourceName,
 		Filters:         &sensorv1alpha1.EventDependencyFilter{},
 	}
 
 	var dataFilters []sensorv1alpha1.DataFilter
-	var matchRuls []syncer.Filter
+	var matchRules []syncer.Filter
 
 	for i := range consumer.Filters {
 		filter := consumer.Filters[i]
 		if filter.Comparator == syncer.Match {
-			matchRuls = append(matchRuls, filter)
+			matchRules = append(matchRules, filter)
 		} else {
 			dataFilters = append(dataFilters, sensorv1alpha1.DataFilter{
 				Path:       filter.Key,
@@ -237,8 +261,8 @@ func buildDependencies(consumer syncer.Consumer) sensorv1alpha1.EventDependency 
 	}
 	eventDependency.Filters.Data = dataFilters
 
-	if len(matchRuls) != 0 {
-		eventDependency.Filters.Script = buildMatchScript(matchRuls)
+	if len(matchRules) != 0 {
+		eventDependency.Filters.Script = buildMatchScript(matchRules)
 	}
 
 	return eventDependency
@@ -246,6 +270,7 @@ func buildDependencies(consumer syncer.Consumer) sensorv1alpha1.EventDependency 
 
 var scriptTemplate = "if not string.match(%s, \"%s\") then return false end"
 
+// buildMatchScript builds a filter of the Lua script from webhook events.
 func buildMatchScript(filters []syncer.Filter) string {
 	scripts := make([]string, len(filters)+1)
 	for i := range filters {
@@ -256,35 +281,31 @@ func buildMatchScript(filters []syncer.Filter) string {
 	return strings.Join(scripts, "\n")
 }
 
+// buildTrigger builds a trigger instance which is custom resource in Kubernetes.
+// Combines parameters to trigger a stander Kubernetes trigger that is init pipeline.
 func buildTrigger(consumer syncer.Consumer) (*sensorv1alpha1.Trigger, error) {
-	var resource interface{}
-	if err := yaml.Unmarshal([]byte(consumer.Task.Raw), &resource); err != nil {
-		return nil, fmt.Errorf("convert raw template to resource failed: %w", err)
-	}
-	comRes := common.NewResource(convert(resource))
+	comRes := common.NewResource(consumer.Task.Raw)
 
 	parameters := make([]sensorv1alpha1.TriggerParameter, len(consumer.Task.Vars))
-	for i := range consumer.Task.Vars {
+	for i, task := range consumer.Task.Vars {
+		eventSourcePath, err := GetEventSourcePath(task.Name, consumer.EventSourceType)
+		if err != nil {
+			return nil, err
+		}
 		paras := sensorv1alpha1.TriggerParameter{
 			Src: &sensorv1alpha1.TriggerParameterSource{
-				DependencyName: buildDependencyName(consumer.UniqueID, consumer.EventName, consumer.EventType),
+				DependencyName: buildDependencyName(consumer.UniqueID, consumer.EventSourceName, consumer.EventSourceType),
+				DataKey:        eventSourcePath,
 			},
-			Dest: consumer.Task.Vars[i].Destination,
-		}
-
-		if consumer.Task.Vars[i].Value != "" {
-			paras.Src.Value = &consumer.Task.Vars[i].Value
-		}
-		if consumer.Task.Vars[i].Source != "" {
-			paras.Src.DataKey = consumer.Task.Vars[i].Source
+			Dest: consumer.Task.Vars[i].Dest,
 		}
 		parameters[i] = paras
 	}
 
 	return &sensorv1alpha1.Trigger{
 		Template: &sensorv1alpha1.TriggerTemplate{
-			Name:       buildDependencyName(consumer.UniqueID, consumer.EventName, consumer.EventType),
-			Conditions: buildDependencyName(consumer.UniqueID, consumer.EventName, consumer.EventType),
+			Name:       buildDependencyName(consumer.UniqueID, consumer.EventSourceName, consumer.EventSourceType),
+			Conditions: buildDependencyName(consumer.UniqueID, consumer.EventSourceName, consumer.EventSourceType),
 			K8s: &sensorv1alpha1.StandardK8STrigger{
 				Source: &sensorv1alpha1.ArtifactLocation{
 					Resource: &comRes,
@@ -296,18 +317,20 @@ func buildTrigger(consumer syncer.Consumer) (*sensorv1alpha1.Trigger, error) {
 	}, nil
 }
 
-func convert(i interface{}) interface{} {
-	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
-		for k, v := range x {
-			m2[k.(string)] = convert(v)
+func GetEventSourcePath(reqVar syncer.EventSourceVar, eventType syncer.EventSourceType) (string, error) {
+	if eventType == syncer.EventTypeGitlab {
+		requestPath, ok := RequestMapGitLab[reqVar]
+		if !ok {
+			return "", fmt.Errorf("unknown request %s", requestPath)
 		}
-		return m2
-	case []interface{}:
-		for i, v := range x {
-			x[i] = convert(v)
-		}
+		return requestPath, nil
 	}
-	return i
+
+	return "", fmt.Errorf("unknown request type %s", eventType)
 }
+
+var (
+	RequestMapGitLab = map[syncer.EventSourceVar]string{
+		syncer.EventSourceVarRef: "body.ref",
+	}
+)
