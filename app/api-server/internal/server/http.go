@@ -18,6 +18,7 @@ import (
 	"context"
 	"strings"
 
+	mmd "github.com/go-kratos/kratos/v2/middleware/metadata"
 	clusterv1 "github.com/nautes-labs/nautes/api/api-server/cluster/v1"
 	coderepov1 "github.com/nautes-labs/nautes/api/api-server/coderepo/v1"
 	coderepobindingv1 "github.com/nautes-labs/nautes/api/api-server/coderepobinding/v1"
@@ -30,6 +31,7 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/internal/service"
 
 	"github.com/go-kratos/grpc-gateway/v2/protoc-gen-openapiv2/generator"
+	"github.com/go-kratos/kratos/v2/metadata"
 	"github.com/go-kratos/kratos/v2/middleware"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/middleware/validate"
@@ -78,6 +80,7 @@ func (s *ServiceProductGroup) Register(srv *http.Server) {
 func NewHTTPServer(c *conf.Server, serviceProductGroup *ServiceProductGroup) *http.Server {
 	var opts = []http.ServerOption{
 		http.Middleware(
+			mmd.Server(),
 			recovery.Recovery(),
 			TokenWithContext(),
 			validate.Validator(),
@@ -100,18 +103,25 @@ func NewHTTPServer(c *conf.Server, serviceProductGroup *ServiceProductGroup) *ht
 }
 
 const BearerToken = "token"
+const Authorization = "Authorization"
 
 func TokenWithContext() middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
 			if tr, ok := transport.FromServerContext(ctx); ok {
 				header := tr.RequestHeader()
-				bearerToken := header.Get("Authorization")
+				bearerToken := header.Get(Authorization)
 				token := strings.TrimSpace(strings.Replace(bearerToken, "Bearer", "", 1))
 				if token != "" {
 					ctx = context.WithValue(ctx, BearerToken, token)
+				} else {
+					if md, ok := metadata.FromServerContext(ctx); ok {
+						token := md.Get(Authorization)
+						ctx = context.WithValue(ctx, BearerToken, token)
+					}
 				}
 			}
+
 			return handler(ctx, req)
 		}
 	}
