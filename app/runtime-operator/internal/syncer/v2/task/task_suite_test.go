@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	component "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	nautesconst "github.com/nautes-labs/nautes/pkg/const"
@@ -82,9 +82,6 @@ secret:
   repoType: mock
 `
 	err = os.WriteFile(path.Join(homePath, "config/config"), []byte(configString), 0600)
-	Expect(err).Should(BeNil())
-
-	err = os.WriteFile(path.Join(homePath, "config/base"), []byte(""), 0600)
 	Expect(err).Should(BeNil())
 
 	By("bootstrapping test environment")
@@ -684,8 +681,8 @@ func (mp *mockPipeline) GetComponentMachineAccount() *component.MachineAccount {
 	return nil
 }
 
-func (mp *mockPipeline) GetHooks(info component.HooksInitInfo) (component.Hooks, []interface{}, error) {
-	return component.Hooks{}, nil, nil
+func (mp *mockPipeline) GetHooks(info component.HooksInitInfo) (*component.Hooks, []interface{}, error) {
+	return &component.Hooks{}, nil, nil
 }
 
 func (mp *mockPipeline) CreateHookSpace(ctx context.Context, authInfo component.AuthInfo, space component.HookSpace) error {

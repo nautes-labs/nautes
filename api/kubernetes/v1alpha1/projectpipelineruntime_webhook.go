@@ -16,9 +16,15 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/shared"
+	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,7 +34,7 @@ import (
 )
 
 // log is for logging in this package.
-var projectpipelineruntimelog = logf.Log.WithName("projectpipelineruntime-resource")
+var projectPipelineRuntimeLogger = logf.Log.WithName("projectPipelineRuntime")
 
 func (r *ProjectPipelineRuntime) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -42,13 +48,13 @@ var _ webhook.Validator = &ProjectPipelineRuntime{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *ProjectPipelineRuntime) ValidateCreate() error {
-	projectpipelineruntimelog.Info("validate create", "name", r.Name)
+	projectPipelineRuntimeLogger.Info("validate create", "name", r.Name)
 	client, err := getClient()
 	if err != nil {
 		return err
 	}
 
-	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientFromK8s{Client: client})
+	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientFromK8s{Client: client}, client)
 	if err != nil {
 		return err
 	}
@@ -66,7 +72,7 @@ func (r *ProjectPipelineRuntime) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ProjectPipelineRuntime) ValidateUpdate(old runtime.Object) error {
-	projectpipelineruntimelog.Info("validate update", "name", r.Name)
+	projectPipelineRuntimeLogger.Info("validate update", "name", r.Name)
 	client, err := getClient()
 	if err != nil {
 		return err
@@ -76,7 +82,7 @@ func (r *ProjectPipelineRuntime) ValidateUpdate(old runtime.Object) error {
 		return nil
 	}
 
-	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientFromK8s{Client: client})
+	illegalEventSources, err := r.Validate(context.TODO(), &ValidateClientFromK8s{Client: client}, client)
 	if err != nil {
 		return err
 	}
@@ -86,7 +92,7 @@ func (r *ProjectPipelineRuntime) ValidateUpdate(old runtime.Object) error {
 		for _, illegalEventSource := range illegalEventSources {
 			failureReasons = append(failureReasons, illegalEventSource.Reason)
 		}
-		return fmt.Errorf("no permission code repo found in eventsource %v", failureReasons)
+		return fmt.Errorf("no permission code repo found in event source %v", failureReasons)
 	}
 
 	return nil
@@ -94,7 +100,7 @@ func (r *ProjectPipelineRuntime) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ProjectPipelineRuntime) ValidateDelete() error {
-	projectpipelineruntimelog.Info("validate delete", "name", r.Name)
+	projectPipelineRuntimeLogger.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
@@ -106,9 +112,9 @@ const (
 )
 
 // Validate use to verify pipeline runtime is legal, it will check the following things
-// - runtime has permission to use repo in eventsources
+// - runtime has permission to use repo in event sources
 // if runtime has no permission to use code repo, it return them in the first var.
-func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient ValidateClient) ([]IllegalEventSource, error) {
+func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient ValidateClient, k8sClient client.Client) ([]IllegalEventSource, error) {
 	productName := r.Namespace
 	projectName := r.Spec.Project
 
@@ -150,14 +156,14 @@ func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient Va
 		}
 	}
 
-	illegalEvnentSources := []IllegalEventSource{}
+	illegalEventSources := []IllegalEventSource{}
 	for _, eventSource := range r.Spec.EventSources {
 
 		if eventSource.Gitlab != nil &&
 			eventSource.Gitlab.RepoName != "" {
 			err := hasCodeRepoPermission(ctx, validateClient, productName, projectName, eventSource.Gitlab.RepoName)
 			if err != nil {
-				illegalEvnentSources = append(illegalEvnentSources, IllegalEventSource{
+				illegalEventSources = append(illegalEventSources, IllegalEventSource{
 					EventSource: eventSource,
 					Reason:      err.Error(),
 				})
@@ -166,7 +172,21 @@ func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient Va
 		}
 	}
 
-	return illegalEvnentSources, nil
+	if cluster.Spec.ComponentsList.Pipeline == nil {
+		return nil, fmt.Errorf("cluster component pipeline is empty")
+	}
+
+	metadataArr, err := GetPipelineHooksMetaData(ctx, k8sClient, cluster.Spec.ComponentsList.Pipeline.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get hooks metadata failed: %w", err)
+	}
+	eventSourceTypes := getEventSourceTypesFromPipelineRuntime(*r)
+
+	if err := validateHooks(r.Spec.Hooks, eventSourceTypes, *cluster, metadataArr); err != nil {
+		return nil, fmt.Errorf("hook is illegal: %w", err)
+	}
+
+	return illegalEventSources, nil
 }
 
 // StaticCheck check resource is legal without connecting kubernetes
@@ -216,7 +236,7 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 	return nil
 }
 
-// Compare If true is returned, it means that the resource is duplicated
+// Compare will check whether the pipeline already exists in the runtime.
 func (p *ProjectPipelineRuntime) Compare(obj client.Object) (bool, error) {
 	val, ok := obj.(*ProjectPipelineRuntime)
 	if !ok {
@@ -299,4 +319,136 @@ func getDependentResourcesOfCodeRepoFromPipelineRuntime(ctx context.Context, cli
 	}
 
 	return dependencies, nil
+}
+
+const (
+	EventSourceTypeGitlab   = "gitlab"
+	EventSourceTypeCalendar = "calendar"
+)
+
+func getEventSourceTypesFromPipelineRuntime(runtime ProjectPipelineRuntime) []string {
+	evSet := sets.New[string]()
+	for _, es := range runtime.Spec.EventSources {
+		if es.Gitlab != nil {
+			evSet.Insert(EventSourceTypeGitlab)
+		}
+		if es.Calendar != nil {
+			evSet.Insert(EventSourceTypeCalendar)
+		}
+	}
+	return evSet.UnsortedList()
+}
+
+func validateHooks(hooks *Hooks, eventSourceType []string, cluster Cluster, rules []shared.HookMetadata) error {
+	if hooks == nil {
+		return nil
+	}
+	clusterEventListenerName := cluster.Spec.ComponentsList.EventListener.Name
+
+	ruleMap := convertMetadataArrayToMap(rules)
+	for _, hook := range hooks.PreHooks {
+		rule, ok := ruleMap[hook.Name]
+		if !ok {
+			return fmt.Errorf("unknown hook %s", hook.Name)
+		}
+		if !rule.IsPreHook {
+			return fmt.Errorf("hook %s can not be a post hook", hook.Name)
+		}
+		if !isHookSupportEventListener(rule.SupportEventListeners, clusterEventListenerName) {
+			return fmt.Errorf("hook %s doesn't support event listener %s",
+				hook.Name,
+				clusterEventListenerName,
+			)
+		}
+		if err := isHookSupportEventSourceTypes(rule.SupportEventSourceTypes, eventSourceType); err != nil {
+			return fmt.Errorf("hook %s verify failed: %w", hook.Name, err)
+		}
+	}
+
+	for _, hook := range hooks.PostHooks {
+		rule, ok := ruleMap[hook.Name]
+		if !ok {
+			return fmt.Errorf("unknown hook %s", hook.Name)
+		}
+		if !rule.IsPostHook {
+			return fmt.Errorf("hook %s can not be a post hook", hook.Name)
+		}
+		if !isHookSupportEventListener(rule.SupportEventListeners, clusterEventListenerName) {
+			return fmt.Errorf("hook %s doesn't support event listener %s",
+				hook.Name,
+				clusterEventListenerName,
+			)
+		}
+		if err := isHookSupportEventSourceTypes(rule.SupportEventSourceTypes, eventSourceType); err != nil {
+			return fmt.Errorf("hook %s verify failed: %w", hook.Name, err)
+		}
+	}
+	return nil
+}
+
+func isHookSupportEventListener(supportEventListeners []string, clusterEventListener string) bool {
+	if len(supportEventListeners) == 0 {
+		return true
+	}
+	supportEventListenerSet := sets.New(supportEventListeners...)
+	ok := supportEventListenerSet.Has(clusterEventListener)
+
+	return ok
+}
+
+func isHookSupportEventSourceTypes(supportEventSourceTypes, runtimeEventSourceTypes []string) error {
+	if len(supportEventSourceTypes) == 0 {
+		return nil
+	}
+
+	supportEventSourceTypeSet := sets.New(supportEventSourceTypes...)
+	unsupportedEventSources := sets.New(runtimeEventSourceTypes...).Difference(supportEventSourceTypeSet)
+	if len(unsupportedEventSources) != 0 {
+		return fmt.Errorf("hook doesn't support event source %v",
+			unsupportedEventSources.UnsortedList(),
+		)
+	}
+	return nil
+}
+
+func convertMetadataArrayToMap(metadataArr []shared.HookMetadata) map[string]shared.HookMetadata {
+	metadataMap := map[string]shared.HookMetadata{}
+	for i := range metadataArr {
+		metadataMap[metadataArr[i].Name] = metadataArr[i]
+	}
+	return metadataMap
+}
+
+func GetPipelineHooksMetaData(ctx context.Context, k8sClient client.Client, pipelineName string) ([]shared.HookMetadata, error) {
+	nautesCfg, err := nautesconfigs.NewNautesConfigFromFile()
+	if err != nil {
+		return nil, fmt.Errorf("load nautes config failed: %w", err)
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      shared.ConfigMapNameHooksMetadata,
+			Namespace: nautesCfg.Nautes.Namespace,
+		},
+	}
+
+	err = k8sClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get hooks metadata failed: %w", err)
+	}
+
+	metadataJson, ok := cm.Data[pipelineName]
+	if !ok {
+		return nil, nil
+	}
+
+	metadataArr := &[]shared.HookMetadata{}
+	err = json.Unmarshal([]byte(metadataJson), metadataArr)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal meta data failed: %w", err)
+	}
+
+	return *metadataArr, nil
 }

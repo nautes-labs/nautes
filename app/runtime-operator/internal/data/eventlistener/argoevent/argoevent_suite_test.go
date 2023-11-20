@@ -23,7 +23,7 @@ import (
 	eventsourcev1alpha1 "github.com/argoproj/argo-events/pkg/apis/eventsource/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -179,19 +179,19 @@ func (m *mockSecMgr) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) GetComponentMachineAccount() *syncer.MachineAccount {
+func (m *mockSecMgr) GetComponentMachineAccount() *component.MachineAccount {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) CreateAccount(ctx context.Context, user syncer.MachineAccount) (*syncer.AuthInfo, error) {
-	return &syncer.AuthInfo{}, nil
+func (m *mockSecMgr) CreateAccount(ctx context.Context, user component.MachineAccount) (*component.AuthInfo, error) {
+	return &component.AuthInfo{}, nil
 }
 
-func (m *mockSecMgr) GrantPermission(ctx context.Context, repo syncer.SecretInfo, user syncer.MachineAccount) error {
+func (m *mockSecMgr) GrantPermission(ctx context.Context, repo component.SecretInfo, user component.MachineAccount) error {
 	return nil
 }
 
-func (m *mockSecMgr) RevokePermission(ctx context.Context, repo syncer.SecretInfo, user syncer.MachineAccount) error {
+func (m *mockSecMgr) RevokePermission(ctx context.Context, repo component.SecretInfo, user component.MachineAccount) error {
 	return nil
 }
 
@@ -200,7 +200,7 @@ func (m *mockSecMgr) GetAccessInfo(ctx context.Context) (string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecMgr) DeleteAccount(ctx context.Context, user syncer.MachineAccount) error {
+func (m *mockSecMgr) DeleteAccount(ctx context.Context, user component.MachineAccount) error {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -212,15 +212,15 @@ func (m *mockSecSyncer) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecSyncer) GetComponentMachineAccount() *syncer.MachineAccount {
+func (m *mockSecSyncer) GetComponentMachineAccount() *component.MachineAccount {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockSecSyncer) CreateSecret(ctx context.Context, secretReq syncer.SecretRequest) error {
+func (m *mockSecSyncer) CreateSecret(ctx context.Context, secretReq component.SecretRequest) error {
 	return nil
 }
 
-func (m *mockSecSyncer) RemoveSecret(ctx context.Context, secretReq syncer.SecretRequest) error {
+func (m *mockSecSyncer) RemoveSecret(ctx context.Context, secretReq component.SecretRequest) error {
 	return nil
 }
 
@@ -232,17 +232,17 @@ func (m *mockGateway) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockGateway) GetComponentMachineAccount() *syncer.MachineAccount {
+func (m *mockGateway) GetComponentMachineAccount() *component.MachineAccount {
 	panic("not implemented") // TODO: Implement
 }
 
 // CreateEntryPoint will create an entrypoint on gateway.
 // EntryPoint may forward to a kubernetes service or a remote Service.
 // Gateway should support at least one of them.
-func (m *mockGateway) CreateEntryPoint(ctx context.Context, entrypoint syncer.EntryPoint) error {
+func (m *mockGateway) CreateEntryPoint(ctx context.Context, entrypoint component.EntryPoint) error {
 	return nil
 }
 
-func (m *mockGateway) RemoveEntryPoint(ctx context.Context, entrypoint syncer.EntryPoint) error {
+func (m *mockGateway) RemoveEntryPoint(ctx context.Context, entrypoint component.EntryPoint) error {
 	return nil
 }

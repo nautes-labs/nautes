@@ -21,8 +21,8 @@ import (
 	"reflect"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	component "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
 	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

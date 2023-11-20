@@ -23,7 +23,7 @@ import (
 
 	sensorv1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -66,17 +66,17 @@ const (
 )
 
 type ArgoEvent struct {
-	components            *syncer.ComponentList
+	components            *component.ComponentList
 	clusterName           string
 	namespace             string
 	db                    database.Snapshot
 	k8sClient             client.Client
-	machineAccount        syncer.MachineAccount
-	space                 syncer.Space
+	machineAccount        component.MachineAccount
+	space                 component.Space
 	entryPoint            utils.EntryPoint
-	eventSourceGenerators map[syncer.EventSourceType]eventSourceGenerator
+	eventSourceGenerators map[component.EventSourceType]eventSourceGenerator
 	sensorGenerator       SensorGenerator
-	secMgrAuthInfo        *syncer.AuthInfo
+	secMgrAuthInfo        *component.AuthInfo
 }
 
 type EventManager interface {
@@ -89,7 +89,7 @@ type EventManager interface {
 //+kubebuilder:rbac:groups=argoproj.io,resources=appprojects,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=get;list;create;update;delete
 
-func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.EventListener, error) {
+func NewArgoEvent(opt v1alpha1.Component, info *component.ComponentInitInfo) (component.EventListener, error) {
 	if info.ClusterConnectInfo.ClusterKind != v1alpha1.CLUSTER_KIND_KUBERNETES {
 		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
 	}
@@ -145,7 +145,7 @@ func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (synce
 		machineAccount:        account,
 		space:                 buildArgoEventSpace(namespace),
 		entryPoint:            *entryPoint,
-		eventSourceGenerators: map[syncer.EventSourceType]eventSourceGenerator{},
+		eventSourceGenerators: map[component.EventSourceType]eventSourceGenerator{},
 		sensorGenerator:       SensorGenerator{},
 		secMgrAuthInfo:        authInfo,
 	}
@@ -156,8 +156,8 @@ func NewArgoEvent(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (synce
 }
 
 // buildArgoEventAccount returns a machine account instance.
-func buildArgoEventAccount(namespace string) syncer.MachineAccount {
-	user := syncer.MachineAccount{
+func buildArgoEventAccount(namespace string) component.MachineAccount {
+	user := component.MachineAccount{
 		Name:   ServiceAccountName,
 		Spaces: []string{namespace},
 	}
@@ -165,14 +165,14 @@ func buildArgoEventAccount(namespace string) syncer.MachineAccount {
 }
 
 // buildArgoEventSpace returns a space that uses the Kubernetes namespace.
-func buildArgoEventSpace(namespace string) syncer.Space {
-	space := syncer.Space{
-		ResourceMetaData: syncer.ResourceMetaData{
+func buildArgoEventSpace(namespace string) component.Space {
+	space := component.Space{
+		ResourceMetaData: component.ResourceMetaData{
 			Product: "",
 			Name:    namespace,
 		},
-		SpaceType: syncer.SpaceTypeKubernetes,
-		Kubernetes: &syncer.SpaceKubernetes{
+		SpaceType: component.SpaceTypeKubernetes,
+		Kubernetes: &component.SpaceKubernetes{
 			Namespace: namespace,
 		},
 	}
@@ -185,7 +185,7 @@ func (ae *ArgoEvent) CleanUp() error {
 	return nil
 }
 
-func (ae *ArgoEvent) GetComponentMachineAccount() *syncer.MachineAccount {
+func (ae *ArgoEvent) GetComponentMachineAccount() *component.MachineAccount {
 	return &ae.machineAccount
 }
 
@@ -193,7 +193,7 @@ func (ae *ArgoEvent) GetComponentMachineAccount() *syncer.MachineAccount {
 // 1. It creates a cache by event from event sources are in requests event sources.
 // 2. It deletes the event sources that are not in the requested event sources.
 // 3. It adds the request event sources to the cache.
-func (ae *ArgoEvent) CreateEventSource(ctx context.Context, eventSource syncer.EventSourceSet) error {
+func (ae *ArgoEvent) CreateEventSource(ctx context.Context, eventSource component.EventSourceSet) error {
 	newCache := ae.createCacheFromEventSource(eventSource)
 	cache, err := ae.getCache(ctx, eventSource.UniqueID)
 	if err != nil {
@@ -246,7 +246,7 @@ func (ae *ArgoEvent) DeleteEventSource(ctx context.Context, uniqueID string) err
 }
 
 // CreateConsumer calls the implementation of creating consumers.
-func (ae *ArgoEvent) CreateConsumer(ctx context.Context, consumers syncer.ConsumerSet) error {
+func (ae *ArgoEvent) CreateConsumer(ctx context.Context, consumers component.ConsumerSet) error {
 	return ae.sensorGenerator.CreateSensor(ctx, consumers)
 }
 
@@ -261,21 +261,21 @@ type Cache struct {
 }
 
 // GetMissingEventTypes returns the difference between the current saving cache and the request cache.
-func (c *Cache) GetMissingEventTypes(pairCache Cache) []syncer.EventSourceType {
-	currentEventTypes := sets.New[syncer.EventSourceType](c.GetEventType()...)
-	pairEventTypes := sets.New[syncer.EventSourceType](pairCache.GetEventType()...)
+func (c *Cache) GetMissingEventTypes(pairCache Cache) []component.EventSourceType {
+	currentEventTypes := sets.New[component.EventSourceType](c.GetEventType()...)
+	pairEventTypes := sets.New[component.EventSourceType](pairCache.GetEventType()...)
 
 	return currentEventTypes.Difference(pairEventTypes).UnsortedList()
 }
 
 // GetEventType gets the event source type of current cache.
-func (c *Cache) GetEventType() []syncer.EventSourceType {
-	var evTypes []syncer.EventSourceType
+func (c *Cache) GetEventType() []component.EventSourceType {
+	var evTypes []component.EventSourceType
 	if c.Gitlab.Len() != 0 {
-		evTypes = append(evTypes, syncer.EventTypeGitlab)
+		evTypes = append(evTypes, component.EventTypeGitlab)
 	}
 	if c.Calendar.Len() != 0 {
-		evTypes = append(evTypes, syncer.EventTypeCalendar)
+		evTypes = append(evTypes, component.EventTypeCalendar)
 	}
 	return evTypes
 }
@@ -322,7 +322,7 @@ func (ae *ArgoEvent) deleteCache(ctx context.Context, uuid string) error {
 }
 
 // createCacheFromEventSource returns a cache instance built by the string set.
-func (ae *ArgoEvent) createCacheFromEventSource(es syncer.EventSourceSet) Cache {
+func (ae *ArgoEvent) createCacheFromEventSource(es component.EventSourceSet) Cache {
 	cache := newCache()
 	for i := range es.EventSources {
 		if es.EventSources[i].Gitlab != nil {
@@ -368,15 +368,15 @@ func (ae *ArgoEvent) getCache(ctx context.Context, uuid string) (Cache, error) {
 }
 
 type eventSourceGenerator interface {
-	CreateEventSource(context.Context, syncer.EventSourceSet) error
+	CreateEventSource(context.Context, component.EventSourceSet) error
 	DeleteEventSource(ctx context.Context, uniqueID string) error
 }
 
 // createEventSourceGenerators creates a map to store implementation instance.
 func (ae *ArgoEvent) createEventSourceGenerators() {
-	generators := map[syncer.EventSourceType]eventSourceGenerator{}
-	generators[syncer.EventTypeGitlab] = ae.newGitlabEventSourceGenerator()
-	generators[syncer.EventTypeCalendar] = ae.newCalendarEventSourceGenerator()
+	generators := map[component.EventSourceType]eventSourceGenerator{}
+	generators[component.EventTypeGitlab] = ae.newGitlabEventSourceGenerator()
+	generators[component.EventTypeCalendar] = ae.newCalendarEventSourceGenerator()
 	ae.eventSourceGenerators = generators
 }
 

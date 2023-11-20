@@ -22,9 +22,9 @@ import (
 	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/deployment/argocd"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
@@ -48,7 +48,7 @@ var _ = Describe("ArgoCD", func() {
 	var spaceNames []string
 	var userNames []string
 	var seed string
-	var deployer syncer.Deployment
+	var deployer component.Deployment
 	var providerName = "provider"
 	var db *database.RuntimeDataBase
 
@@ -146,10 +146,10 @@ var _ = Describe("ArgoCD", func() {
 			},
 		}
 
-		initInfo := syncer.ComponentInitInfo{
-			ClusterConnectInfo: syncer.ClusterConnectInfo{
+		initInfo := component.ComponentInitInfo{
+			ClusterConnectInfo: component.ClusterConnectInfo{
 				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
-				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
+				Kubernetes: &component.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
@@ -168,7 +168,7 @@ var _ = Describe("ArgoCD", func() {
 					},
 				},
 			},
-			Components: &syncer.ComponentList{
+			Components: &component.ComponentList{
 				MultiTenant: &mockMultiTenant{
 					spaces: spaceNames,
 				},
@@ -191,7 +191,7 @@ var _ = Describe("ArgoCD", func() {
 				Namespace: argoCDNamespace,
 			},
 		}
-		err = testutils.WaitForDelete(k8sClient, appProject)
+		err = WaitForDelete(k8sClient, appProject)
 		Expect(err).Should(BeNil())
 	})
 
@@ -219,14 +219,14 @@ var _ = Describe("ArgoCD", func() {
 		err = deployer.CreateProduct(ctx, productID)
 		Expect(err).Should(BeNil())
 
-		err = deployer.AddProductUser(ctx, syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeProduct,
-			Resource: syncer.ResourceMetaData{
+		err = deployer.AddProductUser(ctx, component.PermissionRequest{
+			RequestScope: component.RequestScopeProduct,
+			Resource: component.ResourceMetaData{
 				Product: "",
 				Name:    productID,
 			},
 			User:       userNames[0],
-			Permission: syncer.Permission{},
+			Permission: component.Permission{},
 		})
 		Expect(err).Should(BeNil())
 
@@ -246,14 +246,14 @@ var _ = Describe("ArgoCD", func() {
 		err = deployer.CreateProduct(ctx, productID)
 		Expect(err).Should(BeNil())
 
-		req := syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeProduct,
-			Resource: syncer.ResourceMetaData{
+		req := component.PermissionRequest{
+			RequestScope: component.RequestScopeProduct,
+			Resource: component.ResourceMetaData{
 				Product: "",
 				Name:    productID,
 			},
 			User:       userNames[0],
-			Permission: syncer.Permission{},
+			Permission: component.Permission{},
 		}
 
 		err = deployer.AddProductUser(ctx, req)
@@ -275,25 +275,25 @@ var _ = Describe("ArgoCD", func() {
 	})
 
 	It("can create app", func() {
-		app := syncer.Application{
-			ResourceMetaData: syncer.ResourceMetaData{
+		app := component.Application{
+			ResourceMetaData: component.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
-			Git: &syncer.ApplicationGit{
+			Git: &component.ApplicationGit{
 				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
 				Revision: "main",
 				Path:     "./dest",
 				CodeRepo: repoNames[0],
 			},
-			Destinations: []syncer.Space{
+			Destinations: []component.Space{
 				{
-					ResourceMetaData: syncer.ResourceMetaData{
+					ResourceMetaData: component.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: &syncer.SpaceKubernetes{
+					Kubernetes: &component.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},
@@ -305,25 +305,25 @@ var _ = Describe("ArgoCD", func() {
 	})
 
 	It("can remove app", func() {
-		app := syncer.Application{
-			ResourceMetaData: syncer.ResourceMetaData{
+		app := component.Application{
+			ResourceMetaData: component.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
-			Git: &syncer.ApplicationGit{
+			Git: &component.ApplicationGit{
 				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
 				Revision: "main",
 				Path:     "./dest",
 				CodeRepo: repoNames[0],
 			},
-			Destinations: []syncer.Space{
+			Destinations: []component.Space{
 				{
-					ResourceMetaData: syncer.ResourceMetaData{
+					ResourceMetaData: component.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: &syncer.SpaceKubernetes{
+					Kubernetes: &component.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},
@@ -348,25 +348,25 @@ var _ = Describe("ArgoCD", func() {
 	})
 
 	It("will remove coderepo when coderepo is not used", func() {
-		app := syncer.Application{
-			ResourceMetaData: syncer.ResourceMetaData{
+		app := component.Application{
+			ResourceMetaData: component.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
-			Git: &syncer.ApplicationGit{
+			Git: &component.ApplicationGit{
 				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
 				Revision: "main",
 				Path:     "./dest",
 				CodeRepo: repoNames[0],
 			},
-			Destinations: []syncer.Space{
+			Destinations: []component.Space{
 				{
-					ResourceMetaData: syncer.ResourceMetaData{
+					ResourceMetaData: component.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: &syncer.SpaceKubernetes{
+					Kubernetes: &component.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},
@@ -397,25 +397,25 @@ var _ = Describe("ArgoCD", func() {
 		err = deployer.CreateProduct(ctx, productID)
 		Expect(err).Should(BeNil())
 
-		app := syncer.Application{
-			ResourceMetaData: syncer.ResourceMetaData{
+		app := component.Application{
+			ResourceMetaData: component.ResourceMetaData{
 				Product: productID,
 				Name:    appNames[0],
 			},
-			Git: &syncer.ApplicationGit{
+			Git: &component.ApplicationGit{
 				URL:      db.CodeRepos[repoNames[0]].Spec.URL,
 				Revision: "main",
 				Path:     "./dest",
 				CodeRepo: repoNames[0],
 			},
-			Destinations: []syncer.Space{
+			Destinations: []component.Space{
 				{
-					ResourceMetaData: syncer.ResourceMetaData{
+					ResourceMetaData: component.ResourceMetaData{
 						Product: productID,
 						Name:    spaceNames[0],
 					},
 					SpaceType: "",
-					Kubernetes: &syncer.SpaceKubernetes{
+					Kubernetes: &component.SpaceKubernetes{
 						Namespace: spaceNames[0],
 					},
 				},

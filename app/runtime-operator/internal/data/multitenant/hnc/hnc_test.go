@@ -20,7 +20,7 @@ import (
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/multitenant/hnc"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +45,7 @@ const (
 )
 
 var _ = Describe("HNC", func() {
-	var mt syncer.MultiTenant
+	var mt component.MultiTenant
 	var err error
 	var ctx context.Context
 	var productName string
@@ -90,17 +90,17 @@ var _ = Describe("HNC", func() {
 				}},
 		}
 
-		initInfo := syncer.ComponentInitInfo{
-			ClusterConnectInfo: syncer.ClusterConnectInfo{
+		initInfo := component.ComponentInitInfo{
+			ClusterConnectInfo: component.ClusterConnectInfo{
 				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
-				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
+				Kubernetes: &component.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
 			ClusterName:            "",
 			NautesResourceSnapshot: db,
 			NautesConfig:           configs.Config{},
-			Components: &syncer.ComponentList{
+			Components: &component.ComponentList{
 				Deployment: &mockDeployer{},
 			},
 		}
@@ -202,14 +202,14 @@ var _ = Describe("HNC", func() {
 		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
-		err = mt.AddSpaceUser(ctx, syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeAccount,
-			Resource: syncer.ResourceMetaData{
+		err = mt.AddSpaceUser(ctx, component.PermissionRequest{
+			RequestScope: component.RequestScopeAccount,
+			Resource: component.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
 			User:       users[0],
-			Permission: syncer.Permission{},
+			Permission: component.Permission{},
 		})
 		Expect(err).Should(BeNil())
 
@@ -245,14 +245,14 @@ var _ = Describe("HNC", func() {
 		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
-		request := syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeAccount,
-			Resource: syncer.ResourceMetaData{
+		request := component.PermissionRequest{
+			RequestScope: component.RequestScopeAccount,
+			Resource: component.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
 			User:       users[0],
-			Permission: syncer.Permission{},
+			Permission: component.Permission{},
 		}
 
 		err = mt.AddSpaceUser(ctx, request)
@@ -309,14 +309,14 @@ var _ = Describe("HNC", func() {
 		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
-		request := syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeAccount,
-			Resource: syncer.ResourceMetaData{
+		request := component.PermissionRequest{
+			RequestScope: component.RequestScopeAccount,
+			Resource: component.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
 			User:       users[0],
-			Permission: syncer.Permission{},
+			Permission: component.Permission{},
 		}
 
 		err = mt.AddSpaceUser(ctx, request)
@@ -363,14 +363,14 @@ var _ = Describe("HNC", func() {
 		err = mt.CreateAccount(ctx, productName, users[0])
 		Expect(err).Should(BeNil())
 
-		request := syncer.PermissionRequest{
-			RequestScope: syncer.RequestScopeAccount,
-			Resource: syncer.ResourceMetaData{
+		request := component.PermissionRequest{
+			RequestScope: component.RequestScopeAccount,
+			Resource: component.ResourceMetaData{
 				Product: productName,
 				Name:    spaces[0],
 			},
 			User:       users[0],
-			Permission: syncer.Permission{},
+			Permission: component.Permission{},
 		}
 
 		err = mt.AddSpaceUser(ctx, request)

@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -39,6 +41,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 )
 
 var cfg *rest.Config
@@ -46,6 +50,7 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var nautesNamespaceName = "nautes"
 var tmpNamespaceName = "tmp"
+var homePath = "/tmp/unittest"
 
 var mgr manager.Manager
 var ctx context.Context
@@ -146,12 +151,28 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClientIsInit).Should(BeTrue())
 
 	k8sClient = mgr.GetClient()
+
+	err = os.MkdirAll(path.Join(homePath, "config"), os.ModePerm)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = os.Setenv(nautesconst.EnvNautesHome, homePath)
+	Expect(err).NotTo(HaveOccurred())
+
+	configString := `
+secret:
+  repoType: mock
+`
+	err = os.WriteFile(path.Join(homePath, "config/config"), []byte(configString), 0600)
+	Expect(err).Should(BeNil())
+
 })
 
 var _ = AfterSuite(func() {
 	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
+	err = os.RemoveAll(homePath)
 	Expect(err).NotTo(HaveOccurred())
 })
 

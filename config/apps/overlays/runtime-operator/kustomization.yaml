@@ -11,7 +11,7 @@ commonLabels:
 
 resources:
 - ../../base
+- pvc.yaml
 
 patchesStrategicMerge:
 - manager_patch.yaml
-- trigger_templates.yaml

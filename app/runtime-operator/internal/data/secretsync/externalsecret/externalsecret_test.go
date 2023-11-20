@@ -23,7 +23,7 @@ import (
 	externalsecretv1alpha1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretsync/externalsecret"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
@@ -35,8 +35,8 @@ import (
 
 var _ = Describe("External secret", func() {
 	var ctx context.Context
-	var secReq syncer.SecretRequest
-	var secSync syncer.SecretSync
+	var secReq component.SecretRequest
+	var secSync component.SecretSync
 	var productName string
 	var nsName string = "default"
 	var userName string
@@ -73,32 +73,32 @@ vw==
 		productName = fmt.Sprintf("product-%s", seed)
 		userName = fmt.Sprintf("user-%s", seed)
 		clusterName = fmt.Sprintf("cluster-%s", seed)
-		secReq = syncer.SecretRequest{
+		secReq = component.SecretRequest{
 			Name: fmt.Sprintf("reqname-%s", seed),
-			Source: syncer.SecretInfo{
-				Type: syncer.SecretTypeCodeRepo,
-				CodeRepo: &syncer.CodeRepo{
+			Source: component.SecretInfo{
+				Type: component.SecretTypeCodeRepo,
+				CodeRepo: &component.CodeRepo{
 					ProviderType: "1",
 					ID:           "2",
 					User:         "3",
 					Permission:   "4",
 				},
 			},
-			AuthInfo: &syncer.AuthInfo{
+			AuthInfo: &component.AuthInfo{
 				OriginName:      "vault",
 				AccountName:     userName,
-				AuthType:        syncer.AuthTypeKubernetesServiceAccount,
-				ServiceAccounts: []syncer.AuthInfoServiceAccount{},
+				AuthType:        component.AuthTypeKubernetesServiceAccount,
+				ServiceAccounts: []component.AuthInfoServiceAccount{},
 			},
-			Destination: syncer.SecretRequestDestination{
+			Destination: component.SecretRequestDestination{
 				Name: fmt.Sprintf("secret-%s", seed),
-				Space: syncer.Space{
-					ResourceMetaData: syncer.ResourceMetaData{
+				Space: component.Space{
+					ResourceMetaData: component.ResourceMetaData{
 						Product: productName,
 						Name:    nsName,
 					},
-					SpaceType: syncer.SpaceTypeKubernetes,
-					Kubernetes: &syncer.SpaceKubernetes{
+					SpaceType: component.SpaceTypeKubernetes,
+					Kubernetes: &component.SpaceKubernetes{
 						Namespace: nsName,
 					},
 				},
@@ -109,10 +109,10 @@ vw==
 		err = os.WriteFile(vaultCAPath, []byte(ca), fs.ModeSticky)
 		Expect(err).Should(BeNil())
 
-		initInfo := &syncer.ComponentInitInfo{
-			ClusterConnectInfo: syncer.ClusterConnectInfo{
+		initInfo := &component.ComponentInitInfo{
+			ClusterConnectInfo: component.ClusterConnectInfo{
 				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
-				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
+				Kubernetes: &component.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},

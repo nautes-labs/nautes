@@ -241,7 +241,7 @@ func (p *ProjectPipelineRuntimeUsecase) CheckReference(options nodestree.Compare
 
 	validateClient := validate.NewValidateClient(p.client, p.nodeOperator, &options.Nodes, p.config.Nautes.Namespace, options.ProductName)
 	projectPipelineRuntime.Namespace = options.ProductName
-	illegalEventSources, err := projectPipelineRuntime.Validate(context.TODO(), validateClient)
+	illegalEventSources, err := projectPipelineRuntime.Validate(context.TODO(), validateClient, p.client)
 	if err != nil {
 		return true, fmt.Errorf("verify project pipeline runtime failed, err: %w", err)
 	}

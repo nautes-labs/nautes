@@ -66,7 +66,12 @@ func (v *validateClient) GetCluster(ctx context.Context, name string) (*resource
 		Name:      name,
 	}
 
-	cluster := &resourcev1alpha1.Cluster{}
+	cluster := &resourcev1alpha1.Cluster{
+		Spec: resourcev1alpha1.ClusterSpec{
+			Usage:      resourcev1alpha1.CLUSTER_USAGE_WORKER,
+			WorkerType: resourcev1alpha1.ClusterWorkTypePipeline,
+		},
+	}
 	err := v.client.Get(ctx, objKey, cluster)
 	if err != nil {
 		return nil, err

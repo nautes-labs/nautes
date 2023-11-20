@@ -32,7 +32,7 @@ var (
 
 func getClient() (client.Client, error) {
 	if KubernetesClient == nil {
-		return nil, fmt.Errorf("kubernetes client is not initializated")
+		return nil, fmt.Errorf("kubernetes client is not initialized")
 	}
 	return KubernetesClient, nil
 }
@@ -74,7 +74,7 @@ func (c *ValidateClientFromK8s) GetCodeRepo(ctx context.Context, name string) (*
 		FieldSelector: fields.OneTermEqualSelector(SelectFieldMetaDataName, name),
 	}
 	if err := c.List(ctx, codeRepoList, listOpt); err != nil {
-		projectpipelineruntimelog.V(1).Info("grep code repo", "MatchNum", len(codeRepoList.Items))
+		projectPipelineRuntimeLogger.V(1).Info("grep code repo", "MatchNum", len(codeRepoList.Items))
 		return nil, err
 	}
 

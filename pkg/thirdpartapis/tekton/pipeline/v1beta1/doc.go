@@ -16,4 +16,6 @@ limitations under the License.
 
 // Package v1beta1 contains API Schema definitions for the pipeline v1beta1 API group
 
+// +kubebuilder:skip
+
 package v1beta1

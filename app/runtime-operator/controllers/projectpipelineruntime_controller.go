@@ -87,7 +87,7 @@ func (r *ProjectPipelineRuntimeReconciler) Reconcile(ctx context.Context, req ct
 		}
 	}
 
-	illegalEventSources, err := runtime.Validate(ctx, nautescrd.NewValidateClientFromK8s(r.Client))
+	illegalEventSources, err := runtime.Validate(ctx, nautescrd.NewValidateClientFromK8s(r.Client), r.Client)
 	if err != nil {
 		setPipelineRuntimeStatus(runtime, nil, err)
 		if err := r.Status().Update(ctx, runtime); err != nil {

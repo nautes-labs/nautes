@@ -1,0 +1,94 @@
+syntax = "proto3";
+package proto;
+option go_package = "./proto";
+
+
+// // HookBuildData stores information used to build the pre- and post-hook of the pipeline.
+message HookBuildData {
+    // UserVars are parameters entered by the user.
+    map<string, string> UserVars = 1;
+    // BuiltinVars is the information about the pipeline in the runtime, such as the code library address and code library type.
+    // For details, see  https://github.com/nautes-labs/nautes/app/runtime-operator/pkg/component/pipeline.go
+    map<string, string> BuiltinVars = 2;
+    // EventSourceType is the type of the event source corresponding to the hook.
+    string EventSourceType = 3;
+    // EventListenerType is the type of event listener for the cluster where the pipeline is located.
+    string EventListenerType = 4;
+}
+
+// HookMetadata stores the metadata information of the hook.
+message HookMetadata {
+    string Name = 1;
+    // IsPreHook indicates whether it can be set as a pre-step.
+    bool IsPreHook = 2;
+    // IsPostHook indicates whether it can be set as a post-step.
+    bool IsPostHook = 3;
+    // SupportEventListeners is the type of event listener supported by the hook.If it is empty, it means that any type is supported.
+    repeated string SupportEventListeners = 4;
+    // SupportEventSourceTypes is the event source type supported by the hook.If it is empty, it means any type is supported.
+    repeated string SupportEventSourceTypes = 5;
+    // VarsDefinition is the description information of the input and output parameters of the hook, in JSONSchema format.
+    optional bytes VarsDefinition = 6;
+}
+
+// Hook is a task that can be executed before or after the user pipeline.
+message Hook {
+    // RequestVars is the information that needs to be input from the outside for the hook to run.
+    repeated InputOverWrite RequestInputs = 1;
+    // RequestResources are the resources that need to be deployed in the environment for the hook to run properly.
+    repeated bytes RequestResources = 2;
+    // Resource is the code fragment that runs the hook, which is used to splice into the pre- and post-steps of the user pipeline.
+    bytes Resource = 3;
+}
+
+// InputOverWrite defines the replacement information for the Hook input parameter.
+message InputOverWrite {
+    // Source is the source of the data.
+    InputSource Source = 1;
+    // The location to be filled in, the format is determined by the pipeline implementation.
+    string Destination = 2;
+}
+
+// InputSource defines the source of the Hook parameter.
+message InputSource{
+    oneof src {
+        // FromEventSource records the location where data is obtained from the event source.
+        string FromEventSource = 1;
+    }
+}
+
+message Empty {}
+
+message GetPipelineTypeResponse {
+    // PipelineType is the name of the pipeline supported by the plugin.
+    string PipelineType = 1;
+}
+
+message GetHooksMetaDataResponse {
+    // HooksMetadata is the hook metadata information supported by the plugin.
+    repeated HookMetadata HooksMetaData = 1;
+}
+
+message BuildHookRequest{
+    // HookName is the hook object to be created.
+    string HookName = 1;
+    // HookBuildData is the parameter required for building the hook.
+    HookBuildData Info = 2;
+}
+
+message BuildHookResponse{
+    // Hook is a complete Hook information, which includes the code fragment that can be inserted into the Hooks,
+    // the external input information required for the fragment,
+    // and the environment information required for the fragment to run.
+    Hook Hook = 1;
+}
+
+service HookFactory {
+    // GetPipelineType will return the pipeline type supported by the plugin.
+    rpc GetPipelineType(Empty) returns (GetPipelineTypeResponse);
+    // GetHooksMetaData returns a list of metadata information for hooks supported by the plugin.
+    rpc GetHooksMetaData(Empty) returns (GetHooksMetaDataResponse);
+    // BuildHook will return a hook that can be executed before or after the user pipeline. It based on
+    // the requested hook name, user-entered parameters, and environment information.
+    rpc BuildHook(BuildHookRequest) returns (BuildHookResponse);
+}

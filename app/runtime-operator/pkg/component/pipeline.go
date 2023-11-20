@@ -30,7 +30,7 @@ type Pipeline interface {
 	// Return:
 	// - The hooks to be executed and the input information required to run the hooks.
 	// - A list of resources that need to be created in the space. For example, the key to access the pipeline repository.
-	GetHooks(info HooksInitInfo) (Hooks, []interface{}, error)
+	GetHooks(info HooksInitInfo) (*Hooks, []interface{}, error)
 
 	// CreateHookSpace will transform the space where the runtime is located into a space that can run hooks.
 	// It will deploy the resources required for running hooks in the 'BaseSpace' based on the 'DeployResources'.
@@ -46,11 +46,11 @@ type Pipeline interface {
 
 // HooksInitInfo contains information used to create hooks.
 type HooksInitInfo struct {
-	// BuildInVars stores information derived from pipeline resources.
-	// For example, the URL corresponding to the code repository.For specific options, please refer to the constant definition of BuildInVar.
-	BuildInVars map[BuildInVar]string
+	// BuiltinVars stores information derived from pipeline resources.
+	// For example, the URL corresponding to the code repository.For specific options, please refer to the constant definition of BuiltinVar.
+	BuiltinVars map[BuiltinVar]string
 	// Hooks are user-defined pre- and post-pipeline steps
-	Hooks v1alpha1.Hook
+	Hooks v1alpha1.Hooks
 	// The EventSource stores the event sources corresponding to the pipeline.
 	EventSource EventSource
 	// EventSourceType is the type of event source in the event source.
@@ -76,27 +76,29 @@ type Hooks struct {
 
 // InputOverWrite defines how to pass data from the event source to the task.
 type InputOverWrite struct {
-	// Name is the data to be obtained.
-	Name EventSourceVar
+	// BuiltinRequestVar is the data to be obtained.
+	BuiltinRequestVar EventSourceVar
+	// // StaticeVar is the event source path specified by the pipeline.
+	StaticeVar *string
 	// Dest is the path to be replaced in the task resource.
 	// The current version only considers the addressing method of json, such as spec.data.1.value.
 	Dest string
 }
 
-// BuildInVar is a built-in variable when generating hooks.
-type BuildInVar string
+// BuiltinVar is a built-in variable when generating hooks.
+type BuiltinVar string
 
 const (
-	VarEventSourceCodeRepoName BuildInVar = "EventSourceCodeRepoName" // the name of the code repo that triggered the event.
-	VarEventSourceCodeRepoURL  BuildInVar = "EventSourceCodeRepoURL"  // the url of the code repo that triggered the event.
-	VarServiceAccount          BuildInVar = "ServiceAccount"          // service account that runs hooks.
-	VarNamespace               BuildInVar = "Namespace"               // The namespace name of the running user pipeline.
-	VarPipelineCodeRepoName    BuildInVar = "PipelineCodeRepoName"    // Name of the code repo where the pipeline file is stored.
-	VarPipelineCodeRepoURL     BuildInVar = "PipelineCodeRepoURL"     // URL of the code repo where the pipeline file is stored.
-	VarPipelineRevision        BuildInVar = "PipelineRevision"        // User-specified pipeline branches.
-	VarPipelineFilePath        BuildInVar = "PipelineFilePath"        // The path of the pipeline file specified by the user.
-	VarCodeRepoProviderType    BuildInVar = "ProviderType"            // Type of code repository provider.
-	VarPipelineLabel           BuildInVar = "PipelineLabel"
+	VarEventSourceCodeRepoName BuiltinVar = "EventSourceCodeRepoName" // the name of the code repo that triggered the event.
+	VarEventSourceCodeRepoURL  BuiltinVar = "EventSourceCodeRepoURL"  // the url of the code repo that triggered the event.
+	VarServiceAccount          BuiltinVar = "ServiceAccount"          // service account that runs hooks.
+	VarNamespace               BuiltinVar = "Namespace"               // The namespace name of the running user pipeline.
+	VarPipelineCodeRepoName    BuiltinVar = "PipelineCodeRepoName"    // Name of the code repo where the pipeline file is stored.
+	VarPipelineCodeRepoURL     BuiltinVar = "PipelineCodeRepoURL"     // URL of the code repo where the pipeline file is stored.
+	VarPipelineRevision        BuiltinVar = "PipelineRevision"        // User-specified pipeline branches.
+	VarPipelineFilePath        BuiltinVar = "PipelineFilePath"        // The path of the pipeline file specified by the user.
+	VarCodeRepoProviderType    BuiltinVar = "ProviderType"            // Type of code repository provider.
+	VarPipelineLabel           BuiltinVar = "PipelineLabel"
 )
 
 // EventSourceVar is a variable type that can be obtained from the event source.

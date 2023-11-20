@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -162,7 +162,7 @@ func (md *mockDeployer) CleanUp() error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *mockDeployer) GetComponentMachineAccount() *syncer.MachineAccount {
+func (m *mockDeployer) GetComponentMachineAccount() *component.MachineAccount {
 	panic("not implemented") // TODO: Implement
 }
 
@@ -174,20 +174,20 @@ func (md *mockDeployer) DeleteProduct(ctx context.Context, name string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (md *mockDeployer) AddProductUser(ctx context.Context, request syncer.PermissionRequest) error {
+func (md *mockDeployer) AddProductUser(ctx context.Context, request component.PermissionRequest) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (md *mockDeployer) DeleteProductUser(ctx context.Context, request syncer.PermissionRequest) error {
+func (md *mockDeployer) DeleteProductUser(ctx context.Context, request component.PermissionRequest) error {
 	panic("not implemented") // TODO: Implement
 }
 
 // SyncApp should deploy the given apps, and clean up expired apps in cache.
 // All apps share one cache.
-func (md *mockDeployer) CreateApp(ctx context.Context, app syncer.Application) error {
+func (md *mockDeployer) CreateApp(ctx context.Context, app component.Application) error {
 	return nil
 }
 
-func (md *mockDeployer) DeleteApp(ctx context.Context, app syncer.Application) error {
+func (md *mockDeployer) DeleteApp(ctx context.Context, app component.Application) error {
 	return nil
 }

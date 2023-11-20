@@ -10,3 +10,10 @@ spec:
       - name: manager
         command:
         - "bin/runtime-operator"
+        volumeMounts:
+        - name: plugins
+          mountPath: /opt/nautes/plugins
+      volumes:
+      - name: plugins
+        persistentVolumeClaim:
+          claimName: plugins

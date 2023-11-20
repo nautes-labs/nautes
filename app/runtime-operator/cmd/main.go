@@ -40,6 +40,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagement/vault"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretsync/externalsecret"
 	syncerv2 "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
+	pluginmanager "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/manager"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -98,6 +99,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	plgMgr, err := pluginmanager.NewPluginManagement(&pluginmanager.NewOptions{
+		Client: mgr.GetClient(),
+	})
+	if err != nil {
+		setupLog.Error(err, "get plugin management failed")
+		os.Exit(1)
+	}
+	go func() {
+		err := plgMgr.Run()
+		if err != nil {
+			setupLog.Error(err, "run plugin management failed")
+			os.Exit(1)
+		}
+	}()
+	defer plgMgr.Kill()
+
 	ctx := context.TODO()
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.CodeRepo{}, v1alpha1.SelectFieldMetaDataName, func(obj client.Object) []string {
 		return []string{obj.GetName()}
@@ -138,6 +155,7 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		Syncer: syncerv2.Syncer{
 			KubernetesClient: mgr.GetClient(),
+			PluginMgr:        plgMgr,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ProjectPipelineRuntime")

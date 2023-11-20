@@ -16,11 +16,14 @@ package biz
 
 import (
 	"context"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/golang/mock/gomock"
+	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 	"github.com/nautes-labs/nautes/pkg/log/zap"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,6 +45,28 @@ func TestBiz(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Biz Suite")
 }
+
+var homePath = "/tmp/unittest-api"
+
+var _ = BeforeSuite(func() {
+	err := os.MkdirAll(path.Join(homePath, "config"), os.ModePerm)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = os.Setenv(nautesconst.EnvNautesHome, homePath)
+	Expect(err).NotTo(HaveOccurred())
+
+	configString := `
+secret:
+  repoType: mock
+`
+	err = os.WriteFile(path.Join(homePath, "config/config"), []byte(configString), 0600)
+	Expect(err).Should(BeNil())
+})
+
+var _ = AfterSuite(func() {
+	err := os.RemoveAll(homePath)
+	Expect(err).NotTo(HaveOccurred())
+})
 
 var _ = BeforeEach(func() {
 	ctl = gomock.NewController(GinkgoT())

@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	vaultproxy "github.com/nautes-labs/nautes/pkg/client/vaultproxy"
 )
 
@@ -28,7 +28,7 @@ type codeRepoManager struct {
 }
 
 // GrantPermission grants the machine account access to the secret of code repo type.
-func (c *codeRepoManager) GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
+func (c *codeRepoManager) GrantPermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error {
 	if repo.CodeRepo == nil {
 		return fmt.Errorf("coderepo info is missing")
 	}
@@ -39,7 +39,7 @@ func (c *codeRepoManager) GrantPermission(ctx context.Context, repo syncer.Secre
 }
 
 // getCodeRepoRequest builds a request body of the secret of git repo type for the Vault proxy.
-func (c *codeRepoManager) getCodeRepoRequest(account syncer.MachineAccount, repo syncer.SecretInfo) *vaultproxy.AuthroleGitPolicyRequest {
+func (c *codeRepoManager) getCodeRepoRequest(account component.MachineAccount, repo component.SecretInfo) *vaultproxy.AuthroleGitPolicyRequest {
 	req := &vaultproxy.AuthroleGitPolicyRequest{
 		ClusterName: c.clusterName,
 		DestUser:    account.Name,
@@ -54,7 +54,7 @@ func (c *codeRepoManager) getCodeRepoRequest(account syncer.MachineAccount, repo
 }
 
 // RevokePermission revokes the machine account access to the secret of code repo type.
-func (c *codeRepoManager) RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
+func (c *codeRepoManager) RevokePermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error {
 	if repo.CodeRepo == nil {
 		return fmt.Errorf("coderepo info is missing")
 	}
@@ -70,7 +70,7 @@ type artifactRepoManager struct {
 }
 
 // GrantPermission grants the machine account access to the secret of artifact repo type.
-func (a *artifactRepoManager) GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
+func (a *artifactRepoManager) GrantPermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error {
 	if repo.ArtifactAccount == nil {
 		return fmt.Errorf("artifact account info is missing")
 	}
@@ -80,7 +80,7 @@ func (a *artifactRepoManager) GrantPermission(ctx context.Context, repo syncer.S
 }
 
 // RevokePermission revokes the machine account access to the secret of artifact repo type.
-func (a *artifactRepoManager) RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
+func (a *artifactRepoManager) RevokePermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error {
 	if repo.ArtifactAccount == nil {
 		return fmt.Errorf("artifact account info is missing")
 	}
@@ -90,7 +90,7 @@ func (a *artifactRepoManager) RevokePermission(ctx context.Context, repo syncer.
 }
 
 // getRepoAccountRequest builds a request body of the secret of artifact repo type for the Vault proxy.
-func (a *artifactRepoManager) getRepoAccountRequest(account syncer.MachineAccount, repo syncer.SecretInfo) *vaultproxy.AuthroleRepoPolicyRequest {
+func (a *artifactRepoManager) getRepoAccountRequest(account component.MachineAccount, repo component.SecretInfo) *vaultproxy.AuthroleRepoPolicyRequest {
 	req := &vaultproxy.AuthroleRepoPolicyRequest{
 		ClusterName: a.clusterName,
 		DestUser:    account.Name,
