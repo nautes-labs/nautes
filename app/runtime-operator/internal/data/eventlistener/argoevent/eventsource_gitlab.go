@@ -21,7 +21,7 @@ import (
 
 	eventsourcev1alpha1 "github.com/argoproj/argo-events/pkg/apis/eventsource/v1alpha1"
 	"github.com/google/uuid"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -42,14 +42,14 @@ const (
 )
 
 type GitlabEventSourceGenerator struct {
-	Components     *syncer.ComponentList
+	Components     *component.ComponentList
 	HostEntrypoint utils.EntryPoint
 	Namespace      string
 	K8sClient      client.Client
 	DB             database.Snapshot
-	User           syncer.MachineAccount
-	Space          syncer.Space
-	secMgrAuthInfo *syncer.AuthInfo
+	User           component.MachineAccount
+	Space          component.Space
+	secMgrAuthInfo *component.AuthInfo
 }
 
 // CreateEventSource creates an event source resource of GitLab type by event source.
@@ -59,7 +59,7 @@ type GitlabEventSourceGenerator struct {
 // 4. It deletes the access token and secret by unique ID and code repo for not in request event source.
 // 5. It creates the entrypoint for event listener by unique ID.
 // 6. It creates the event source resource which in Kubernetes.
-func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource syncer.EventSourceSet) error {
+func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource component.EventSourceSet) error {
 	es := gel.buildBaseEventSource(eventSource.UniqueID)
 
 	var codeRepoList string
@@ -96,7 +96,7 @@ func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, ev
 		return fmt.Errorf("create entrypoint failed: %w", err)
 	}
 
-	_, err = controllerutil.CreateOrUpdate(ctx, gel.K8sClient, es, func() error {
+	operationResult, err := controllerutil.CreateOrUpdate(ctx, gel.K8sClient, es, func() error {
 		gitlabEventSources, err := gel.createGitlabEventSources(eventSource.UniqueID, eventSource)
 		if err != nil {
 			return fmt.Errorf("generate gitlab event source failed: %w", err)
@@ -108,6 +108,10 @@ func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, ev
 		es.Annotations[AnnotationCodeRepoUsage] = newCodeRepoSets.ListAsString()
 		return nil
 	})
+
+	if operationResult != controllerutil.OperationResultNone {
+		logger.V(1).Info("event source has been modified", "name", es.Name, "operation", operationResult)
+	}
 	return err
 }
 
@@ -147,7 +151,7 @@ func (gel *GitlabEventSourceGenerator) DeleteEventSource(ctx context.Context, un
 }
 
 // createGitlabEventSources transforms the event source to Gitlab event source instance.
-func (gel *GitlabEventSourceGenerator) createGitlabEventSources(uniqueID string, eventSource syncer.EventSourceSet) (map[string]eventsourcev1alpha1.GitlabEventSource, error) {
+func (gel *GitlabEventSourceGenerator) createGitlabEventSources(uniqueID string, eventSource component.EventSourceSet) (map[string]eventsourcev1alpha1.GitlabEventSource, error) {
 	gitlabEventSources := map[string]eventsourcev1alpha1.GitlabEventSource{}
 
 	for _, event := range eventSource.EventSources {
@@ -168,7 +172,7 @@ func (gel *GitlabEventSourceGenerator) createGitlabEventSources(uniqueID string,
 func (gel *GitlabEventSourceGenerator) buildBaseEventSource(uniqueID string) *eventsourcev1alpha1.EventSource {
 	return &eventsourcev1alpha1.EventSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildEventSourceName(uniqueID, syncer.EventTypeGitlab),
+			Name:      buildEventSourceName(uniqueID, component.EventTypeGitlab),
 			Namespace: gel.Namespace,
 		},
 		Spec: eventsourcev1alpha1.EventSourceSpec{
@@ -186,7 +190,7 @@ func (gel *GitlabEventSourceGenerator) buildBaseEventSource(uniqueID string) *ev
 }
 
 // buildGitlabEventSource builds the Gitlab event source instance which uses the access token and secret.
-func (gel *GitlabEventSourceGenerator) buildGitlabEventSource(uniqueID, eventName string, event syncer.EventSourceGitlab) (*eventsourcev1alpha1.GitlabEventSource, error) {
+func (gel *GitlabEventSourceGenerator) buildGitlabEventSource(uniqueID, eventName string, event component.EventSourceGitlab) (*eventsourcev1alpha1.GitlabEventSource, error) {
 	webhookEvents, err := convertArgoEventSourceEventsFromCodeRepo(event.Events)
 	if err != nil {
 		return nil, err
@@ -285,19 +289,19 @@ func (gel *GitlabEventSourceGenerator) DeleteEntryPoint(ctx context.Context, uni
 }
 
 // buildEntrypoint builds access entry using the logic entry point resource by event source collection unique ID.
-func (gel *GitlabEventSourceGenerator) buildEntrypoint(uniqueID string) syncer.EntryPoint {
-	return syncer.EntryPoint{
+func (gel *GitlabEventSourceGenerator) buildEntrypoint(uniqueID string) component.EntryPoint {
+	return component.EntryPoint{
 		Name: buildGatewayName(uniqueID),
-		Source: syncer.EntryPointSource{
+		Source: component.EntryPointSource{
 			Domain:   gel.HostEntrypoint.Domain,
 			Path:     buildBasePath(uniqueID),
 			Port:     gel.HostEntrypoint.Port,
 			Protocol: gel.HostEntrypoint.Protocol,
 		},
-		Destination: syncer.EntryPointDestination{
-			Type: syncer.DestinationTypeKubernetes,
-			KubernetesService: &syncer.KubernetesService{
-				Name:      buildServiceName(uniqueID, syncer.EventTypeGitlab),
+		Destination: component.EntryPointDestination{
+			Type: component.DestinationTypeKubernetes,
+			KubernetesService: &component.KubernetesService{
+				Name:      buildServiceName(uniqueID, component.EventTypeGitlab),
 				Namespace: gel.Namespace,
 				Port:      targetPort,
 			},
@@ -416,7 +420,7 @@ func (gel *GitlabEventSourceGenerator) deleteAccessToken(ctx context.Context, un
 }
 
 // getNewCodeRepoSets transforms an array of the Event to Set.
-func (gel *GitlabEventSourceGenerator) getNewCodeRepoSets(events []syncer.EventSource) codeRepoUsage {
+func (gel *GitlabEventSourceGenerator) getNewCodeRepoSets(events []component.EventSource) codeRepoUsage {
 	newSet := sets.New[string]()
 	for i := range events {
 		if events[i].Gitlab == nil {
@@ -428,7 +432,7 @@ func (gel *GitlabEventSourceGenerator) getNewCodeRepoSets(events []syncer.EventS
 }
 
 // buildCodeRepoRequest builds a secret request body that was used to create or delete a secret in secret management.
-func (gel *GitlabEventSourceGenerator) buildCodeRepoRequest(uniqueID, repoName string) (*syncer.SecretRequest, error) {
+func (gel *GitlabEventSourceGenerator) buildCodeRepoRequest(uniqueID, repoName string) (*component.SecretRequest, error) {
 	name := buildAccessTokenName(uniqueID, repoName)
 
 	codeRepo, err := gel.DB.GetCodeRepo(repoName)
@@ -440,19 +444,19 @@ func (gel *GitlabEventSourceGenerator) buildCodeRepoRequest(uniqueID, repoName s
 		return nil, fmt.Errorf("get code repo provider failed: %w", err)
 	}
 
-	return &syncer.SecretRequest{
+	return &component.SecretRequest{
 		Name: name,
-		Source: syncer.SecretInfo{
-			Type: syncer.SecretTypeCodeRepo,
-			CodeRepo: &syncer.CodeRepo{
+		Source: component.SecretInfo{
+			Type: component.SecretTypeCodeRepo,
+			CodeRepo: &component.CodeRepo{
 				ProviderType: provider.Spec.ProviderType,
 				ID:           codeRepo.Name,
 				User:         "default",
-				Permission:   syncer.CodeRepoPermissionAccessToken,
+				Permission:   component.CodeRepoPermissionAccessToken,
 			},
 		},
 		AuthInfo: gel.secMgrAuthInfo,
-		Destination: syncer.SecretRequestDestination{
+		Destination: component.SecretRequestDestination{
 			Name:   name,
 			Space:  gel.Space,
 			Format: `token: '{{ .accesstoken | toString }}'`,

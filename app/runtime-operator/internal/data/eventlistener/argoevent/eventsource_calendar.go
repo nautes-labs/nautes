@@ -19,7 +19,7 @@ import (
 
 	eventsourcev1alpha1 "github.com/argoproj/argo-events/pkg/apis/eventsource/v1alpha1"
 
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
@@ -29,17 +29,17 @@ import (
 )
 
 type CalendarEventSourceGenerator struct {
-	Components     *syncer.ComponentList
+	Components     *component.ComponentList
 	HostEntrypoint utils.EntryPoint
 	Namespace      string
 	K8sClient      client.Client
 	DB             database.Snapshot
-	User           syncer.MachineAccount
-	Space          syncer.Space
+	User           component.MachineAccount
+	Space          component.Space
 }
 
 // CreateEventSource creates an event source resource of calendar type by event source collection unique ID.
-func (cg *CalendarEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource syncer.EventSourceSet) error {
+func (cg *CalendarEventSourceGenerator) CreateEventSource(ctx context.Context, eventSource component.EventSourceSet) error {
 	es := cg.buildBaseEventSource(eventSource.UniqueID)
 
 	_, err := controllerutil.CreateOrUpdate(ctx, cg.K8sClient, es, func() error {
@@ -60,14 +60,14 @@ func (cg *CalendarEventSourceGenerator) DeleteEventSource(ctx context.Context, u
 func (cg *CalendarEventSourceGenerator) buildBaseEventSource(uniqueID string) *eventsourcev1alpha1.EventSource {
 	return &eventsourcev1alpha1.EventSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildEventSourceName(uniqueID, syncer.EventTypeCalendar),
+			Name:      buildEventSourceName(uniqueID, component.EventTypeCalendar),
 			Namespace: cg.Namespace,
 		},
 	}
 }
 
 // createCalendarSources creates a cache which records calendar event sources.
-func (cg *CalendarEventSourceGenerator) createCalendarSources(eventSource syncer.EventSourceSet) map[string]eventsourcev1alpha1.CalendarEventSource {
+func (cg *CalendarEventSourceGenerator) createCalendarSources(eventSource component.EventSourceSet) map[string]eventsourcev1alpha1.CalendarEventSource {
 	esMap := map[string]eventsourcev1alpha1.CalendarEventSource{}
 
 	for _, event := range eventSource.EventSources {
@@ -82,7 +82,7 @@ func (cg *CalendarEventSourceGenerator) createCalendarSources(eventSource syncer
 }
 
 // buildCalendarEventSource returns a calendar event source instance.
-func (cg *CalendarEventSourceGenerator) buildCalendarEventSource(event syncer.EventSourceCalendar) eventsourcev1alpha1.CalendarEventSource {
+func (cg *CalendarEventSourceGenerator) buildCalendarEventSource(event component.EventSourceCalendar) eventsourcev1alpha1.CalendarEventSource {
 	return eventsourcev1alpha1.CalendarEventSource{
 		Schedule:       event.Schedule,
 		Interval:       event.Interval,

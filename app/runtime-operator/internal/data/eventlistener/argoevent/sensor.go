@@ -22,7 +22,7 @@ import (
 
 	"github.com/argoproj/argo-events/pkg/apis/common"
 	sensorv1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -38,18 +38,18 @@ type SensorGenerator struct {
 }
 
 type ConsumerCache struct {
-	syncer.ResourceMetaData
+	component.ResourceMetaData
 	Hash uint32 `json:"hash"`
 }
 
-func NewConsumerCache(consumerSet syncer.ConsumerSet) ConsumerCache {
+func NewConsumerCache(consumerSet component.ConsumerSet) ConsumerCache {
 	return ConsumerCache{
 		ResourceMetaData: consumerSet.ResourceMetaData,
 		Hash:             utils.GetStructHash(consumerSet),
 	}
 }
 
-func (c *ConsumerCache) isSame(consumerSet syncer.ConsumerSet) bool {
+func (c *ConsumerCache) isSame(consumerSet component.ConsumerSet) bool {
 	hash := utils.GetStructHash(consumerSet)
 	return c.Hash == hash
 }
@@ -63,7 +63,7 @@ const ServiceAccountArgoEvents = "argo-events-sa"
 // 1. It checks the cache that finding if the consumer is changed then deleted.
 // 2. It creates or updates all the Sensors by the consumer.
 // 3. Tt updates the consumer to the cache.
-func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer syncer.ConsumerSet) error {
+func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer component.ConsumerSet) error {
 	cache, err := sg.getConsumerCache(ctx, buildConsumerLabel(consumer.Product, consumer.Name))
 	if err != nil {
 		return fmt.Errorf("load consumer cache failed: %w", err)
@@ -168,7 +168,7 @@ func (sg *SensorGenerator) getConsumerCache(ctx context.Context, consumerLabel s
 }
 
 // updateConsumerCache updates the consumer by product name and consumer name.
-func (sg *SensorGenerator) updateConsumerCache(ctx context.Context, consumer syncer.ConsumerSet) error {
+func (sg *SensorGenerator) updateConsumerCache(ctx context.Context, consumer component.ConsumerSet) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConfigMapNameConsumerCache,
@@ -223,19 +223,19 @@ func (sg *SensorGenerator) buildSensor(productName, name string, num int) *senso
 
 // Transform custom comparable symbol to sensor comparable symbol.
 var (
-	comparatorMap = map[syncer.Comparator]sensorv1alpha1.Comparator{
-		syncer.GreaterThanOrEqualTo: sensorv1alpha1.GreaterThanOrEqualTo,
-		syncer.GreaterThan:          sensorv1alpha1.GreaterThan,
-		syncer.EqualTo:              sensorv1alpha1.EqualTo,
-		syncer.NotEqualTo:           sensorv1alpha1.NotEqualTo,
-		syncer.LessThan:             sensorv1alpha1.LessThan,
-		syncer.LessThanOrEqualTo:    sensorv1alpha1.LessThanOrEqualTo,
+	comparatorMap = map[component.Comparator]sensorv1alpha1.Comparator{
+		component.GreaterThanOrEqualTo: sensorv1alpha1.GreaterThanOrEqualTo,
+		component.GreaterThan:          sensorv1alpha1.GreaterThan,
+		component.EqualTo:              sensorv1alpha1.EqualTo,
+		component.NotEqualTo:           sensorv1alpha1.NotEqualTo,
+		component.LessThan:             sensorv1alpha1.LessThan,
+		component.LessThanOrEqualTo:    sensorv1alpha1.LessThanOrEqualTo,
 	}
 )
 
 // buildDependencies return an instance of event dependency as sub of the sensor which is custom resource in Kubernetes.
 // Transform consumer event trigger condition to the event dependency.
-func buildDependencies(consumer syncer.Consumer) sensorv1alpha1.EventDependency {
+func buildDependencies(consumer component.Consumer) sensorv1alpha1.EventDependency {
 	eventDependency := sensorv1alpha1.EventDependency{
 		Name:            buildDependencyName(consumer.UniqueID, consumer.EventSourceName, consumer.EventSourceType),
 		EventSourceName: buildEventSourceName(consumer.UniqueID, consumer.EventSourceType),
@@ -244,11 +244,11 @@ func buildDependencies(consumer syncer.Consumer) sensorv1alpha1.EventDependency 
 	}
 
 	var dataFilters []sensorv1alpha1.DataFilter
-	var matchRules []syncer.Filter
+	var matchRules []component.Filter
 
 	for i := range consumer.Filters {
 		filter := consumer.Filters[i]
-		if filter.Comparator == syncer.Match {
+		if filter.Comparator == component.Match {
 			matchRules = append(matchRules, filter)
 		} else {
 			dataFilters = append(dataFilters, sensorv1alpha1.DataFilter{
@@ -271,7 +271,7 @@ func buildDependencies(consumer syncer.Consumer) sensorv1alpha1.EventDependency 
 var scriptTemplate = "if not string.match(%s, \"%s\") then return false end"
 
 // buildMatchScript builds a filter of the Lua script from webhook events.
-func buildMatchScript(filters []syncer.Filter) string {
+func buildMatchScript(filters []component.Filter) string {
 	scripts := make([]string, len(filters)+1)
 	for i := range filters {
 		scripts[i] = fmt.Sprintf(scriptTemplate, filters[i].Key, filters[i].Value)
@@ -283,12 +283,12 @@ func buildMatchScript(filters []syncer.Filter) string {
 
 // buildTrigger builds a trigger instance which is custom resource in Kubernetes.
 // Combines parameters to trigger a stander Kubernetes trigger that is init pipeline.
-func buildTrigger(consumer syncer.Consumer) (*sensorv1alpha1.Trigger, error) {
+func buildTrigger(consumer component.Consumer) (*sensorv1alpha1.Trigger, error) {
 	comRes := common.NewResource(consumer.Task.Raw)
 
 	parameters := make([]sensorv1alpha1.TriggerParameter, len(consumer.Task.Vars))
-	for i, task := range consumer.Task.Vars {
-		eventSourcePath, err := GetEventSourcePath(task.Name, consumer.EventSourceType)
+	for i, inputOverWrite := range consumer.Task.Vars {
+		eventSourcePath, err := GetEventSourcePath(inputOverWrite, consumer.EventSourceType)
 		if err != nil {
 			return nil, err
 		}
@@ -317,20 +317,24 @@ func buildTrigger(consumer syncer.Consumer) (*sensorv1alpha1.Trigger, error) {
 	}, nil
 }
 
-func GetEventSourcePath(reqVar syncer.EventSourceVar, eventType syncer.EventSourceType) (string, error) {
-	if eventType == syncer.EventTypeGitlab {
-		requestPath, ok := RequestMapGitLab[reqVar]
+func GetEventSourcePath(reqVar component.InputOverWrite, eventType component.EventSourceType) (string, error) {
+	if reqVar.StaticeVar != nil {
+		return *reqVar.StaticeVar, nil
+	}
+
+	if eventType == component.EventTypeGitlab {
+		requestPath, ok := RequestMapGitLab[reqVar.BuiltinRequestVar]
 		if !ok {
 			return "", fmt.Errorf("unknown request %s", requestPath)
 		}
 		return requestPath, nil
 	}
 
-	return "", fmt.Errorf("unknown request type %s", eventType)
+	return "", fmt.Errorf("event source type %s not support builtin var %s", eventType, reqVar.BuiltinRequestVar)
 }
 
 var (
-	RequestMapGitLab = map[syncer.EventSourceVar]string{
-		syncer.EventSourceVarRef: "body.ref",
+	RequestMapGitLab = map[component.EventSourceVar]string{
+		component.EventSourceVarRef: "body.ref",
 	}
 )

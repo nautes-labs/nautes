@@ -475,7 +475,7 @@ var _ = Describe("Save project pipeline runtime", func() {
 			fakeNode.Content = newResouce
 
 			client := kubernetes.NewMockClient(ctl)
-			client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 			client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 			biz := NewProjectPipelineRuntimeUsecase(logger, nil, nodestree, nil, client, nautesConfigs)

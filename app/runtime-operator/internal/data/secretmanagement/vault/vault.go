@@ -28,7 +28,7 @@ import (
 	vaultapi "github.com/hashicorp/vault/api"
 	vaultauthkubernetes "github.com/hashicorp/vault/api/auth/kubernetes"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	vaultproxy "github.com/nautes-labs/nautes/pkg/client/vaultproxy"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	loadcert "github.com/nautes-labs/nautes/pkg/util/loadcerts"
@@ -37,8 +37,8 @@ import (
 
 // secretManager grants the machine account access to the secret or revokes the machine account access to the secret.
 type secretManager interface {
-	GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error
-	RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error
+	GrantPermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error
+	RevokePermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error
 }
 
 type vault struct {
@@ -47,10 +47,10 @@ type vault struct {
 	vaultproxy.AuthHTTPClient
 	vaultproxy.AuthGrantHTTPClient
 	clusterName string
-	secMgrMap   map[syncer.SecretType]secretManager
+	secMgrMap   map[component.SecretType]secretManager
 }
 
-func NewSecretManagement(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.SecretManagement, error) {
+func NewSecretManagement(opt v1alpha1.Component, info *component.ComponentInitInfo) (component.SecretManagement, error) {
 	return NewVaultClient(opt, info)
 }
 
@@ -68,7 +68,7 @@ func SetNewVaultProxyClientFunction(fn NewVaultProxy) NewOption {
 }
 
 // NewVaultClient builds a client instance to access the Vault, including read and write operations.
-func NewVaultClient(_ v1alpha1.Component, info *syncer.ComponentInitInfo, opts ...NewOption) (syncer.SecretManagement, error) {
+func NewVaultClient(_ v1alpha1.Component, info *component.ComponentInitInfo, opts ...NewOption) (component.SecretManagement, error) {
 	options := &newOptions{
 		newVaultProxyClient: newVaultProxyClient,
 	}
@@ -93,14 +93,14 @@ func NewVaultClient(_ v1alpha1.Component, info *syncer.ComponentInitInfo, opts .
 		AuthHTTPClient:      authClient,
 		AuthGrantHTTPClient: grantClient,
 		clusterName:         info.ClusterName,
-		secMgrMap:           map[syncer.SecretType]secretManager{},
+		secMgrMap:           map[component.SecretType]secretManager{},
 	}
 
-	vaultClient.secMgrMap[syncer.SecretTypeCodeRepo] = &codeRepoManager{
+	vaultClient.secMgrMap[component.SecretTypeCodeRepo] = &codeRepoManager{
 		AuthGrantHTTPClient: vaultClient.AuthGrantHTTPClient,
 		clusterName:         vaultClient.clusterName,
 	}
-	vaultClient.secMgrMap[syncer.SecretTypeArtifactRepo] = &artifactRepoManager{
+	vaultClient.secMgrMap[component.SecretTypeArtifactRepo] = &artifactRepoManager{
 		AuthGrantHTTPClient: vaultClient.AuthGrantHTTPClient,
 		clusterName:         vaultClient.clusterName,
 	}
@@ -124,7 +124,7 @@ func (v *vault) CleanUp() error {
 	return nil
 }
 
-func (v *vault) GetComponentMachineAccount() *syncer.MachineAccount {
+func (v *vault) GetComponentMachineAccount() *component.MachineAccount {
 	return nil
 }
 
@@ -145,7 +145,7 @@ func (v *vault) GetAccessInfo(ctx context.Context) (string, error) {
 const OriginName = "vault"
 
 // CreateAccount creates the machine account in Vault by the specified Kubernetes authentication method.
-func (v *vault) CreateAccount(ctx context.Context, account syncer.MachineAccount) (*syncer.AuthInfo, error) {
+func (v *vault) CreateAccount(ctx context.Context, account component.MachineAccount) (*component.AuthInfo, error) {
 	roleInfo := &vaultproxy.AuthroleRequest_Kubernetes{
 		Kubernetes: &vaultproxy.KubernetesAuthRoleMeta{},
 	}
@@ -162,15 +162,15 @@ func (v *vault) CreateAccount(ctx context.Context, account syncer.MachineAccount
 		return nil, err
 	}
 
-	authInfo := &syncer.AuthInfo{
+	authInfo := &component.AuthInfo{
 		OriginName:      OriginName,
 		AccountName:     account.Name,
-		AuthType:        syncer.AuthTypeKubernetesServiceAccount,
-		ServiceAccounts: []syncer.AuthInfoServiceAccount{},
+		AuthType:        component.AuthTypeKubernetesServiceAccount,
+		ServiceAccounts: []component.AuthInfoServiceAccount{},
 	}
 
 	for _, ns := range roleInfo.Kubernetes.Namespaces {
-		authInfo.ServiceAccounts = append(authInfo.ServiceAccounts, syncer.AuthInfoServiceAccount{
+		authInfo.ServiceAccounts = append(authInfo.ServiceAccounts, component.AuthInfoServiceAccount{
 			ServiceAccount: account.Name,
 			Namespace:      ns,
 		})
@@ -180,7 +180,7 @@ func (v *vault) CreateAccount(ctx context.Context, account syncer.MachineAccount
 }
 
 // DeleteAccount deletes the machine account in Vault.
-func (v *vault) DeleteAccount(ctx context.Context, account syncer.MachineAccount) error {
+func (v *vault) DeleteAccount(ctx context.Context, account component.MachineAccount) error {
 	req := &vaultproxy.AuthroleRequest{
 		ClusterName: v.clusterName,
 		DestUser:    account.Name,
@@ -194,7 +194,7 @@ func (v *vault) DeleteAccount(ctx context.Context, account syncer.MachineAccount
 
 // GrantPermission grants the machine account access to the secret.
 // It's implemented differently depending on the secret type.
-func (v *vault) GrantPermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
+func (v *vault) GrantPermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error {
 	mgr, ok := v.secMgrMap[repo.Type]
 	if !ok {
 		return fmt.Errorf("unknow secret type %s", repo.Type)
@@ -204,7 +204,7 @@ func (v *vault) GrantPermission(ctx context.Context, repo syncer.SecretInfo, acc
 
 // RevokePermission revokes the machine account access to the secret.
 // It's implemented differently depending on the secret type.
-func (v *vault) RevokePermission(ctx context.Context, repo syncer.SecretInfo, account syncer.MachineAccount) error {
+func (v *vault) RevokePermission(ctx context.Context, repo component.SecretInfo, account component.MachineAccount) error {
 	mgr, ok := v.secMgrMap[repo.Type]
 	if !ok {
 		return fmt.Errorf("unknow secret type %s", repo.Type)

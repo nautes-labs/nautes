@@ -37,7 +37,8 @@ type Calendar struct {
 	// +optional
 	Interval string `json:"interval,omitempty"`
 	// ExclusionDates defines the list of DATE-TIME exceptions for recurring events.
-	ExclusionDates []string `json:"exclusionDates"`
+	// +optional
+	ExclusionDates []string `json:"exclusionDates,omitempty"`
 	// Timezone in which to run the schedule
 	// +optional
 	Timezone string `json:"timezone,omitempty"`
@@ -115,6 +116,11 @@ type Hooks struct {
 type Hook struct {
 	// Name is the name of the hook to be executed.
 	Name string `json:"name"`
+	// Alias is the alias given by the user for the hook.
+	// If the user does not enter this value, the name of the hook will be obtained from 'name'.
+	// When the hook appears in both PreHooks and PostHooks, it is necessary to specify the name to prevent conflicts.
+	// +optional
+	Alias *string `json:"alias,omitempty"`
 	// Vars is the parameter that the user wants to pass to the hook,
 	// and the input items are determined based on the pipeline component in cluster.
 	// +optional

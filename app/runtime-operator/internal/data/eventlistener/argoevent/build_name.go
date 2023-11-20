@@ -17,10 +17,10 @@ package argoevent
 import (
 	"fmt"
 
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 )
 
-func buildServiceName(uniqueID string, eventSourceType syncer.EventSourceType) string {
+func buildServiceName(uniqueID string, eventSourceType component.EventSourceType) string {
 	return fmt.Sprintf("%s-%s-eventsource-svc", uniqueID, eventSourceType)
 }
 
@@ -40,7 +40,7 @@ func buildSensorName(productName, name string, num int) string {
 	return fmt.Sprintf("%s-%s-%d", productName, name, num)
 }
 
-func buildEventSourceName(uniqueID string, eventSourceType syncer.EventSourceType) string {
+func buildEventSourceName(uniqueID string, eventSourceType component.EventSourceType) string {
 	return fmt.Sprintf("%s-%s", uniqueID, eventSourceType)
 }
 
@@ -52,7 +52,7 @@ func buildBasePath(basePath string) string {
 	return fmt.Sprintf("/%s", basePath)
 }
 
-func buildDependencyName(uniqueID, eventSourceName string, eventSourceType syncer.EventSourceType) string {
+func buildDependencyName(uniqueID, eventSourceName string, eventSourceType component.EventSourceType) string {
 	return fmt.Sprintf("%s-%s-%s", uniqueID, eventSourceName, eventSourceType)
 }
 

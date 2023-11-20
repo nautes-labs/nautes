@@ -22,7 +22,7 @@ import (
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
-	component "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -575,7 +575,7 @@ func (prd *PipelineRuntimeDeployer) convertRuntimeToConsumers(
 			return nil, err
 		}
 
-		vars, err := prd.buildBuildInVars(trigger.Revision, runtime.Spec.PipelineSource, account, runtimePipeline)
+		vars, err := prd.buildBuiltinVars(trigger.Revision, runtime.Spec.PipelineSource, account, runtimePipeline)
 		if err != nil {
 			return nil, err
 		}
@@ -634,16 +634,21 @@ func GetEventSourceFromEventSourceSet(esSet component.EventSourceSet, name strin
 	return nil, fmt.Errorf("event source %s not found", name)
 }
 
-func (prd *PipelineRuntimeDeployer) getEventTaskFromEventSource(eventSource component.EventSource, eventType component.EventSourceType, vars map[component.BuildInVar]string) (component.EventTask, error) {
+func (prd *PipelineRuntimeDeployer) getEventTaskFromEventSource(eventSource component.EventSource, eventType component.EventSourceType, vars map[component.BuiltinVar]string) (component.EventTask, error) {
 	task := component.EventTask{
 		Type: component.EventTaskTypeRaw,
 		Vars: nil,
 		Raw:  nil,
 	}
 
+	userDefHooks := v1alpha1.Hooks{}
+	if prd.runtime.Spec.Hooks != nil {
+		userDefHooks = *prd.runtime.Spec.Hooks
+	}
+
 	info := component.HooksInitInfo{
-		BuildInVars:       vars,
-		Hooks:             v1alpha1.Hook{},
+		BuiltinVars:       vars,
+		Hooks:             userDefHooks,
 		EventSource:       eventSource,
 		EventSourceType:   eventType,
 		EventListenerType: "",
@@ -735,8 +740,8 @@ func getEventSourceFromEventSources(name string, eventSources []v1alpha1.EventSo
 	return v1alpha1.EventSource{}, fmt.Errorf("can not find event source %s in event sources", name)
 }
 
-// buildBuildInVars returns the BuildInVars corresponding to the consumer.
-func (prd *PipelineRuntimeDeployer) buildBuildInVars(pipelineRevision, codeRepoName string, account component.MachineAccount, pipeline v1alpha1.Pipeline) (map[component.BuildInVar]string, error) {
+// buildBuiltinVars returns the builtin vars corresponding to the consumer.
+func (prd *PipelineRuntimeDeployer) buildBuiltinVars(pipelineRevision, codeRepoName string, account component.MachineAccount, pipeline v1alpha1.Pipeline) (map[component.BuiltinVar]string, error) {
 	codeRepo, err := prd.snapshot.GetCodeRepo(codeRepoName)
 	if err != nil {
 		return nil, err
@@ -746,7 +751,7 @@ func (prd *PipelineRuntimeDeployer) buildBuildInVars(pipelineRevision, codeRepoN
 		return nil, err
 	}
 
-	buildInVars := map[component.BuildInVar]string{
+	builtinVars := map[component.BuiltinVar]string{
 		component.VarEventSourceCodeRepoName: "",
 		component.VarEventSourceCodeRepoURL:  "",
 		component.VarServiceAccount:          account.Name,
@@ -758,9 +763,9 @@ func (prd *PipelineRuntimeDeployer) buildBuildInVars(pipelineRevision, codeRepoN
 		component.VarPipelineLabel:           pipeline.Label,
 	}
 	if pipelineRevision != "" {
-		buildInVars[component.VarPipelineRevision] = pipelineRevision
+		builtinVars[component.VarPipelineRevision] = pipelineRevision
 	}
-	return buildInVars, nil
+	return builtinVars, nil
 }
 
 func (prd *PipelineRuntimeDeployer) GetPermissionsFromRuntime() []component.SecretInfo {

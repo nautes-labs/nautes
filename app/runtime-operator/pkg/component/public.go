@@ -17,6 +17,7 @@ package component
 import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	pluginmanager "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/manager"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	"k8s.io/client-go/rest"
 )
@@ -70,6 +71,8 @@ type ComponentInitInfo struct {
 	//   - EventListener
 	//   - Pipeline
 	Components *ComponentList
+	// PipelinePluginManager is an instance that manages pipeline plugins.
+	PipelinePluginManager pluginmanager.PipelinePluginManager
 }
 
 // ComponentList contains pointers to component implementations.

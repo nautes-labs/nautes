@@ -20,7 +20,7 @@ import (
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/secretmanagement/vault"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,11 +28,11 @@ import (
 )
 
 var _ = Describe("Vault", func() {
-	var secMgr syncer.SecretManagement
+	var secMgr component.SecretManagement
 	var ctx context.Context
 	var kubeconfig = "thisisconfig"
 	var seed string
-	var user syncer.MachineAccount
+	var user component.MachineAccount
 	BeforeEach(func() {
 		var err error
 		seed = RandNum()
@@ -47,14 +47,14 @@ var _ = Describe("Vault", func() {
 		initVault(data, roleBinding)
 		initMock()
 
-		user = syncer.MachineAccount{
+		user = component.MachineAccount{
 			Name:   fmt.Sprintf("user-%s", seed),
 			Spaces: []string{fmt.Sprintf("ns-%s", seed)},
 		}
 
 		opt := v1alpha1.Component{}
-		initInfo := syncer.ComponentInitInfo{
-			ClusterConnectInfo: syncer.ClusterConnectInfo{
+		initInfo := component.ComponentInitInfo{
+			ClusterConnectInfo: component.ClusterConnectInfo{
 				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
 				Kubernetes:  nil,
 			},
@@ -118,9 +118,9 @@ var _ = Describe("Vault", func() {
 		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
-		repo := syncer.SecretInfo{
-			Type: syncer.SecretTypeCodeRepo,
-			CodeRepo: &syncer.CodeRepo{
+		repo := component.SecretInfo{
+			Type: component.SecretTypeCodeRepo,
+			CodeRepo: &component.CodeRepo{
 				ProviderType: "a",
 				ID:           "b",
 				User:         "c",
@@ -146,9 +146,9 @@ var _ = Describe("Vault", func() {
 		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
-		repo := syncer.SecretInfo{
-			Type: syncer.SecretTypeCodeRepo,
-			CodeRepo: &syncer.CodeRepo{
+		repo := component.SecretInfo{
+			Type: component.SecretTypeCodeRepo,
+			CodeRepo: &component.CodeRepo{
 				ProviderType: "a",
 				ID:           "b",
 				User:         "c",
@@ -172,9 +172,9 @@ var _ = Describe("Vault", func() {
 		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
-		repo := syncer.SecretInfo{
-			Type: syncer.SecretTypeArtifactRepo,
-			ArtifactAccount: &syncer.ArtifactAccount{
+		repo := component.SecretInfo{
+			Type: component.SecretTypeArtifactRepo,
+			ArtifactAccount: &component.ArtifactAccount{
 				ProviderName: "a",
 				Product:      "b",
 				Project:      "c",
@@ -199,9 +199,9 @@ var _ = Describe("Vault", func() {
 		_, err := secMgr.CreateAccount(ctx, user)
 		Expect(err).Should(BeNil())
 
-		repo := syncer.SecretInfo{
-			Type: syncer.SecretTypeArtifactRepo,
-			ArtifactAccount: &syncer.ArtifactAccount{
+		repo := component.SecretInfo{
+			Type: component.SecretTypeArtifactRepo,
+			ArtifactAccount: &component.ArtifactAccount{
 				ProviderName: "a",
 				Product:      "b",
 				Project:      "c",

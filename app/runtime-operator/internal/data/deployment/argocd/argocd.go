@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 )
 
 func init() {
@@ -49,17 +49,17 @@ var (
 type argocd struct {
 	db                       database.Snapshot
 	k8sClient                client.Client
-	components               *syncer.ComponentList
+	components               *component.ComponentList
 	namespace                string
 	nautesNamespace          string
 	opts                     map[string]string
-	machineAccount           syncer.MachineAccount
+	machineAccount           component.MachineAccount
 	cluster                  v1alpha1.Cluster
 	policyManager            argocdrbac.Adapter
 	projectsNeedUpdateSource sets.Set[string]
 }
 
-func NewArgoCD(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.Deployment, error) {
+func NewArgoCD(opt v1alpha1.Component, info *component.ComponentInitInfo) (component.Deployment, error) {
 	if info.ClusterConnectInfo.ClusterKind != v1alpha1.CLUSTER_KIND_KUBERNETES {
 		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
 	}
@@ -74,7 +74,7 @@ func NewArgoCD(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.D
 		return nil, fmt.Errorf("get cluster failed: %w", err)
 	}
 
-	account := syncer.MachineAccount{
+	account := component.MachineAccount{
 		Name:   info.NautesConfig.Secret.OperatorName[configs.OperatorNameArgo],
 		Spaces: []string{info.NautesConfig.Nautes.Namespace},
 	}
@@ -130,7 +130,7 @@ func (a *argocd) CleanUp() error {
 	return nil
 }
 
-func (a *argocd) GetComponentMachineAccount() *syncer.MachineAccount {
+func (a *argocd) GetComponentMachineAccount() *component.MachineAccount {
 	return &a.machineAccount
 }
 
@@ -208,9 +208,9 @@ const (
 	ArgocdRBACConfigMapName = "argocd-rbac-cm"
 )
 
-func (a *argocd) AddProductUser(_ context.Context, request syncer.PermissionRequest) error {
+func (a *argocd) AddProductUser(_ context.Context, request component.PermissionRequest) error {
 	switch request.RequestScope {
-	case syncer.RequestScopeProduct:
+	case component.RequestScopeProduct:
 		if err := a.policyManager.LoadPolicyFromCluster(types.NamespacedName{
 			Namespace: a.namespace,
 			Name:      ArgocdRBACConfigMapName,
@@ -234,9 +234,9 @@ func (a *argocd) AddProductUser(_ context.Context, request syncer.PermissionRequ
 	}
 }
 
-func (a *argocd) DeleteProductUser(_ context.Context, request syncer.PermissionRequest) error {
+func (a *argocd) DeleteProductUser(_ context.Context, request component.PermissionRequest) error {
 	switch request.RequestScope {
-	case syncer.RequestScopeProduct:
+	case component.RequestScopeProduct:
 		if err := a.policyManager.LoadPolicyFromCluster(types.NamespacedName{
 			Namespace: a.namespace,
 			Name:      ArgocdRBACConfigMapName,
@@ -261,7 +261,7 @@ func (a *argocd) DeleteProductUser(_ context.Context, request syncer.PermissionR
 	}
 }
 
-func (a *argocd) CreateApp(ctx context.Context, app syncer.Application) error {
+func (a *argocd) CreateApp(ctx context.Context, app component.Application) error {
 	if err := a.createOrUpdateArgoCDApp(ctx, app); err != nil {
 		return err
 	}
@@ -275,7 +275,7 @@ func (a *argocd) CreateApp(ctx context.Context, app syncer.Application) error {
 	return nil
 }
 
-func (a *argocd) DeleteApp(ctx context.Context, app syncer.Application) error {
+func (a *argocd) DeleteApp(ctx context.Context, app component.Application) error {
 	if app.Git != nil && app.Git.CodeRepo != "" {
 		if err := a.createOrUpdateCodeRepo(ctx, app.Git.CodeRepo, nil, []string{app.Name}); err != nil {
 			return err
@@ -318,7 +318,7 @@ func (a *argocd) getReservedNamespaces(name string) []string {
 	return namespaces
 }
 
-func (a *argocd) createOrUpdateArgoCDApp(ctx context.Context, app syncer.Application) error {
+func (a *argocd) createOrUpdateArgoCDApp(ctx context.Context, app component.Application) error {
 	if len(app.Destinations) == 0 {
 		return fmt.Errorf("destinations is empty")
 	}
@@ -421,13 +421,13 @@ func (a *argocd) grantReadOnlyPermissionToSecretUser(ctx context.Context, codeRe
 		return err
 	}
 
-	repoPermissionReq := syncer.SecretInfo{
-		Type: syncer.SecretTypeCodeRepo,
-		CodeRepo: &syncer.CodeRepo{
+	repoPermissionReq := component.SecretInfo{
+		Type: component.SecretTypeCodeRepo,
+		CodeRepo: &component.CodeRepo{
 			ProviderType: provider.Spec.ProviderType,
 			ID:           codeRepo.Name,
 			User:         "default",
-			Permission:   syncer.CodeRepoPermissionReadOnly,
+			Permission:   component.CodeRepoPermissionReadOnly,
 		},
 	}
 	if err := a.components.SecretManagement.GrantPermission(ctx, repoPermissionReq, a.machineAccount); err != nil {
@@ -443,13 +443,13 @@ func (a *argocd) deleteCodeRepo(ctx context.Context, codeRepo *v1alpha1.CodeRepo
 		return err
 	}
 
-	repoPermissionReq := syncer.SecretInfo{
-		Type: syncer.SecretTypeCodeRepo,
-		CodeRepo: &syncer.CodeRepo{
+	repoPermissionReq := component.SecretInfo{
+		Type: component.SecretTypeCodeRepo,
+		CodeRepo: &component.CodeRepo{
 			ProviderType: provider.Spec.ProviderType,
 			ID:           codeRepo.Name,
 			User:         "default",
-			Permission:   syncer.CodeRepoPermissionReadOnly,
+			Permission:   component.CodeRepoPermissionReadOnly,
 		},
 	}
 

@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +46,7 @@ var (
 
 type hnc struct {
 	db                database.Snapshot
-	deployer          syncer.Deployment
+	deployer          component.Deployment
 	k8sClient         client.Client
 	clusterWorkerType v1alpha1.ClusterWorkType
 	opts              map[string]string
@@ -54,7 +54,7 @@ type hnc struct {
 	namespace         string
 }
 
-func NewHNC(opt v1alpha1.Component, info *syncer.ComponentInitInfo) (syncer.MultiTenant, error) {
+func NewHNC(opt v1alpha1.Component, info *component.ComponentInitInfo) (component.MultiTenant, error) {
 	if info.ClusterConnectInfo.ClusterKind != v1alpha1.CLUSTER_KIND_KUBERNETES {
 		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
 	}
@@ -84,7 +84,7 @@ func (h hnc) CleanUp() error {
 	return nil
 }
 
-func (h hnc) GetComponentMachineAccount() *syncer.MachineAccount {
+func (h hnc) GetComponentMachineAccount() *component.MachineAccount {
 	return nil
 }
 
@@ -142,16 +142,16 @@ const (
 	nameFormatProductResourceApp = "%s-share"
 )
 
-func (h hnc) getEmptyProductApp(productName string) syncer.Application {
-	return syncer.Application{
-		ResourceMetaData: syncer.ResourceMetaData{
+func (h hnc) getEmptyProductApp(productName string) component.Application {
+	return component.Application{
+		ResourceMetaData: component.ResourceMetaData{
 			Product: productName,
 			Name:    fmt.Sprintf(nameFormatProductResourceApp, productName),
 		},
 	}
 }
 
-func (h hnc) getProductApp(productName string) (*syncer.Application, error) {
+func (h hnc) getProductApp(productName string) (*component.Application, error) {
 	productResourcePath := h.opts[OptKeyProductResourceKustomizeFileFolder]
 	revision := h.opts[OptKeyProductResourceRevision]
 	if productResourcePath == "" || revision == "" {
@@ -163,25 +163,25 @@ func (h hnc) getProductApp(productName string) (*syncer.Application, error) {
 		return nil, err
 	}
 
-	app := &syncer.Application{
-		ResourceMetaData: syncer.ResourceMetaData{
+	app := &component.Application{
+		ResourceMetaData: component.ResourceMetaData{
 			Product: productName,
 			Name:    fmt.Sprintf(nameFormatProductResourceApp, productName),
 		},
-		Git: &syncer.ApplicationGit{
+		Git: &component.ApplicationGit{
 			URL:      codeRepo.Spec.URL,
 			Revision: revision,
 			Path:     productResourcePath,
 			CodeRepo: codeRepo.Name,
 		},
-		Destinations: []syncer.Space{
+		Destinations: []component.Space{
 			{
-				ResourceMetaData: syncer.ResourceMetaData{
+				ResourceMetaData: component.ResourceMetaData{
 					Product: productName,
 					Name:    productName,
 				},
-				SpaceType: syncer.SpaceTypeKubernetes,
-				Kubernetes: &syncer.SpaceKubernetes{
+				SpaceType: component.SpaceTypeKubernetes,
+				Kubernetes: &component.SpaceKubernetes{
 					Namespace: productName,
 				},
 			},
@@ -271,8 +271,8 @@ func (h hnc) DeleteSpace(ctx context.Context, productName string, name string) e
 	return h.deleteNamespace(ctx, productName, name)
 }
 
-func (h hnc) GetSpace(ctx context.Context, productName string, name string) (*syncer.SpaceStatus, error) {
-	var spaceStatus syncer.SpaceStatus
+func (h hnc) GetSpace(ctx context.Context, productName string, name string) (*component.SpaceStatus, error) {
+	var spaceStatus component.SpaceStatus
 	namespace, err := h.getNamespace(ctx, productName, name)
 	if err != nil {
 		return nil, err
@@ -282,13 +282,13 @@ func (h hnc) GetSpace(ctx context.Context, productName string, name string) (*sy
 	return &spaceStatus, nil
 }
 
-func (h hnc) ListSpaces(ctx context.Context, productName string) ([]syncer.SpaceStatus, error) {
+func (h hnc) ListSpaces(ctx context.Context, productName string) ([]component.SpaceStatus, error) {
 	namespaces, err := h.listNamespaces(ctx, productName)
 	if err != nil {
 		return nil, err
 	}
 
-	spacesStatus := []syncer.SpaceStatus{}
+	spacesStatus := []component.SpaceStatus{}
 
 	for _, ns := range namespaces {
 		spacesStatus = append(spacesStatus, getSpace(ns))
@@ -297,9 +297,9 @@ func (h hnc) ListSpaces(ctx context.Context, productName string) ([]syncer.Space
 	return spacesStatus, nil
 }
 
-func (h hnc) AddSpaceUser(ctx context.Context, request syncer.PermissionRequest) error {
+func (h hnc) AddSpaceUser(ctx context.Context, request component.PermissionRequest) error {
 	switch request.RequestScope {
-	case syncer.RequestScopeAccount:
+	case component.RequestScopeAccount:
 		if err := h.addRoleBindingServiceAccount(ctx, request.User, request.Resource.Name); err != nil {
 			return fmt.Errorf("grant user %s admin permission in space %s failed: %w", request.User, request.Resource.Name, err)
 		}
@@ -309,9 +309,9 @@ func (h hnc) AddSpaceUser(ctx context.Context, request syncer.PermissionRequest)
 	}
 }
 
-func (h hnc) DeleteSpaceUser(ctx context.Context, request syncer.PermissionRequest) error {
+func (h hnc) DeleteSpaceUser(ctx context.Context, request component.PermissionRequest) error {
 	switch request.RequestScope {
-	case syncer.RequestScopeAccount:
+	case component.RequestScopeAccount:
 		if err := h.deleteRoleBindingServiceAccount(ctx, request.User, request.Resource.Name); err != nil {
 			return fmt.Errorf("revoke user %s admin permission in space %s failed: %w", request.User, request.Resource.Name, err)
 		}
@@ -472,14 +472,14 @@ func (h hnc) DeleteAccount(ctx context.Context, productName string, name string)
 	return nil
 }
 
-func (h hnc) GetAccount(ctx context.Context, productName string, name string) (user *syncer.MachineAccount, err error) {
+func (h hnc) GetAccount(ctx context.Context, productName string, name string) (user *component.MachineAccount, err error) {
 	productNamespace, err := h.getNamespace(ctx, productName, productName)
 	if err != nil {
-		return nil, syncer.AccountNotFound(err, name)
+		return nil, component.AccountNotFound(err, name)
 	}
 	userList := newUserList(productNamespace.Annotations[keyProductUserList])
 	if !userList.hasUser(name) {
-		return nil, syncer.AccountNotFound(errors.New(""), name)
+		return nil, component.AccountNotFound(errors.New(""), name)
 	}
 
 	namespaces, err := h.listNamespaces(ctx, productName, byUser(name))
@@ -487,7 +487,7 @@ func (h hnc) GetAccount(ctx context.Context, productName string, name string) (u
 		return nil, err
 	}
 
-	user = &syncer.MachineAccount{
+	user = &component.MachineAccount{
 		Name:    name,
 		Product: productName,
 		Spaces:  []string{},
@@ -658,16 +658,16 @@ func (h hnc) listNamespaces(ctx context.Context, productName string, opts ...spa
 	return namespaces, nil
 }
 
-func getSpace(namespace corev1.Namespace) syncer.SpaceStatus {
+func getSpace(namespace corev1.Namespace) component.SpaceStatus {
 	userList := newUserList(namespace.Annotations[keySpaceUserList])
-	spaceStatus := syncer.SpaceStatus{
-		Space: syncer.Space{
-			ResourceMetaData: syncer.ResourceMetaData{
+	spaceStatus := component.SpaceStatus{
+		Space: component.Space{
+			ResourceMetaData: component.ResourceMetaData{
 				Product: namespace.Labels[v1alpha1.LABEL_BELONG_TO_PRODUCT],
 				Name:    namespace.Name,
 			},
-			SpaceType: syncer.SpaceTypeKubernetes,
-			Kubernetes: &syncer.SpaceKubernetes{
+			SpaceType: component.SpaceTypeKubernetes,
+			Kubernetes: &component.SpaceKubernetes{
 				Namespace: namespace.Name,
 			},
 		},

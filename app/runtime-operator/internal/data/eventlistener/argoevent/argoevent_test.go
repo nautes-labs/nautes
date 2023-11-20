@@ -25,7 +25,7 @@ import (
 	sensorv1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/data/eventlistener/argoevent"
-	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,8 +38,8 @@ import (
 
 var _ = Describe("Gitlab eventsource", func() {
 	var ctx context.Context
-	var evListener syncer.EventListener
-	var es syncer.EventSourceSet
+	var evListener component.EventListener
+	var es component.EventSourceSet
 	var seed string
 	var esNames []string
 	var evNames []string
@@ -126,10 +126,10 @@ var _ = Describe("Gitlab eventsource", func() {
 			},
 			provider: provider,
 		}
-		info := &syncer.ComponentInitInfo{
-			ClusterConnectInfo: syncer.ClusterConnectInfo{
+		info := &component.ComponentInitInfo{
+			ClusterConnectInfo: component.ClusterConnectInfo{
 				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
-				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
+				Kubernetes: &component.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
@@ -140,7 +140,7 @@ var _ = Describe("Gitlab eventsource", func() {
 					Namespace: nautesNamespace,
 				},
 			},
-			Components: &syncer.ComponentList{
+			Components: &component.ComponentList{
 				SecretManagement: &mockSecMgr{},
 				SecretSync:       &mockSecSyncer{},
 			},
@@ -149,16 +149,16 @@ var _ = Describe("Gitlab eventsource", func() {
 		evListener, err = argoevent.NewArgoEvent(opt, info)
 		Expect(err).Should(BeNil())
 
-		es = syncer.EventSourceSet{
-			ResourceMetaData: syncer.ResourceMetaData{
+		es = component.EventSourceSet{
+			ResourceMetaData: component.ResourceMetaData{
 				Product: "",
 				Name:    esNames[0],
 			},
 			UniqueID: uuids[0],
-			EventSources: []syncer.EventSource{
+			EventSources: []component.EventSource{
 				{
 					Name: evNames[0],
-					Gitlab: &syncer.EventSourceGitlab{
+					Gitlab: &component.EventSourceGitlab{
 						APIServer: apiServer,
 						Events:    []string{"push_events"},
 						CodeRepo:  codeRepo.Name,
@@ -181,7 +181,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], syncer.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -222,7 +222,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], syncer.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -262,7 +262,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], syncer.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -279,10 +279,10 @@ var _ = Describe("Gitlab eventsource", func() {
 	It("can change event type", func() {
 		err := evListener.CreateEventSource(ctx, es)
 		Expect(err).Should(BeNil())
-		es.EventSources = []syncer.EventSource{
+		es.EventSources = []component.EventSource{
 			{
 				Name: evNames[1],
-				Calendar: &syncer.EventSourceCalendar{
+				Calendar: &component.EventSourceCalendar{
 					Schedule:       "* * * * *",
 					Interval:       "2",
 					ExclusionDates: []string{"20"},
@@ -295,7 +295,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], syncer.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -303,7 +303,7 @@ var _ = Describe("Gitlab eventsource", func() {
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(currentEs), currentEs)
 		Expect(apierrors.IsNotFound(err)).Should(BeTrue())
 
-		currentEs.Name = fmt.Sprintf("%s-%s", uuids[0], syncer.EventTypeCalendar)
+		currentEs.Name = fmt.Sprintf("%s-%s", uuids[0], component.EventTypeCalendar)
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(currentEs), currentEs)
 		Expect(err).Should(BeNil())
 
@@ -322,7 +322,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 var _ = Describe("Sensor", func() {
 	var ctx context.Context
-	var evListener syncer.EventListener
+	var evListener component.EventListener
 	var seed string
 	var evNames []string
 	var apiServer string
@@ -330,7 +330,7 @@ var _ = Describe("Sensor", func() {
 	var productName string
 	var serviceAccounts []string
 	var consumerNames []string
-	var consumer syncer.ConsumerSet
+	var consumer component.ConsumerSet
 	var resBytes []byte
 
 	type res struct {
@@ -373,10 +373,10 @@ var _ = Describe("Sensor", func() {
 		db := &mockDB{
 			cluster: cluster,
 		}
-		info := &syncer.ComponentInitInfo{
-			ClusterConnectInfo: syncer.ClusterConnectInfo{
+		info := &component.ComponentInitInfo{
+			ClusterConnectInfo: component.ClusterConnectInfo{
 				ClusterKind: v1alpha1.CLUSTER_KIND_KUBERNETES,
-				Kubernetes: &syncer.ClusterConnectInfoKubernetes{
+				Kubernetes: &component.ClusterConnectInfoKubernetes{
 					Config: restCFG,
 				},
 			},
@@ -387,7 +387,7 @@ var _ = Describe("Sensor", func() {
 					Namespace: nautesNamespace,
 				},
 			},
-			Components: &syncer.ComponentList{
+			Components: &component.ComponentList{
 				SecretManagement: &mockSecMgr{},
 				SecretSync:       &mockSecSyncer{},
 			},
@@ -402,33 +402,33 @@ var _ = Describe("Sensor", func() {
 		resBytes, err = json.Marshal(res)
 		Expect(err).Should(BeNil())
 
-		consumer = syncer.ConsumerSet{
-			ResourceMetaData: syncer.ResourceMetaData{
+		consumer = component.ConsumerSet{
+			ResourceMetaData: component.ResourceMetaData{
 				Product: productName,
 				Name:    consumerNames[0],
 			},
-			Account: syncer.MachineAccount{
+			Account: component.MachineAccount{
 				Product: productName,
 				Name:    serviceAccounts[0],
 			},
-			Consumers: []syncer.Consumer{
+			Consumers: []component.Consumer{
 				{
 					UniqueID:        uuids[0],
 					EventSourceName: evNames[0],
-					EventSourceType: syncer.EventTypeGitlab,
-					Filters: []syncer.Filter{
+					EventSourceType: component.EventTypeGitlab,
+					Filters: []component.Filter{
 						{
 							Key:        "headers.X-Gitlab-Event",
 							Value:      "Tag Push Hook",
-							Comparator: syncer.EqualTo,
+							Comparator: component.EqualTo,
 						},
 					},
-					Task: syncer.EventTask{
-						Type: syncer.EventTaskTypeRaw,
-						Vars: []syncer.InputOverWrite{
+					Task: component.EventTask{
+						Type: component.EventTaskTypeRaw,
+						Vars: []component.InputOverWrite{
 							{
-								Name: syncer.EventSourceVarRef,
-								Dest: "spec.params.1.value",
+								BuiltinRequestVar: component.EventSourceVarRef,
+								Dest:              "spec.params.1.value",
 							},
 						},
 						Raw: res,
@@ -461,7 +461,7 @@ var _ = Describe("Sensor", func() {
 			Dependencies: []sensorv1alpha1.EventDependency{
 				{
 					Name:            dependName,
-					EventSourceName: fmt.Sprintf("%s-%s", uuids[0], syncer.EventTypeGitlab),
+					EventSourceName: fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
 					EventName:       evNames[0],
 					Filters: &sensorv1alpha1.EventDependencyFilter{
 						Data: []sensorv1alpha1.DataFilter{

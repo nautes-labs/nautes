@@ -16,7 +16,7 @@ package cache
 
 import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-	component "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
 )

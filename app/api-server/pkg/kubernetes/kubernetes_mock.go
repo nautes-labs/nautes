@@ -640,6 +640,12 @@ func (m *MockClient) Get(ctx context.Context, key client.ObjectKey, obj client.O
 		cluster, _ := obj.(*resourcev1alpha1.Cluster)
 		cluster.Spec.Usage = resourcev1alpha1.CLUSTER_USAGE_WORKER
 		cluster.Spec.WorkerType = resourcev1alpha1.ClusterWorkTypePipeline
+		cluster.Spec.ComponentsList = resourcev1alpha1.ComponentsList{
+			Pipeline: &resourcev1alpha1.Component{
+				Name:      "tekton",
+				Namespace: "tekton",
+			},
+		}
 		obj = cluster
 	}
 

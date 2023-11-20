@@ -21,6 +21,7 @@ import (
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	pluginmanager "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/manager"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	kubeconvert "github.com/nautes-labs/nautes/pkg/kubeconvert"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
@@ -31,7 +32,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
-	component "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/interface"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -105,6 +106,7 @@ type taskPerformer interface {
 // Syncer can create tasks based on environment information and runtime.
 type Syncer struct {
 	KubernetesClient client.Client
+	PluginMgr        pluginmanager.PipelinePluginManager
 }
 
 // NewTask loads nautes resources from tenant cluster and initializes components.
@@ -149,6 +151,7 @@ func (s *Syncer) NewTask(ctx context.Context, runtime v1alpha1.Runtime, componen
 		RuntimeName:            runtime.GetName(),
 		NautesConfig:           *cfg,
 		Components:             &component.ComponentList{Deployment: nil, MultiTenant: nil, SecretManagement: nil, SecretSync: nil, EventListener: nil},
+		PipelinePluginManager:  s.PluginMgr,
 	}
 
 	newSecManagement, ok := NewFunctionMapSecretManagement[string(cfg.Secret.RepoType)]
