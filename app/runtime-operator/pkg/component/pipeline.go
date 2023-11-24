@@ -1,10 +1,20 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package component
 
-import (
-	"context"
-
-	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
-)
+import "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 
 // PipelineFactory can generate pipeline-type components.
 type PipelineFactory interface {
@@ -30,18 +40,10 @@ type Pipeline interface {
 	// Return:
 	// - The hooks to be executed and the input information required to run the hooks.
 	// - A list of resources that need to be created in the space. For example, the key to access the pipeline repository.
-	GetHooks(info HooksInitInfo) (*Hooks, []interface{}, error)
+	GetHooks(info HooksInitInfo) (*Hooks, []RequestResource, error)
 
-	// CreateHookSpace will transform the space where the runtime is located into a space that can run hooks.
-	// It will deploy the resources required for running hooks in the 'BaseSpace' based on the 'DeployResources'.
-	// The authInfo is the credential to obtain key information from secret management.
-	// When the runtime has already deployed the hook space, delete invalid resources and deploy new resources based on the new 'DeployResources'.
-	// Return an error when "BaseSpace" does not exist.
-	CreateHookSpace(ctx context.Context, authInfo AuthInfo, space HookSpace) error
-
-	// CleanUpHookSpace will clean up the resources on the runtime's hook space.
-	// If runtime does not have hook space, return nil.
-	CleanUpHookSpace(ctx context.Context) error
+	// GetPipelineDashBoardURL will return an address where user can view pipeline run information. If not, it will return null.
+	GetPipelineDashBoardURL() string
 }
 
 // HooksInitInfo contains information used to create hooks.
@@ -63,7 +65,7 @@ type HooksInitInfo struct {
 type HookSpace struct {
 	BaseSpace Space
 	// DeployResources is the resource to be deployed
-	DeployResources []interface{}
+	DeployResources []RequestResource
 }
 
 // Hooks contains information about all the pre- and post-tasks of the user pipeline.
@@ -85,6 +87,34 @@ type InputOverWrite struct {
 	Dest string
 }
 
+type ResourceType string
+
+const (
+	ResourceTypeCodeRepoSSHKey      ResourceType = "sshKey"
+	ResourceTypeCodeRepoAccessToken ResourceType = "accessToken"
+	ResourceTypeCAFile              ResourceType = "caFile"
+)
+
+type RequestResource struct {
+	Type         ResourceType                `json:"type"`
+	ResourceName string                      `json:"resourceName"`
+	SSHKey       *ResourceRequestSSHKey      `json:"sshKey,omitempty"`
+	AccessToken  *ResourceRequestAccessToken `json:"accessToken,omitempty"`
+	CAFile       *ResourceRequestCAFile      `json:"caFile,omitempty"`
+}
+
+type ResourceRequestSSHKey struct {
+	SecretInfo SecretInfo `json:"secretInfo"`
+}
+
+type ResourceRequestAccessToken struct {
+	SecretInfo SecretInfo `json:"secretInfo"`
+}
+
+type ResourceRequestCAFile struct {
+	URL string `json:"domain"`
+}
+
 // BuiltinVar is a built-in variable when generating hooks.
 type BuiltinVar string
 
@@ -98,6 +128,8 @@ const (
 	VarPipelineRevision        BuiltinVar = "PipelineRevision"        // User-specified pipeline branches.
 	VarPipelineFilePath        BuiltinVar = "PipelineFilePath"        // The path of the pipeline file specified by the user.
 	VarCodeRepoProviderType    BuiltinVar = "ProviderType"            // Type of code repository provider.
+	VarCodeRepoProviderURL     BuiltinVar = "CodeRepoProviderURL"     // The API server URL of the code repo provider.
+	VarPipelineDashBoardURL    BuiltinVar = "PipelineDashBoardURL"    // The url address to view the pipeline running status
 	VarPipelineLabel           BuiltinVar = "PipelineLabel"
 )
 

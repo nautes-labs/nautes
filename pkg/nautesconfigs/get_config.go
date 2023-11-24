@@ -19,8 +19,8 @@ import (
 	"os"
 	"path"
 
-	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 	"github.com/nautes-labs/nautes/pkg/kubeconvert"
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

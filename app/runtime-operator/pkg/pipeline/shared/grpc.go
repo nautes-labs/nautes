@@ -1,3 +1,17 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package shared
 
 import (
@@ -5,9 +19,42 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hashicorp/go-plugin"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/proto"
+	"github.com/nautes-labs/nautes/pkg/resource"
+	"google.golang.org/grpc"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 )
+
+var Handshake = plugin.HandshakeConfig{
+	ProtocolVersion:  1,
+	MagicCookieKey:   "NAUTES_PIPELINE_PLUGIN",
+	MagicCookieValue: "hereIsNautesPipeline",
+}
+
+const (
+	PluginTypeGRPC = "grpc"
+)
+
+var PluginMap = map[string]plugin.Plugin{
+	PluginTypeGRPC: &HookFactoryPlugin{},
+}
+
+type HookFactoryPlugin struct {
+	plugin.Plugin
+	Impl component.HookFactory
+}
+
+func (hfp *HookFactoryPlugin) GRPCServer(_ *plugin.GRPCBroker, s *grpc.Server) error {
+	proto.RegisterHookFactoryServer(s, &GRPCServer{Impl: hfp.Impl})
+	return nil
+}
+
+func (hfp *HookFactoryPlugin) GRPCClient(_ context.Context, _ *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
+	return &GRPCClient{client: proto.NewHookFactoryClient(c)}, nil
+}
 
 type GRPCClient struct {
 	client proto.HookFactoryClient
@@ -20,15 +67,15 @@ func (c *GRPCClient) GetPipelineType() (string, error) {
 	}
 	return resp.PipelineType, nil
 }
-func (c *GRPCClient) GetHooksMetadata() ([]HookMetadata, error) {
+func (c *GRPCClient) GetHooksMetadata() ([]resource.HookMetadata, error) {
 	resp, err := c.client.GetHooksMetaData(context.TODO(), &proto.Empty{})
 	if err != nil {
 		return nil, err
 	}
 
-	metadatas := make([]HookMetadata, len(resp.HooksMetaData))
+	metadatas := make([]resource.HookMetadata, len(resp.HooksMetaData))
 	for i, metadata := range resp.HooksMetaData {
-		metadatas[i] = HookMetadata{
+		metadatas[i] = resource.HookMetadata{
 			Name:                    metadata.Name,
 			IsPreHook:               metadata.IsPreHook,
 			IsPostHook:              metadata.IsPostHook,
@@ -49,7 +96,7 @@ func (c *GRPCClient) GetHooksMetadata() ([]HookMetadata, error) {
 	return metadatas, nil
 }
 
-func (c *GRPCClient) BuildHook(hookName string, info HookBuildData) (*Hook, error) {
+func (c *GRPCClient) BuildHook(hookName string, info component.HookBuildData) (*component.Hook, error) {
 	resp, err := c.client.BuildHook(context.TODO(), &proto.BuildHookRequest{
 		HookName: hookName,
 		Info: &proto.HookBuildData{
@@ -63,35 +110,45 @@ func (c *GRPCClient) BuildHook(hookName string, info HookBuildData) (*Hook, erro
 		return nil, err
 	}
 
-	reqVars := make([]InputOverWrite, len(resp.Hook.RequestInputs))
+	reqVars := make([]component.PluginInputOverWrite, len(resp.Hook.RequestInputs))
 	for i, input := range resp.Hook.RequestInputs {
-		var inputSrc InputSource
+		var inputSrc component.InputSource
 		src := input.Source.GetSrc()
 		switch v := src.(type) {
 		case *proto.InputSource_FromEventSource:
-			inputSrc = InputSource{
-				Type:            SourceTypeEventSource,
+			inputSrc = component.InputSource{
+				Type:            component.SourceTypeEventSource,
 				FromEventSource: &v.FromEventSource,
 			}
 		default:
 			return nil, fmt.Errorf("unknown event source type")
 		}
-		reqVars[i] = InputOverWrite{
+		reqVars[i] = component.PluginInputOverWrite{
 			Source:      inputSrc,
 			Destination: input.Destination,
 		}
 	}
 
-	hook := &Hook{
+	var requestResources []component.RequestResource
+	for i := range resp.Hook.RequestResources {
+		reqRes := &component.RequestResource{}
+		if err := json.Unmarshal(resp.Hook.RequestResources[i], reqRes); err != nil {
+			return nil, fmt.Errorf("unmarshal resource request failed: %w", err)
+		}
+
+		requestResources = append(requestResources, *reqRes)
+	}
+
+	hook := &component.Hook{
 		RequestVars:      reqVars,
-		RequestResources: resp.Hook.RequestResources,
+		RequestResources: requestResources,
 		Resource:         resp.Hook.Resource,
 	}
 	return hook, nil
 }
 
 type GRPCServer struct {
-	Impl HookFactory
+	Impl component.HookFactory
 	*proto.UnimplementedHookFactoryServer
 }
 
@@ -129,7 +186,7 @@ func (s *GRPCServer) GetHooksMetaData(_ context.Context, _ *proto.Empty) (*proto
 }
 
 func (s *GRPCServer) BuildHook(_ context.Context, in *proto.BuildHookRequest) (*proto.BuildHookResponse, error) {
-	info := HookBuildData{
+	info := component.HookBuildData{
 		UserVars:          in.Info.UserVars,
 		BuiltinVars:       in.Info.BuiltinVars,
 		EventSourceType:   in.Info.EventSourceType,
@@ -144,7 +201,7 @@ func (s *GRPCServer) BuildHook(_ context.Context, in *proto.BuildHookRequest) (*
 	for i := range hook.RequestVars {
 		var src *proto.InputSource
 		switch hook.RequestVars[i].Source.Type {
-		case SourceTypeEventSource:
+		case component.SourceTypeEventSource:
 			src = &proto.InputSource{
 				Src: &proto.InputSource_FromEventSource{
 					FromEventSource: *hook.RequestVars[i].Source.FromEventSource,
@@ -159,10 +216,19 @@ func (s *GRPCServer) BuildHook(_ context.Context, in *proto.BuildHookRequest) (*
 		}
 	}
 
+	var requestResources [][]byte
+	for i := range hook.RequestResources {
+		reqByte, err := json.Marshal(hook.RequestResources[i])
+		if err != nil {
+			return nil, fmt.Errorf("marshal resource request failed: %w", err)
+		}
+		requestResources = append(requestResources, reqByte)
+	}
+
 	resp := &proto.BuildHookResponse{
 		Hook: &proto.Hook{
 			RequestInputs:    protoRequestInputs,
-			RequestResources: hook.RequestResources,
+			RequestResources: requestResources,
 			Resource:         hook.Resource,
 		},
 	}

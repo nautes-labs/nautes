@@ -23,8 +23,8 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/golang/mock/gomock"
-	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 	"github.com/nautes-labs/nautes/pkg/log/zap"
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

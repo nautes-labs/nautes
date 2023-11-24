@@ -151,7 +151,7 @@ func NewVaultClientWithOpts(ctx context.Context, cfg *configs.Config, opts ...In
 	}
 
 	if vs.VaultProxy == nil && vs.VaultAuth == nil && vs.VaultAuthGrant == nil {
-		secProxy, authProxy, authGrantProxy, err := newVProxyClient(cfg.Secret.Vault.ProxyAddr, loadcert.NautesDefaultCertsPath)
+		secProxy, authProxy, authGrantProxy, err := newVProxyClient(cfg.Secret.Vault.ProxyAddr, loadcert.GetCertPath())
 		if err != nil {
 			return nil, err
 		}

@@ -19,16 +19,27 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+
+	"github.com/nautes-labs/nautes/pkg/nautesconst"
 )
 
-const certPath = "/opt/nautes/cert"
+const certPath = "./cert"
 
 func GetCABundle(serviceURL string) ([]byte, error) {
 	u, err := url.Parse(serviceURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse url failed: %w", err)
 	}
-	fileName := fmt.Sprintf("%s_%s.crt", u.Hostname(), u.Port())
-	fileFullPath := filepath.Join(certPath, fileName)
+
+	var fileName string
+	if u.Port() != "" {
+		fileName = fmt.Sprintf("%s_%s.crt", u.Hostname(), u.Port())
+	} else {
+		fileName = fmt.Sprintf("%s.crt", u.Hostname())
+	}
+
+	nautesHome := os.Getenv(nautesconst.EnvNautesHome)
+
+	fileFullPath := filepath.Join(nautesHome, certPath, fileName)
 	return os.ReadFile(fileFullPath)
 }

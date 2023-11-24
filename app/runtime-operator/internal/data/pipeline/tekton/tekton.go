@@ -1,44 +1,61 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tekton
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
 	nautesv1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
-	pluginmanager "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/manager"
-	shared "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/tekton"
 
-	pluginshared "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/shared"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"github.com/nautes-labs/nautes/pkg/thirdpartapis/tekton/pipeline/v1alpha1"
 	"github.com/nautes-labs/nautes/pkg/thirdpartapis/tekton/pipeline/v1beta1"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+)
+
+func init() {
+	utilruntime.Must(corev1.AddToScheme(scheme))
+}
+
+var (
+	scheme = runtime.NewScheme()
 )
 
 type tekton struct {
 	currentRuntime string
 	components     *component.ComponentList
-	status         *TektonStatus
-	plgMgr         pluginmanager.PipelinePluginManager
+	plgMgr         component.PipelinePluginManager
+	opts           map[string]string
 }
 
-type TektonStatus struct {
-	Runtimes map[string]RuntimeResource `json:"runtimes,omitempty"`
-}
+const (
+	OptKeyDashBoardURL = "host"
+)
 
-type RuntimeResource struct {
-	Space     component.Space          `json:"space"`
-	Resources []shared.ResourceRequest `json:"resources,omitempty"`
-}
-
-const pipelineType = "tekton"
+const (
+	pipelineType     = "tekton"
+	taskNameGitClone = "git-clone"
+)
 
 const (
 	ParamNameRevision         = "Revision"
@@ -55,44 +72,259 @@ const (
 	SecretNamePipelineReadOnlySSHKey = "pipeline-readonly-ssh-key"
 )
 
+type MountType string
+
+const (
+	MountTypeSecret MountType = "secret"
+	MountTypePVC    MountType = "pvc"
+)
+
+var (
+	ResourceTypeMapMountType = map[component.ResourceType]MountType{
+		component.ResourceTypeCodeRepoSSHKey:      MountTypeSecret,
+		component.ResourceTypeCodeRepoAccessToken: MountTypeSecret,
+		component.ResourceTypeCAFile:              MountTypeSecret,
+	}
+)
+
 var (
 	TektonFactory = &factory{}
 )
 
 type factory struct{}
 
-func (tf *factory) NewStatus(rawStatus []byte) (interface{}, error) {
-	status := &TektonStatus{
-		Runtimes: map[string]RuntimeResource{},
-	}
-
-	if len(rawStatus) == 0 {
-		return status, nil
-	}
-
-	err := json.Unmarshal(rawStatus, status)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse status")
-	}
-
-	return status, nil
+func (tf *factory) NewStatus(_ []byte) (interface{}, error) {
+	return nil, nil
 }
 
-func (tf *factory) NewComponent(_ nautesv1alpha1.Component, info *component.ComponentInitInfo, status interface{}) (component.Pipeline, error) {
+func (tf *factory) NewComponent(opts nautesv1alpha1.Component, info *component.ComponentInitInfo, _ interface{}) (component.Pipeline, error) {
+	if info.ClusterConnectInfo.ClusterKind != nautesv1alpha1.CLUSTER_KIND_KUBERNETES {
+		return nil, fmt.Errorf("cluster type %s is not supported", info.ClusterConnectInfo.ClusterKind)
+	}
+
 	impl := &tekton{
 		currentRuntime: info.RuntimeName,
 		components:     info.Components,
-		status:         nil,
 		plgMgr:         info.PipelinePluginManager,
+		opts:           map[string]string{},
 	}
 
-	ttStatus, ok := status.(*TektonStatus)
-	if !ok {
-		return nil, fmt.Errorf("status is not a tekton status")
+	if domain, ok := opts.Additions[OptKeyDashBoardURL]; ok {
+		cluster, err := info.NautesResourceSnapshot.GetCluster(info.ClusterName)
+		if err != nil {
+			return nil, err
+		}
+		if len(cluster.Status.EntryPoints) != 0 {
+			for _, entrypoint := range cluster.Status.EntryPoints {
+				if entrypoint.HTTPSPort != 0 {
+					impl.opts[OptKeyDashBoardURL] = fmt.Sprintf("https://%s:%d", domain, entrypoint.HTTPSPort)
+				} else if entrypoint.HTTPPort != 0 {
+					impl.opts[OptKeyDashBoardURL] = fmt.Sprintf("http://%s:%d", domain, entrypoint.HTTPPort)
+				}
+			}
+		}
 	}
-	impl.status = ttStatus
 
 	return impl, nil
+}
+
+func (t *tekton) CleanUp() error {
+	return nil
+}
+
+func (t *tekton) GetComponentMachineAccount() *component.MachineAccount {
+	return nil
+}
+
+// GetHooks will create hooks based on the user's input and event source type,
+// and run the list of resources that need to be created in the environment for the hooks.
+func (t *tekton) GetHooks(info component.HooksInitInfo) (*component.Hooks, []component.RequestResource, error) {
+	pipelineRun := buildBaseHooks(info.BuiltinVars)
+	runUserPipelineScript := buildRunPipelineScript(info.BuiltinVars, info.EventSourceType)
+	addRunPipelineScriptIntoBasePipelineRun(pipelineRun, runUserPipelineScript)
+	reqVars := buildBaseInputOverWrite(info, pipelineRun)
+	resReqs := buildBaseResourceRequest(info.BuiltinVars)
+
+	hooks, resReqs, err := t.createUserHook(info, *pipelineRun, reqVars, resReqs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create user hooks failed: %w", err)
+	}
+
+	return hooks, resReqs, nil
+}
+
+func (t *tekton) GetPipelineDashBoardURL() string {
+	return t.opts[OptKeyDashBoardURL]
+}
+
+// createUserHook will append pre- and post-tasks to pipelineRun based on the hook information passed in by the user,
+// and return a new PipelineRun with the input requirement list and resource requirement list.
+func (t *tekton) createUserHook(
+	info component.HooksInitInfo,
+	pipelineRun v1alpha1.PipelineRun,
+	requestVars []component.InputOverWrite,
+	reqResources []component.RequestResource,
+) (*component.Hooks, []component.RequestResource, error) {
+	builtinVars := map[string]string{}
+	for k, v := range info.BuiltinVars {
+		builtinVars[string(k)] = v
+	}
+
+	for _, hook := range info.Hooks.PreHooks {
+		hookBuildInfo := component.HookBuildData{
+			UserVars:          hook.Vars,
+			BuiltinVars:       builtinVars,
+			EventSourceType:   string(info.EventSourceType),
+			EventListenerType: info.EventListenerType,
+		}
+		task, err := t.convertHookToTask(hook, hookBuildInfo)
+		if err != nil {
+			return nil, nil, fmt.Errorf("convert hook to task failed: %w", err)
+		}
+
+		addTaskIntoPipelineRun(&pipelineRun, *task, true)
+
+		reqResources = append(reqResources, task.requestResources...)
+	}
+
+	for _, hook := range info.Hooks.PostHooks {
+		hookBuildInfo := component.HookBuildData{
+			UserVars:          hook.Vars,
+			BuiltinVars:       builtinVars,
+			EventSourceType:   string(info.EventSourceType),
+			EventListenerType: info.EventListenerType,
+		}
+		task, err := t.convertHookToTask(hook, hookBuildInfo)
+		if err != nil {
+			return nil, nil, fmt.Errorf("convert hook to task failed: %w", err)
+		}
+
+		addTaskIntoPipelineRun(&pipelineRun, *task, false)
+
+		reqResources = append(reqResources, task.requestResources...)
+	}
+
+	return &component.Hooks{
+			RequestVars: requestVars,
+			Resource:    pipelineRun,
+		},
+		reqResources,
+		nil
+}
+
+func addTaskIntoPipelineRun(pr *v1alpha1.PipelineRun, task Task, isPreTask bool) {
+	for i := range task.requestResources {
+		appendResourceRequest(pr, task.requestResources[i])
+	}
+
+	for i, reqVar := range task.requestVars {
+		if reqVar.Source.Type == component.SourceTypeEventSource {
+			paramName := fmt.Sprintf("%s-%d", task.resource.Name, i)
+			pr.Spec.PipelineSpec.Params = append(pr.Spec.PipelineSpec.Params, v1beta1.ParamSpec{
+				Name: paramName,
+			})
+			pr.Spec.Params = append(pr.Spec.Params, v1beta1.Param{
+				Name:  paramName,
+				Value: *v1beta1.NewArrayOrString(""),
+			})
+		}
+	}
+
+	if isPreTask {
+		pipelineCloneIndex := getTaskIndexPipelineFileClone(pr.Spec.PipelineSpec.Tasks)
+		pr.Spec.PipelineSpec.Tasks[pipelineCloneIndex].RunAfter = []string{task.resource.Name}
+
+		pr.Spec.PipelineSpec.Tasks = append(pr.Spec.PipelineSpec.Tasks[:pipelineCloneIndex],
+			append([]v1alpha1.PipelineTask{task.resource},
+				pr.Spec.PipelineSpec.Tasks[pipelineCloneIndex:]...,
+			)...)
+	} else {
+		lastTaskName := getLastTaskName(pr.Spec.PipelineSpec.Tasks)
+		task.resource.RunAfter = []string{lastTaskName}
+		pr.Spec.PipelineSpec.Tasks = append(pr.Spec.PipelineSpec.Tasks, task.resource)
+	}
+}
+
+func getTaskIndexPipelineFileClone(tasks []v1alpha1.PipelineTask) int {
+	for i := range tasks {
+		if tasks[i].Name == taskNameGitClone {
+			return i
+		}
+	}
+	return 0
+}
+
+func getLastTaskName(tasks []v1alpha1.PipelineTask) string {
+	if len(tasks) == 0 {
+		return ""
+	}
+	return tasks[len(tasks)-1].Name
+}
+
+// Task is to convert the string in pluginshared.Hook into a structure format
+type Task struct {
+	// RequestVars is the information that needs to be input from the outside for the hook to run.
+	requestVars []component.PluginInputOverWrite
+	// requestResources are the resources that need to be deployed in the environment for the hook to run properly.
+	requestResources []component.RequestResource
+	// resource is the code fragment that runs the hook, which is used to splice into the pre- and post-steps of the user pipeline.
+	resource v1alpha1.PipelineTask
+}
+
+// convertHookToTask converts the user-passed hook into a Task object.
+func (t *tekton) convertHookToTask(nautesHook nautesv1alpha1.Hook, info component.HookBuildData) (*Task, error) {
+	hookFactory, err := t.plgMgr.GetHookFactory(pipelineType, nautesHook.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get plugin failed: %w", err)
+	}
+
+	hook, err := hookFactory.BuildHook(nautesHook.Name, info)
+	if err != nil {
+		return nil, fmt.Errorf("build hook failed: %w", err)
+	}
+
+	pipelineTask := &v1alpha1.PipelineTask{}
+	err = json.Unmarshal(hook.Resource, pipelineTask)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal pipeline task failed: %w", err)
+	}
+
+	if nautesHook.Alias != nil {
+		pipelineTask.Name = *nautesHook.Alias
+	}
+
+	task := &Task{
+		requestVars:      hook.RequestVars,
+		requestResources: hook.RequestResources,
+		resource:         *pipelineTask,
+	}
+
+	return task, nil
+}
+
+func appendResourceRequest(pr *v1alpha1.PipelineRun, req component.RequestResource) {
+	switch ResourceTypeMapMountType[req.Type] {
+	case MountTypeSecret:
+		pr.Spec.Workspaces = append(pr.Spec.Workspaces, v1beta1.WorkspaceBinding{
+			Name: req.ResourceName,
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: req.ResourceName,
+			},
+		})
+	case MountTypePVC:
+		pr.Spec.Workspaces = append(pr.Spec.Workspaces, v1beta1.WorkspaceBinding{
+			Name: req.ResourceName,
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: req.ResourceName,
+				ReadOnly:  false,
+			},
+		})
+	}
+
+	pr.Spec.PipelineSpec.Workspaces = append(pr.Spec.PipelineSpec.Workspaces, v1beta1.PipelineWorkspaceDeclaration{
+		Name:     req.ResourceName,
+		Optional: false,
+	})
 }
 
 // buildBaseHooks will return a 'PipelineRun' with the tasks "pipeline file download" and "run pipeline file".
@@ -112,7 +344,7 @@ func buildBaseHooks(builtinVars map[component.BuiltinVar]string) *v1alpha1.Pipel
 			PipelineSpec: &v1alpha1.PipelineSpec{
 				Tasks: []v1alpha1.PipelineTask{
 					{
-						Name: "git-clone",
+						Name: taskNameGitClone,
 						TaskRef: &v1alpha1.TaskRef{
 							Name: "git-clone",
 							Kind: v1alpha1.ClusterTaskKind,
@@ -230,7 +462,7 @@ nameSuffix: -n${SUFFIX}
 	if pipelineLabel, ok := builtinVars[component.VarPipelineLabel]; ok {
 		script += fmt.Sprintf(`
 commonLabels:
-  nautes-pipeline-selector: %s
+  branch: %s
 `, pipelineLabel)
 	}
 
@@ -278,12 +510,12 @@ func buildBaseInputOverWrite(info component.HooksInitInfo, pipelineRun *v1alpha1
 	return reqVars
 }
 
-func buildBaseResourceRequest(builtinVars map[component.BuiltinVar]string) []shared.ResourceRequest {
-	return []shared.ResourceRequest{
+func buildBaseResourceRequest(builtinVars map[component.BuiltinVar]string) []component.RequestResource {
+	return []component.RequestResource{
 		{
-			Type: shared.ResourceTypeCodeRepoSSHKey,
-			SSHKey: &shared.ResourceRequestSSHKey{
-				ResourceName: SecretNamePipelineReadOnlySSHKey,
+			Type:         component.ResourceTypeCodeRepoSSHKey,
+			ResourceName: SecretNamePipelineReadOnlySSHKey,
+			SSHKey: &component.ResourceRequestSSHKey{
 				SecretInfo: component.SecretInfo{
 					Type: component.SecretTypeCodeRepo,
 					CodeRepo: &component.CodeRepo{
@@ -296,376 +528,4 @@ func buildBaseResourceRequest(builtinVars map[component.BuiltinVar]string) []sha
 			},
 		},
 	}
-}
-
-func (t *tekton) CleanUp() error {
-	return nil
-}
-
-func (t *tekton) GetComponentMachineAccount() *component.MachineAccount {
-	return nil
-}
-
-// GetHooks will create hooks based on the user's input and event source type,
-// and run the list of resources that need to be created in the environment for the hooks.
-func (t *tekton) GetHooks(info component.HooksInitInfo) (*component.Hooks, []interface{}, error) {
-	pipelineRun := buildBaseHooks(info.BuiltinVars)
-	runUserPipelineScript := buildRunPipelineScript(info.BuiltinVars, info.EventSourceType)
-	addRunPipelineScriptIntoBasePipelineRun(pipelineRun, runUserPipelineScript)
-	reqVars := buildBaseInputOverWrite(info, pipelineRun)
-	resReqs := buildBaseResourceRequest(info.BuiltinVars)
-
-	hooks, resReqs, err := t.CreateUserHook(info, *pipelineRun, reqVars, resReqs)
-	if err != nil {
-		return nil, nil, fmt.Errorf("create user hooks failed: %w", err)
-	}
-
-	return hooks, ConvertRequestsToInterfaceArray(resReqs), nil
-}
-
-// CreateUserHook will append pre- and post-tasks to pipelineRun based on the hook information passed in by the user,
-// and return a new PipelineRun with the input requirement list and resource requirement list.
-func (t *tekton) CreateUserHook(
-	info component.HooksInitInfo,
-	pipelineRun v1alpha1.PipelineRun,
-	requestVars []component.InputOverWrite,
-	reqResources []shared.ResourceRequest,
-) (*component.Hooks, []shared.ResourceRequest, error) {
-	builtinVars := map[string]string{}
-	for k, v := range info.BuiltinVars {
-		builtinVars[string(k)] = v
-	}
-
-	preTasks, _, reqRes, err := t.ConvertHooksToPipelineResource(builtinVars, info.EventSourceType, info.EventListenerType, info.Hooks.PreHooks)
-	if err != nil {
-		return nil, nil, err
-	}
-	reqResources = append(reqResources, reqRes...)
-
-	if len(preTasks) != 0 {
-		pipelineRun.Spec.PipelineSpec.Tasks = append(preTasks, pipelineRun.Spec.PipelineSpec.Tasks...)
-		pipelineRun.Spec.PipelineSpec.Tasks[len(preTasks)].RunAfter = []string{getLastTaskName(preTasks)}
-	}
-
-	postTasks, _, reqRes, err := t.ConvertHooksToPipelineResource(builtinVars, info.EventSourceType, info.EventListenerType, info.Hooks.PostHooks)
-	if err != nil {
-		return nil, nil, err
-	}
-	reqResources = append(reqResources, reqRes...)
-
-	if len(postTasks) != 0 {
-		postTasks[0].RunAfter = []string{getLastTaskName(pipelineRun.Spec.PipelineSpec.Tasks)}
-		pipelineRun.Spec.PipelineSpec.Tasks = append(pipelineRun.Spec.PipelineSpec.Tasks, postTasks...)
-	}
-
-	return &component.Hooks{
-			RequestVars: requestVars,
-			Resource:    pipelineRun,
-		},
-		reqResources,
-		nil
-}
-
-func (t *tekton) ConvertHooksToPipelineResource(builtinVars map[string]string, eventSourceType component.EventSourceType, eventListenerType string, hooks []nautesv1alpha1.Hook) (
-	tasks []v1alpha1.PipelineTask,
-	reqInputs []pluginshared.InputOverWrite,
-	reqResources []shared.ResourceRequest,
-	err error) {
-	for i, hook := range hooks {
-		hookBuildInfo := pluginshared.HookBuildData{
-			UserVars:          hook.Vars,
-			BuiltinVars:       builtinVars,
-			EventSourceType:   string(eventSourceType),
-			EventListenerType: eventListenerType,
-		}
-		task, err := t.convertHookToTask(hook, hookBuildInfo)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("convert hook to task failed: %w", err)
-		}
-
-		reqResources = append(reqResources, task.requestResources...)
-
-		if i == 0 {
-			tasks = append(tasks, task.resource)
-			continue
-		}
-
-		lastTaskName := tasks[len(tasks)-1].Name
-		task.resource.RunAfter = []string{lastTaskName}
-		tasks = append(tasks, task.resource)
-	}
-
-	return
-}
-
-func getLastTaskName(tasks []v1alpha1.PipelineTask) string {
-	if len(tasks) == 0 {
-		return ""
-	}
-	return tasks[len(tasks)-1].Name
-}
-
-// Task is to convert the string in pluginshared.Hook into a structure format
-type Task struct {
-	// RequestVars is the information that needs to be input from the outside for the hook to run.
-	requestVars []pluginshared.InputOverWrite
-	// requestResources are the resources that need to be deployed in the environment for the hook to run properly.
-	requestResources []shared.ResourceRequest
-	// resource is the code fragment that runs the hook, which is used to splice into the pre- and post-steps of the user pipeline.
-	resource v1alpha1.PipelineTask
-}
-
-// convertHookToTask 把用户传入的 hook 转换成 Task 对象。
-func (t *tekton) convertHookToTask(nautesHook nautesv1alpha1.Hook, info pluginshared.HookBuildData) (*Task, error) {
-	hookFactory, err := t.plgMgr.GetHookFactory(pipelineType, nautesHook.Name)
-	if err != nil {
-		return nil, fmt.Errorf("get plugin failed: %w", err)
-	}
-
-	hook, err := hookFactory.BuildHook(nautesHook.Name, info)
-	if err != nil {
-		return nil, fmt.Errorf("build hook failed: %w", err)
-	}
-
-	pipelineTask := &v1alpha1.PipelineTask{}
-	err = json.Unmarshal(hook.Resource, pipelineTask)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal pipeline task failed: %w", err)
-	}
-
-	if nautesHook.Alias != nil {
-		pipelineTask.Name = *nautesHook.Alias
-	}
-
-	var reqResources []shared.ResourceRequest
-	for i := range hook.RequestResources {
-		res := &shared.ResourceRequest{}
-		err = json.Unmarshal(hook.RequestResources[i], res)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshal request resource failed: %w", err)
-		}
-		reqResources = append(reqResources, *res)
-	}
-
-	task := &Task{
-		requestVars:      hook.RequestVars,
-		requestResources: reqResources,
-		resource:         *pipelineTask,
-	}
-
-	return task, nil
-}
-
-// CreateHookSpace will create resources in the corresponding space based on the incoming resource request list.
-// If the resource needs to access the secret management system, use authInfo for authentication.
-//
-// Clean up logic:
-// - If the runtime space changes, all resources on the old space will be cleared.
-// - If the requested resource changes, the resources that are no longer used will be cleared.
-func (t *tekton) CreateHookSpace(ctx context.Context, authInfo component.AuthInfo, space component.HookSpace) error {
-	rawReqs, err := ConvertInterfaceToRequest(space.DeployResources)
-	if err != nil {
-		return err
-	}
-	resourceRequests := RemoveDuplicateRequests(rawReqs)
-
-	if runtimeStatus, ok := t.status.Runtimes[t.currentRuntime]; ok {
-		if space.BaseSpace.Kubernetes.Namespace != runtimeStatus.Space.Kubernetes.Namespace {
-			err := t.CleanUpHookSpace(ctx)
-			if err != nil {
-				return err
-			}
-		} else if removeRes := GetUnusedResources(resourceRequests, runtimeStatus.Resources); len(removeRes) != 0 {
-			for i := range removeRes {
-				err := t.DeleteResource(ctx, space.BaseSpace, removeRes[i])
-				if err != nil {
-					return fmt.Errorf("remove resource failed: %w", err)
-				}
-			}
-		}
-	}
-
-	t.status.Runtimes[t.currentRuntime] = RuntimeResource{
-		Space:     space.BaseSpace,
-		Resources: resourceRequests,
-	}
-
-	for i := range resourceRequests {
-		err := t.CreateResource(ctx, space.BaseSpace, authInfo, resourceRequests[i])
-		if err != nil {
-			return fmt.Errorf("create resource failed: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// CleanUpHookSpace will clear all the resources required for the runtime deployed on the space based on the currently processed runtime.
-func (t *tekton) CleanUpHookSpace(ctx context.Context) error {
-	runtimeStatus, ok := t.status.Runtimes[t.currentRuntime]
-	if !ok {
-		return nil
-	}
-
-	for i := range runtimeStatus.Resources {
-		err := t.DeleteResource(ctx, runtimeStatus.Space, runtimeStatus.Resources[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	delete(t.status.Runtimes, t.currentRuntime)
-	return nil
-}
-
-// RemoveDuplicateRequests will remove duplicate resource requests in reqs.
-func RemoveDuplicateRequests(reqs []shared.ResourceRequest) []shared.ResourceRequest {
-	resMap := []shared.ResourceRequest{}
-	resMapHash := sets.New[uint32]()
-	for i := range reqs {
-		hash := utils.GetStructHash(reqs[i])
-		if resMapHash.Has(hash) {
-			continue
-		}
-
-		resMap = append(resMap, reqs[i])
-		resMapHash.Insert(hash)
-	}
-	return resMap
-}
-
-// GetUnusedResources compares newRes and oldRes to find 'ResourceRequest' that are only in oldRes.
-func GetUnusedResources(newRes []shared.ResourceRequest, oldRes []shared.ResourceRequest) []shared.ResourceRequest {
-	var removeRes []shared.ResourceRequest
-	newHash := sets.New[uint32]()
-	for i := range newRes {
-		newHash.Insert(utils.GetStructHash(newRes[i]))
-	}
-	for i := range oldRes {
-		if newHash.Has(utils.GetStructHash(oldRes[i])) {
-			continue
-		}
-		removeRes = append(removeRes, oldRes[i])
-	}
-	return removeRes
-}
-
-func (t *tekton) CreateResource(ctx context.Context, space component.Space, authInfo component.AuthInfo, req shared.ResourceRequest) error {
-	switch req.Type {
-	case shared.ResourceTypeCodeRepoSSHKey:
-		return t.CreateSSHKey(ctx, space, authInfo, req)
-	case shared.ResourceTypeCodeRepoAccessToken:
-		return t.CreateAccessToken(ctx, space, authInfo, req)
-	default:
-		return fmt.Errorf("unknown request type %s", req.Type)
-	}
-}
-
-func (t *tekton) DeleteResource(ctx context.Context, space component.Space, req shared.ResourceRequest) error {
-	switch req.Type {
-	case shared.ResourceTypeCodeRepoSSHKey:
-		return t.DeleteSSHKey(ctx, space, req)
-	case shared.ResourceTypeCodeRepoAccessToken:
-		return t.DeleteAccessToken(ctx, space, req)
-	default:
-		return fmt.Errorf("unknown request type %s", req.Type)
-	}
-}
-
-func (t *tekton) CreateSSHKey(ctx context.Context, space component.Space, authInfo component.AuthInfo, req shared.ResourceRequest) error {
-	sshReq := req.SSHKey
-
-	err := t.components.SecretSync.CreateSecret(ctx, component.SecretRequest{
-		Name:     sshReq.ResourceName,
-		Source:   sshReq.SecretInfo,
-		AuthInfo: &authInfo,
-		Destination: component.SecretRequestDestination{
-			Name:   sshReq.ResourceName,
-			Space:  space,
-			Format: `id_rsa: '{{ .deploykey | toString }}'`,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("create secret %s in space failed: %w", sshReq.ResourceName, err)
-	}
-
-	return nil
-}
-
-func (t *tekton) DeleteSSHKey(ctx context.Context, space component.Space, req shared.ResourceRequest) error {
-	sshReq := req.SSHKey
-
-	err := t.components.SecretSync.RemoveSecret(ctx, component.SecretRequest{
-		Name:     sshReq.ResourceName,
-		Source:   sshReq.SecretInfo,
-		AuthInfo: nil,
-		Destination: component.SecretRequestDestination{
-			Name:  sshReq.ResourceName,
-			Space: space,
-		},
-	})
-
-	if err != nil {
-		return fmt.Errorf("delete secret %s in space failed: %w", sshReq.ResourceName, err)
-	}
-	return nil
-}
-
-func (t *tekton) CreateAccessToken(ctx context.Context, space component.Space, authInfo component.AuthInfo, req shared.ResourceRequest) error {
-	tokenReq := req.AccessToken
-
-	err := t.components.SecretSync.CreateSecret(ctx, component.SecretRequest{
-		Name:     tokenReq.ResourceName,
-		Source:   tokenReq.SecretInfo,
-		AuthInfo: &authInfo,
-		Destination: component.SecretRequestDestination{
-			Name:   tokenReq.ResourceName,
-			Space:  space,
-			Format: `id_rsa: '{{ .accesstoken | toString }}'`,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("create secret %s in space failed: %w", tokenReq.ResourceName, err)
-	}
-
-	return nil
-}
-
-func (t *tekton) DeleteAccessToken(ctx context.Context, space component.Space, req shared.ResourceRequest) error {
-	tokenReq := req.AccessToken
-
-	err := t.components.SecretSync.RemoveSecret(ctx, component.SecretRequest{
-		Name:     tokenReq.ResourceName,
-		Source:   tokenReq.SecretInfo,
-		AuthInfo: nil,
-		Destination: component.SecretRequestDestination{
-			Name:  tokenReq.ResourceName,
-			Space: space,
-		},
-	})
-
-	if err != nil {
-		return fmt.Errorf("delete secret %s in space failed: %w", tokenReq.ResourceName, err)
-	}
-	return nil
-}
-
-func ConvertRequestsToInterfaceArray(reqs []shared.ResourceRequest) []interface{} {
-	var interfaces []interface{}
-	for i := range reqs {
-		interfaces = append(interfaces, reqs[i])
-	}
-	return interfaces
-}
-
-func ConvertInterfaceToRequest(reqs []interface{}) ([]shared.ResourceRequest, error) {
-	resReqs := make([]shared.ResourceRequest, len(reqs))
-	for i := range reqs {
-		req, ok := reqs[i].(shared.ResourceRequest)
-		if !ok {
-			return nil, fmt.Errorf("convert interface to resource request failed")
-		}
-		resReqs[i] = req
-	}
-	return resReqs, nil
 }

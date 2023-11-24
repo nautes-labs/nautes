@@ -21,7 +21,6 @@ import (
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
-	pluginmanager "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/manager"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	kubeconvert "github.com/nautes-labs/nautes/pkg/kubeconvert"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
@@ -106,7 +105,7 @@ type taskPerformer interface {
 // Syncer can create tasks based on environment information and runtime.
 type Syncer struct {
 	KubernetesClient client.Client
-	PluginMgr        pluginmanager.PipelinePluginManager
+	PluginMgr        component.PipelinePluginManager
 }
 
 // NewTask loads nautes resources from tenant cluster and initializes components.
@@ -427,7 +426,7 @@ func initComponents(cii *component.ComponentInitInfo, cluster, _ *v1alpha1.Clust
 		if err != nil {
 			return fmt.Errorf("get pipeline status failed: %w", err)
 		}
-		pipeline, err := factory.NewComponent(*components.EventListener, cii, status)
+		pipeline, err := factory.NewComponent(*components.Pipeline, cii, status)
 		if err != nil {
 			return err
 		}
