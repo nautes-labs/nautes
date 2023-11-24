@@ -14,7 +14,7 @@ paths:
             parameters:
                 - name: field_selector
                   in: query
-                  description: 'Filter the list by field.  eg: field_selector=cluster_type=physical,usage=worker,worker_type=pipeline Field Support: cluster_type: exact match usage: exact match worker_type: exact match'
+                  description: "Filter the list by field. \n eg: field_selector=cluster_type=physical,usage=worker,worker_type=pipeline\n Field Support:\n cluster_type: exact match\n usage: exact match\n worker_type: exact match"
                   schema:
                     type: string
             responses:
@@ -182,7 +182,13 @@ paths:
                     type: string
                 - name: field_selector
                   in: query
-                  description: 'Filter the list by field. eg: field_selector=projects.in=project1,product=product1,coderepo=coderepo1 Field Support: coderepo: fuzzy match product fuzzy match projects: fuzzy match'
+                  description: |-
+                    Filter the list by field.
+                     eg: field_selector=projects.in=project1,product=product1,coderepo=coderepo1
+                     Field Support:
+                     coderepo: fuzzy match
+                     product fuzzy match
+                     projects: fuzzy match
                   schema:
                     type: string
             responses:
@@ -290,7 +296,13 @@ paths:
                     type: string
                 - name: field_selector
                   in: query
-                  description: 'Filter the list by field. eg: field_selector=project=project1,pipeline_runtime=true,deployment_runtime=false Field Support: project: fuzzy match pipeline_runtime: exact match deployment_runtime: exact match'
+                  description: |-
+                    Filter the list by field.
+                     eg: field_selector=project=project1,pipeline_runtime=true,deployment_runtime=false
+                     Field Support:
+                     project: fuzzy match
+                     pipeline_runtime: exact match
+                     deployment_runtime: exact match
                   schema:
                     type: string
             responses:
@@ -395,7 +407,7 @@ paths:
                     type: string
                 - name: field_selector
                   in: query
-                  description: 'Filter the list by field. eg: field_selector=projects_ref.in=project1,manifestSource.codeRepo=codeRepo1,destination=env1 Field Support: projects_ref: fuzzy match  manifestSource.codeRepo: fuzzy match destination: fuzzy match'
+                  description: "Filter the list by field.\n eg: field_selector=projects_ref.in=project1,manifestSource.codeRepo=codeRepo1,destination=env1\n Field Support:\n projects_ref: fuzzy match \n manifestSource.codeRepo: fuzzy match\n destination: fuzzy match"
                   schema:
                     type: string
             responses:
@@ -508,7 +520,12 @@ paths:
                     type: string
                 - name: field_selector
                   in: query
-                  description: 'Filter the list by field. eg: field_selector=cluster=cluster1,env_type=host Field Support: cluster: fuzzy match env_type: fuzzy match'
+                  description: |-
+                    Filter the list by field.
+                     eg: field_selector=cluster=cluster1,env_type=host
+                     Field Support:
+                     cluster: fuzzy match
+                     env_type: fuzzy match
                   schema:
                     type: string
             responses:
@@ -622,7 +639,7 @@ paths:
                     type: string
                 - name: field_selector
                   in: query
-                  description: 'Filter the list by field. eg: field_selector=project=project1,pipeline_source=pipeline_repository,destination=env1 Field Support: project: fuzzy match  pipeline_source: fuzzy match destination: fuzzy match'
+                  description: "Filter the list by field.\n eg: field_selector=project=project1,pipeline_source=pipeline_repository,destination=env1\n Field Support:\n project: fuzzy match \n pipeline_source: fuzzy match\n destination: fuzzy match"
                   schema:
                     type: string
             responses:
@@ -853,7 +870,9 @@ components:
                 multi_tenant:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
                 secret_sync:
-                    $ref: '#/components/schemas/api.cluster.v1.Component'
+                    allOf:
+                        - $ref: '#/components/schemas/api.cluster.v1.Component'
+                    description: Component cert_management = 2 [json_name = "cert_management"];
                 gateway:
                     $ref: '#/components/schemas/api.cluster.v1.Component'
                 deployment:
@@ -899,7 +918,9 @@ components:
                     type: string
                     description: api_server specifies the API server address of the cluster.
                 components_list:
-                    $ref: '#/components/schemas/api.cluster.v1.ComponentsList'
+                    allOf:
+                        - $ref: '#/components/schemas/api.cluster.v1.ComponentsList'
+                    description: components_list List of third-party components.
                 reserved_namespaces_allowed_products:
                     type: object
                     additionalProperties:
@@ -945,7 +966,9 @@ components:
                     type: string
                     description: host_cluster specifies the host cluster name if the cluster is a virtual cluster.
                 vcluster:
-                    $ref: '#/components/schemas/api.cluster.v1.Vcluster'
+                    allOf:
+                        - $ref: '#/components/schemas/api.cluster.v1.Vcluster'
+                    description: vcluster specifies the configuration of the virtual cluster.
                 kubeconfig:
                     type: string
                     description: kubeconfig specifies the Kubeconfig file of the cluster.
@@ -966,7 +989,9 @@ components:
                         $ref: '#/components/schemas/google.protobuf.ListValue'
                     description: product_allowed_cluster_resources key is product name, value is the list of cluster resources.
                 components_list:
-                    $ref: '#/components/schemas/api.cluster.v1.ComponentsList'
+                    allOf:
+                        - $ref: '#/components/schemas/api.cluster.v1.ComponentsList'
+                    description: components_list List of third-party components.
             description: Body represents the body of the save request.
         api.cluster.v1.Vcluster:
             type: object
@@ -1118,7 +1143,9 @@ components:
                 pipeline_runtime:
                     type: boolean
                 git:
-                    $ref: '#/components/schemas/api.coderepo.v1.Git'
+                    allOf:
+                        - $ref: '#/components/schemas/api.coderepo.v1.Git'
+                    description: You must fill in the parameters related to gitlab or github
         api.coderepo.v1.Webhook:
             type: object
             properties:
@@ -1148,7 +1175,9 @@ components:
                     type: array
                     items:
                         type: string
-                    description: If the project list is empty, it means that the code repo is authorized to the product. If the project list has values, it means that the code repo is authorized to the specified projects.
+                    description: |-
+                        If the project list is empty, it means that the code repo is authorized to the product.
+                         If the project list has values, it means that the code repo is authorized to the specified projects.
                 permissions:
                     type: string
                     description: Authorization Permissions, readwrite or readonly.
@@ -1180,7 +1209,9 @@ components:
                     type: array
                     items:
                         type: string
-                    description: If the project list is empty, it means that the code repo is authorized to the product. If the project list has values, it means that the code repo is authorized to the specified projects.
+                    description: |-
+                        If the project list is empty, it means that the code repo is authorized to the product.
+                         If the project list has values, it means that the code repo is authorized to the specified projects.
                 permissions:
                     type: string
                     description: Authorization Permissions, readwrite or readonly.
@@ -1218,9 +1249,13 @@ components:
                         type: string
                     description: ProjectsRef is a list of project references.
                 manifest_source:
-                    $ref: '#/components/schemas/api.deploymentruntime.v1.ManifestSource'
+                    allOf:
+                        - $ref: '#/components/schemas/api.deploymentruntime.v1.ManifestSource'
+                    description: ManifestSource is the source of the deployment manifest.
                 destination:
-                    $ref: '#/components/schemas/api.deploymentruntime.v1.DeploymentRuntimesDestination'
+                    allOf:
+                        - $ref: '#/components/schemas/api.deploymentruntime.v1.DeploymentRuntimesDestination'
+                    description: Destination is the destination and custom namespaces for the deployment.
                 account:
                     type: string
                     description: Account specify the runtime account.
@@ -1263,9 +1298,13 @@ components:
                         type: string
                     description: ProjectsRef is a list of project references.
                 manifest_source:
-                    $ref: '#/components/schemas/api.deploymentruntime.v1.ManifestSource'
+                    allOf:
+                        - $ref: '#/components/schemas/api.deploymentruntime.v1.ManifestSource'
+                    description: ManifestSource is the source of the deployment manifest.
                 destination:
-                    $ref: '#/components/schemas/api.deploymentruntime.v1.DeploymentRuntimesDestination'
+                    allOf:
+                        - $ref: '#/components/schemas/api.deploymentruntime.v1.DeploymentRuntimesDestination'
+                    description: Destination is the destination and custom namespaces for the deployment.
                 account:
                     type: string
                     description: Account specify the runtime account.
@@ -1332,21 +1371,31 @@ components:
                     type: string
                     description: The name of the product
                 git:
-                    $ref: '#/components/schemas/api.product.v1.GitGroup'
+                    allOf:
+                        - $ref: '#/components/schemas/api.product.v1.GitGroup'
+                    description: The Git group of the product
         api.product.v1.Git:
             type: object
             properties:
                 gitlab:
-                    $ref: '#/components/schemas/api.product.v1.Gitlab'
+                    allOf:
+                        - $ref: '#/components/schemas/api.product.v1.Gitlab'
+                    description: The Gitlab repository of the Git group
                 github:
-                    $ref: '#/components/schemas/api.product.v1.Github'
+                    allOf:
+                        - $ref: '#/components/schemas/api.product.v1.Github'
+                    description: The Github repository of the Git group
         api.product.v1.GitGroup:
             type: object
             properties:
                 gitlab:
-                    $ref: '#/components/schemas/api.product.v1.GitlabGroup'
+                    allOf:
+                        - $ref: '#/components/schemas/api.product.v1.GitlabGroup'
+                    description: The Gitlab group of the Git group
                 github:
-                    $ref: '#/components/schemas/api.product.v1.GithubGroup'
+                    allOf:
+                        - $ref: '#/components/schemas/api.product.v1.GithubGroup'
+                    description: The Github group of the Git group
         api.product.v1.Github:
             type: object
             properties:
@@ -1422,7 +1471,9 @@ components:
                     type: string
                     description: The name of the product to save
                 git:
-                    $ref: '#/components/schemas/api.product.v1.Git'
+                    allOf:
+                        - $ref: '#/components/schemas/api.product.v1.Git'
+                    description: The Git group of the product
         api.project.v1.DeleteReply:
             type: object
             properties:
@@ -1498,9 +1549,13 @@ components:
                     type: string
                     description: Name of the event source.
                 gitlab:
-                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.Gitlab'
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.Gitlab'
+                    description: Gitlab event source for triggering the pipeline.
                 calendar:
-                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.Calendar'
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.Calendar'
+                    description: Calendar event source for triggering the pipeline.
             description: Defines the types of event sources that can trigger a pipeline.
         api.projectpipelineruntime.v1.GetReply:
             type: object
@@ -1530,15 +1585,23 @@ components:
                         $ref: '#/components/schemas/api.projectpipelineruntime.v1.PipelineTriggers'
                     description: Pipeline event triggers.
                 destination:
-                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineDestination'
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineDestination'
+                    description: Target deployment environment.
                 isolation:
                     type: string
                     description: 'Isolation definition of pipeline runtime related resources: shared(default) or exclusive.'
                 additional_resources:
-                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
+                    description: ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
                 account:
                     type: string
                     description: Account specify the runtime account.
+                hooks:
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.Hooks'
+                    description: Hooks are hooks will to add before or after the user pipeline.
             description: Response message format for getting pipeline information.
         api.projectpipelineruntime.v1.Gitlab:
             type: object
@@ -1554,6 +1617,41 @@ components:
                     items:
                         type: string
                     description: 'Gitlab webhook events: push_events, tag_push_events, etc.'
+        api.projectpipelineruntime.v1.Hook:
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: Name is the name of the hook to be executed.
+                vars:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: |-
+                        Vars is the parameter that the user wants to pass to the hook,
+                         and the input items are determined based on the pipeline component in cluster.
+                alias:
+                    type: string
+                    description: |-
+                        Alias is the alias given by the user for the hook.
+                         If the user does not enter this value, the name of the hook will be obtained from 'name'.
+                         When the hook appears in both PreHooks and PostHooks, it is necessary to specify the name to prevent conflicts.
+                         +optional
+            description: Hook is a record of information about a runnable hook.
+        api.projectpipelineruntime.v1.Hooks:
+            type: object
+            properties:
+                pre_hooks:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.projectpipelineruntime.v1.Hook'
+                    description: PreHooks is a set of hooks to be executed before running the user pipeline.
+                post_hooks:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.projectpipelineruntime.v1.Hook'
+                    description: PostHooks is a set of hooks that will run after the user pipeline starts executing.
+            description: Hooks are hooks will to add before or after the user pipeline.
         api.projectpipelineruntime.v1.ListsReply:
             type: object
             properties:
@@ -1601,7 +1699,9 @@ components:
             type: object
             properties:
                 git:
-                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResourcesGit'
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResourcesGit'
+                    description: ProjectPipelineRuntimeAdditionalResourcesGit defines the additional resources if it comes from git
         api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResourcesGit:
             type: object
             properties:
@@ -1646,15 +1746,23 @@ components:
                         $ref: '#/components/schemas/api.projectpipelineruntime.v1.PipelineTriggers'
                     description: Pipeline event triggers.
                 destination:
-                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineDestination'
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineDestination'
+                    description: The definition of pipeline.
                 isolation:
                     type: string
                     description: 'Isolation definition of pipeline runtime related resources: shared(default) or exclusive'
                 additional_resources:
-                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.ProjectPipelineRuntimeAdditionalResources'
+                    description: ProjectPipelineRuntimeAdditionalResources defines the additional resources witch runtime needed
                 account:
                     type: string
                     description: Account specify the runtime account.
+                hooks:
+                    allOf:
+                        - $ref: '#/components/schemas/api.projectpipelineruntime.v1.Hooks'
+                    description: Hooks are hooks will to add before or after the user pipeline.
             description: Message containing the body of the request.
         google.protobuf.ListValue:
             type: object
@@ -1664,7 +1772,10 @@ components:
                     items:
                         $ref: '#/components/schemas/google.protobuf.Value'
                     description: Repeated field of dynamically typed values.
-            description: '`ListValue` is a wrapper around a repeated field of values. The JSON representation for `ListValue` is JSON array.'
+            description: |-
+                `ListValue` is a wrapper around a repeated field of values.
+
+                 The JSON representation for `ListValue` is JSON array.
         google.protobuf.Value:
             description: Represents a dynamically typed value which can be either null, a number, a string, a boolean, a recursive struct value, or a list of values.
 tags:

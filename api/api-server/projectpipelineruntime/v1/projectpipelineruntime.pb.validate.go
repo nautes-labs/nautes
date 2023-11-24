@@ -675,6 +675,276 @@ var _ interface {
 	ErrorName() string
 } = PipelineTriggersValidationError{}
 
+// Validate checks the field values on Hooks with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Hooks) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Hooks with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in HooksMultiError, or nil if none found.
+func (m *Hooks) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Hooks) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetPreHooks() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HooksValidationError{
+						field:  fmt.Sprintf("PreHooks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HooksValidationError{
+						field:  fmt.Sprintf("PreHooks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HooksValidationError{
+					field:  fmt.Sprintf("PreHooks[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	for idx, item := range m.GetPostHooks() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HooksValidationError{
+						field:  fmt.Sprintf("PostHooks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HooksValidationError{
+						field:  fmt.Sprintf("PostHooks[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HooksValidationError{
+					field:  fmt.Sprintf("PostHooks[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return HooksMultiError(errors)
+	}
+
+	return nil
+}
+
+// HooksMultiError is an error wrapping multiple validation errors returned by
+// Hooks.ValidateAll() if the designated constraints aren't met.
+type HooksMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HooksMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HooksMultiError) AllErrors() []error { return m }
+
+// HooksValidationError is the validation error returned by Hooks.Validate if
+// the designated constraints aren't met.
+type HooksValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HooksValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HooksValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HooksValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HooksValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HooksValidationError) ErrorName() string { return "HooksValidationError" }
+
+// Error satisfies the builtin error interface
+func (e HooksValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHooks.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HooksValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HooksValidationError{}
+
+// Validate checks the field values on Hook with the rules defined in the proto
+// definition for this message. If any rules are violated, the first error
+// encountered is returned, or nil if there are no violations.
+func (m *Hook) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Hook with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in HookMultiError, or nil if none found.
+func (m *Hook) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Hook) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Name
+
+	// no validation rules for Vars
+
+	// no validation rules for Alias
+
+	if len(errors) > 0 {
+		return HookMultiError(errors)
+	}
+
+	return nil
+}
+
+// HookMultiError is an error wrapping multiple validation errors returned by
+// Hook.ValidateAll() if the designated constraints aren't met.
+type HookMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HookMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HookMultiError) AllErrors() []error { return m }
+
+// HookValidationError is the validation error returned by Hook.Validate if the
+// designated constraints aren't met.
+type HookValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HookValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HookValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HookValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HookValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HookValidationError) ErrorName() string { return "HookValidationError" }
+
+// Error satisfies the builtin error interface
+func (e HookValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHook.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HookValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HookValidationError{}
+
 // Validate checks the field values on ProjectPipelineDestination with the
 // rules defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -1334,6 +1604,35 @@ func (m *GetReply) validate(all bool) error {
 	}
 
 	// no validation rules for Account
+
+	if all {
+		switch v := interface{}(m.GetHooks()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GetReplyValidationError{
+					field:  "Hooks",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GetReplyValidationError{
+					field:  "Hooks",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHooks()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GetReplyValidationError{
+				field:  "Hooks",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return GetReplyMultiError(errors)
@@ -2339,6 +2638,35 @@ func (m *SaveRequest_Body) validate(all bool) error {
 	}
 
 	// no validation rules for Account
+
+	if all {
+		switch v := interface{}(m.GetHooks()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SaveRequest_BodyValidationError{
+					field:  "Hooks",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SaveRequest_BodyValidationError{
+					field:  "Hooks",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHooks()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return SaveRequest_BodyValidationError{
+				field:  "Hooks",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return SaveRequest_BodyMultiError(errors)

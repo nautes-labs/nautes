@@ -175,6 +175,15 @@ func (s *ProjectPipelineRuntimeService) constructData(req *projectpipelineruntim
 	pipelineTriggers := convertTriggersToPipelineTriggers(req.Body.PipelineTriggers)
 	additionalResources := convertAdditionalResources(req.Body.AdditionalResources).(*resourcev1alpha1.ProjectPipelineRuntimeAdditionalResources)
 
+	var preHooks, postHooks []resourcev1alpha1.Hook
+	if req.Body.Hooks != nil && req.Body.Hooks.PreHooks != nil {
+		preHooks = convertPipelineHooks(req.GetBody().Hooks.PreHooks).([]resourcev1alpha1.Hook)
+	}
+
+	if req.Body.Hooks != nil && req.Body.Hooks.PostHooks != nil {
+		postHooks = convertPipelineHooks(req.GetBody().Hooks.PostHooks).([]resourcev1alpha1.Hook)
+	}
+
 	return &biz.ProjectPipelineRuntimeData{
 		Name: req.ProjectPipelineRuntimeName,
 		Spec: resourcev1alpha1.ProjectPipelineRuntimeSpec{
@@ -187,11 +196,48 @@ func (s *ProjectPipelineRuntimeService) constructData(req *projectpipelineruntim
 				Environment: req.Body.Destination.Environment,
 				Namespace:   req.Body.Destination.Namespace,
 			},
+			Hooks: &resourcev1alpha1.Hooks{
+				PreHooks:  preHooks,
+				PostHooks: postHooks,
+			},
 			Isolation:           req.Body.Isolation,
 			AdditionalResources: additionalResources,
 			Account:             req.Body.Account,
 		},
 	}
+}
+
+// convertPipelineHooks Convert the type of hooks.
+// Supports mutual conversion between API hooks and resource hooks.
+func convertPipelineHooks(hooks interface{}) interface{} {
+	switch val := hooks.(type) {
+	// Change the hooks type of api to the hooks type of the resource.
+	case []*projectpipelineruntimev1.Hook:
+		var hooks []resourcev1alpha1.Hook
+		for _, hook := range val {
+			hooks = append(hooks, resourcev1alpha1.Hook{
+				Name:  hook.Name,
+				Vars:  hook.Vars,
+				Alias: &hook.Alias,
+			})
+		}
+
+		return hooks
+
+	// Change the hooks type of a resource to the hooks type of api.
+	case []resourcev1alpha1.Hook:
+		var hooks []*projectpipelineruntimev1.Hook
+		for _, hook := range val {
+			hooks = append(hooks, &projectpipelineruntimev1.Hook{
+				Name:  hook.Name,
+				Vars:  hook.Vars,
+				Alias: *hook.Alias,
+			})
+		}
+		return hooks
+	}
+
+	return nil
 }
 
 func convertAdditionalResources(additionalResources interface{}) interface{} {
@@ -234,7 +280,16 @@ func covertProjectPipelineRuntime(projectPipelineRuntime *resourcev1alpha1.Proje
 	pipelines := convertProjectRuntimeToPipelines(projectPipelineRuntime)
 	eventSources := convertEventSourceToEvent(projectPipelineRuntime)
 	pipelineTriggers := convertPipelineTriggersToTriggers(projectPipelineRuntime)
-	additionalResources := convertAdditionalResources(projectPipelineRuntime.Spec.AdditionalResources).(*projectpipelineruntimev1.ProjectPipelineRuntimeAdditionalResources)
+	additionalResources := convertAdditionalResources(projectPipelineRuntime.Spec.AdditionalResources)
+
+	var preHooks, postHooks []*projectpipelineruntimev1.Hook
+	if projectPipelineRuntime.Spec.Hooks != nil && projectPipelineRuntime.Spec.Hooks.PreHooks != nil {
+		preHooks = convertPipelineHooks(projectPipelineRuntime.Spec.Hooks.PreHooks).([]*projectpipelineruntimev1.Hook)
+	}
+
+	if projectPipelineRuntime.Spec.Hooks != nil && projectPipelineRuntime.Spec.Hooks.PreHooks != nil {
+		postHooks = convertPipelineHooks(projectPipelineRuntime.Spec.Hooks.PostHooks).([]*projectpipelineruntimev1.Hook)
+	}
 
 	return &projectpipelineruntimev1.GetReply{
 		Name:             projectPipelineRuntime.Name,
@@ -248,8 +303,12 @@ func covertProjectPipelineRuntime(projectPipelineRuntime *resourcev1alpha1.Proje
 			Namespace:   projectPipelineRuntime.Spec.Destination.Namespace,
 		},
 		Isolation:           projectPipelineRuntime.Spec.Isolation,
-		AdditionalResources: additionalResources,
+		AdditionalResources: additionalResources.(*projectpipelineruntimev1.ProjectPipelineRuntimeAdditionalResources),
 		Account:             projectPipelineRuntime.Spec.Account,
+		Hooks: &projectpipelineruntimev1.Hooks{
+			PreHooks:  preHooks,
+			PostHooks: postHooks,
+		},
 	}, nil
 }
 

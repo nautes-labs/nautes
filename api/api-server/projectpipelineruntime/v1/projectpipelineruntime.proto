@@ -96,6 +96,28 @@ message PipelineTriggers {
   string revision = 3 [json_name = "revision"];
 }
 
+// Hooks are hooks will to add before or after the user pipeline.
+message Hooks {
+  // PreHooks is a set of hooks to be executed before running the user pipeline.
+  repeated Hook pre_hooks = 1 [json_name = "pre_hooks"];
+  // PostHooks is a set of hooks that will run after the user pipeline starts executing.
+  repeated Hook post_hooks = 2 [json_name = "post_hooks"];
+}
+
+// Hook is a record of information about a runnable hook.
+message Hook {
+  // Name is the name of the hook to be executed.
+  string name = 1;
+  // Vars is the parameter that the user wants to pass to the hook,
+	// and the input items are determined based on the pipeline component in cluster.
+  map<string, string> vars = 2;
+  // Alias is the alias given by the user for the hook.
+	// If the user does not enter this value, the name of the hook will be obtained from 'name'.
+	// When the hook appears in both PreHooks and PostHooks, it is necessary to specify the name to prevent conflicts.
+	// +optional
+	string alias = 3;
+}
+
 message ProjectPipelineDestination {
   // Environment for pipeline deployment.
   string environment = 1 [json_name = "environment", (validate.rules).string.min_len = 1];
@@ -146,6 +168,8 @@ message GetReply {
   ProjectPipelineRuntimeAdditionalResources additional_resources = 9 [json_name = "additional_resources"];
   // Account specify the runtime account.
   string account = 10 [json_name = "account"];
+  // Hooks are hooks will to add before or after the user pipeline.
+  Hooks hooks = 11 [json_name = "hooks"];
 }
 
 // Request message format for listing pipelines.
@@ -189,6 +213,8 @@ message SaveRequest {
     ProjectPipelineRuntimeAdditionalResources additional_resources = 8 [json_name = "additional_resources"];
     // Account specify the runtime account.
     string account = 9 [json_name = "account"];
+    // Hooks are hooks will to add before or after the user pipeline.
+    Hooks hooks = 10 [json_name = "hooks"];
   }
   // Name of the product associated with the pipeline.
   string product_name = 1 [json_name = "product_name"];
