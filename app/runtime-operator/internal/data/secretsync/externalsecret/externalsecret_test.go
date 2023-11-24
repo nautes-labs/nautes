@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	externalsecretv1alpha1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1alpha1"
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
@@ -26,6 +27,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"github.com/nautes-labs/nautes/pkg/nautesconst"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,8 +44,9 @@ var _ = Describe("External secret", func() {
 	var userName string
 	var clusterName string
 	var seed string
+	var nautesHome = "/tmp/externalsecret-test"
 	var vaultURL string = "https://127.0.0.1:8000"
-	var vaultCAPath string = "/opt/nautes/cert/127.0.0.1_8000.crt"
+	var vaultCAPath string = filepath.Join(nautesHome, "cert/127.0.0.1_8000.crt")
 	var ca string = `-----BEGIN CERTIFICATE-----
 MIIC/TCCAeWgAwIBAgIJAM0CEkAL+mwtMA0GCSqGSIb3DQEBCwUAMBQxEjAQBgNV
 BAMMCTEyNy4wLjAuMTAgFw0yMzAyMDEwOTU4MDlaGA8yMDUwMDYxOTA5NTgwOVow
@@ -73,6 +76,12 @@ vw==
 		productName = fmt.Sprintf("product-%s", seed)
 		userName = fmt.Sprintf("user-%s", seed)
 		clusterName = fmt.Sprintf("cluster-%s", seed)
+
+		err = os.Setenv(nautesconst.EnvNautesHome, nautesHome)
+		Expect(err).Should(BeNil())
+		err = os.MkdirAll(filepath.Join(nautesHome, "cert"), 0700)
+		Expect(err).Should(BeNil())
+
 		secReq = component.SecretRequest{
 			Name: fmt.Sprintf("reqname-%s", seed),
 			Source: component.SecretInfo{
@@ -145,7 +154,9 @@ vw==
 	})
 
 	AfterEach(func() {
-		err := os.Remove(vaultCAPath)
+		err := os.RemoveAll(nautesHome)
+		Expect(err).Should(BeNil())
+		err = os.Unsetenv(nautesHome)
 		Expect(err).Should(BeNil())
 	})
 

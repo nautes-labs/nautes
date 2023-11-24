@@ -1,3 +1,17 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package manager
 
 import (
@@ -12,9 +26,11 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	hashicorpplugin "github.com/hashicorp/go-plugin"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/shared"
-	nautesconst "github.com/nautes-labs/nautes/pkg/const"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
+	"github.com/nautes-labs/nautes/pkg/resource"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -28,16 +44,9 @@ import (
 
 var logger = logf.Log.WithName("RuntimePluginManagement")
 
-// The PipelinePluginManager can manage all pipeline component plugins.
-type PipelinePluginManager interface {
-	// GetHookFactory will return a 'HookFactory' that can implement the hook based on the pipeline type and hook type.
-	// If the corresponding plugin cannot be found, an error is returned.
-	GetHookFactory(pipelineType, hookName string) (shared.HookFactory, error)
-}
-
 type RuntimePluginManager struct {
 	// HookFactoryIndex is the index to find the 'HookFactory' based on the pipeline type and hook name.
-	HookFactoryIndex map[string]map[string]*shared.HookFactory
+	HookFactoryIndex map[string]map[string]*component.HookFactory
 	// Plugins stores the loaded components, with the index being the file name of the plugin.
 	Plugins map[string]pipelinePlugin
 	// PluginHomePath is the directory of the plugin to be monitored.
@@ -96,7 +105,7 @@ func NewPluginManagement(opts *NewOptions) (*RuntimePluginManager, error) {
 	}
 
 	pm := &RuntimePluginManager{
-		HookFactoryIndex: map[string]map[string]*shared.HookFactory{},
+		HookFactoryIndex: map[string]map[string]*component.HookFactory{},
 		Plugins:          map[string]pipelinePlugin{},
 		PluginHomePath:   pluginPath,
 		k8sClient:        tenantK8sClient,
@@ -261,7 +270,7 @@ func (pm *RuntimePluginManager) addIndex(pluginName string) error {
 	}
 
 	if _, ok := pm.HookFactoryIndex[plugin.pipelineType]; !ok {
-		pm.HookFactoryIndex[plugin.pipelineType] = map[string]*shared.HookFactory{}
+		pm.HookFactoryIndex[plugin.pipelineType] = map[string]*component.HookFactory{}
 	}
 
 	for _, metadata := range plugin.metadataCollection {
@@ -292,20 +301,20 @@ func (pm *RuntimePluginManager) removeIndex(pluginName string) {
 func (pm *RuntimePluginManager) UploadHooksMetadata() error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shared.ConfigMapNameHooksMetadata,
+			Name:      nautesconst.ConfigMapNameHooksMetadata,
 			Namespace: pm.config.Nautes.Namespace,
 		},
 	}
 
 	_, err := controllerutil.CreateOrUpdate(context.TODO(), pm.k8sClient, cm, func() error {
-		data := map[string][]shared.HookMetadata{}
-		for pluginName, plugin := range pm.Plugins {
+		data := map[string][]resource.HookMetadata{}
+		for _, plugin := range pm.Plugins {
 			pipelineType := plugin.pipelineType
 			if _, ok := data[pipelineType]; !ok {
-				data[pipelineType] = []shared.HookMetadata{}
+				data[pipelineType] = []resource.HookMetadata{}
 			}
 
-			data[pipelineType] = append(data[pluginName], plugin.metadataCollection...)
+			data[pipelineType] = append(data[pipelineType], plugin.metadataCollection...)
 		}
 
 		newData := map[string]string{}
@@ -324,7 +333,7 @@ func (pm *RuntimePluginManager) UploadHooksMetadata() error {
 	return err
 }
 
-func (pm *RuntimePluginManager) GetHookFactory(pipelineType, hookName string) (shared.HookFactory, error) {
+func (pm *RuntimePluginManager) GetHookFactory(pipelineType, hookName string) (component.HookFactory, error) {
 	hooks, ok := pm.HookFactoryIndex[pipelineType]
 	if !ok {
 		return nil, fmt.Errorf("pipeline type %s not found", pipelineType)
@@ -343,11 +352,11 @@ type pipelinePlugin struct {
 	// client is an instance of hashicorp's plugin client.
 	client *hashicorpplugin.Client
 	// factory is the interface implementation obtained from the plugin client.
-	factory shared.HookFactory
+	factory component.HookFactory
 	// pipelineType is the plugin type supported by this plugin.
 	pipelineType string
 	// metadataCollection is the metadata information of the hooks supported by the plugin.
-	metadataCollection []shared.HookMetadata
+	metadataCollection []resource.HookMetadata
 }
 
 func newPlugin(path, pluginName string) (*pipelinePlugin, error) {
@@ -366,7 +375,7 @@ func newPlugin(path, pluginName string) (*pipelinePlugin, error) {
 	if err != nil {
 		return nil, err
 	}
-	hookFactory, ok := raw.(shared.HookFactory)
+	hookFactory, ok := raw.(component.HookFactory)
 	if !ok {
 		return nil, fmt.Errorf("%s is not a pipeline plugin", pluginName)
 	}

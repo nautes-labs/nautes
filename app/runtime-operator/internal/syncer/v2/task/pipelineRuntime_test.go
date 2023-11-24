@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
 	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
@@ -30,9 +31,17 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	pkgruntime "k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("pipeline runtime deployer", func() {
+	var funcGetHistory = func(hist *pkgruntime.RawExtension) task.PipelineRuntimeSyncHistory {
+		cache := &syncer.PipelineRuntimeSyncHistory{}
+		err := json.Unmarshal(hist.Raw, cache)
+		Expect(err).Should(BeNil())
+		return *cache
+	}
+
 	var seed string
 	var ctx context.Context
 	var cluster *v1alpha1.Cluster
@@ -48,6 +57,8 @@ var _ = Describe("pipeline runtime deployer", func() {
 		seed = RandNum()
 		ctx = context.Background()
 		result = &deployResult{}
+		mockDataRequestResources = nil
+		resultReqHandler = map[string][]component.RequestResource{}
 
 		productIDs = GenerateNames(fmt.Sprintf("product-%s-%%d", seed), 5)
 		projectNames = GenerateNames(fmt.Sprintf("project-%s-%%d", seed), 5)
@@ -432,6 +443,49 @@ var _ = Describe("pipeline runtime deployer", func() {
 		Expect(ok).Should(BeTrue())
 	})
 
+	It("if account is used by other runtime, change account will not delete old account", func() {
+		accountName := fmt.Sprintf("account-%s", seed)
+		runtime.Spec.Account = accountName
+		task, err := testSyncer.NewTask(ctx, runtime, nil)
+		Expect(err).Should(BeNil())
+
+		rawCache, err := task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		runtime2 := runtime.DeepCopy()
+		runtime2.Name = runtimeNames[1]
+		db.runtimes[runtime2.Name] = runtime2
+		task2, err := testSyncer.NewTask(ctx, runtime2, nil)
+		Expect(err).Should(BeNil())
+
+		_, err = task2.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		runtime.Spec.Account = fmt.Sprintf("%s-2", runtime.Spec.Account)
+		task, err = testSyncer.NewTask(ctx, runtime, rawCache)
+		Expect(err).Should(BeNil())
+		rawCache, err = task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		destResult := &deployResultProduct{
+			name: productIDs[0],
+			spaces: []deployResultSpace{
+				{
+					name: namespaceNames[0],
+					accounts: []string{
+						runtime2.Spec.Account,
+						runtime.Spec.Account,
+					},
+				},
+			},
+			accounts: []string{
+				runtime2.Spec.Account,
+				runtime.Spec.Account,
+			},
+		}
+		Expect(result.product).Should(Equal(destResult))
+	})
+
 	It("if account is used by other runtime, account will not be deleted", func() {
 		accountName := fmt.Sprintf("account-%s", seed)
 		runtime.Spec.Account = accountName
@@ -456,10 +510,6 @@ var _ = Describe("pipeline runtime deployer", func() {
 		rawCache, err = task.Delete(ctx)
 		Expect(err).Should(BeNil())
 
-		cache := &syncer.PipelineRuntimeSyncHistory{}
-		err = json.Unmarshal(rawCache.Raw, cache)
-		Expect(err).Should(BeNil())
-
 		destResult := &deployResultProduct{
 			name: productIDs[0],
 			spaces: []deployResultSpace{
@@ -472,5 +522,85 @@ var _ = Describe("pipeline runtime deployer", func() {
 		}
 		ok := reflect.DeepEqual(destResult, result.product)
 		Expect(ok).Should(BeTrue())
+	})
+
+	It("will create request resource", func() {
+		mockDataRequestResources = []component.RequestResource{
+			{
+				Type:         component.ResourceTypeCodeRepoSSHKey,
+				ResourceName: fmt.Sprintf("reqRes-%s", seed),
+				SSHKey: &component.ResourceRequestSSHKey{
+					SecretInfo: component.SecretInfo{
+						Type: component.CodeRepoPermissionReadOnly,
+						CodeRepo: &component.CodeRepo{
+							ProviderType: "1",
+							ID:           "2",
+							User:         "3",
+							Permission:   "4",
+						},
+					},
+				},
+			},
+		}
+
+		task, err := testSyncer.NewTask(ctx, runtime, nil)
+		Expect(err).Should(BeNil())
+
+		rawCache, err := task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		cache := funcGetHistory(rawCache)
+		Expect(mockDataRequestResources).Should(Equal(cache.HookResources))
+
+		Expect(resultReqHandler[runtime.GetNamespaces()[0]]).Should(Equal(cache.HookResources))
+	})
+
+	It("will remove unused request resource", func() {
+		mockDataRequestResources = []component.RequestResource{
+			{
+				Type:         component.ResourceTypeCodeRepoSSHKey,
+				ResourceName: fmt.Sprintf("reqRes-%s", seed),
+				SSHKey: &component.ResourceRequestSSHKey{
+					SecretInfo: component.SecretInfo{
+						Type: component.CodeRepoPermissionReadOnly,
+						CodeRepo: &component.CodeRepo{
+							ProviderType: "1",
+							ID:           "2",
+							User:         "3",
+							Permission:   "4",
+						},
+					},
+				},
+			},
+		}
+
+		task, err := testSyncer.NewTask(ctx, runtime, nil)
+		Expect(err).Should(BeNil())
+
+		rawCache, err := task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		mockDataRequestResources = []component.RequestResource{
+			{
+				Type:         component.ResourceTypeCAFile,
+				ResourceName: fmt.Sprintf("reqRes-ca-%s", seed),
+				CAFile: &component.ResourceRequestCAFile{
+					URL: fmt.Sprintf("url-%s", seed),
+				},
+			},
+		}
+
+		task, err = testSyncer.NewTask(ctx, runtime, rawCache)
+
+		rawCache, err = task.Run(ctx)
+		Expect(err).Should(BeNil())
+
+		cache := funcGetHistory(rawCache)
+		Expect(mockDataRequestResources).Should(Equal(cache.HookResources))
+
+		targetResultReqHandler := map[string][]component.RequestResource{
+			runtime.GetNamespaces()[0]: mockDataRequestResources,
+		}
+		Expect(resultReqHandler).Should(Equal(targetResultReqHandler))
 	})
 })

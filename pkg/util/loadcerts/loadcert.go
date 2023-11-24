@@ -21,11 +21,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
 )
 
 const (
-	NautesDefaultCertsPath = "/opt/nautes/cert"
+	DefaultCertsPath = "./cert"
 )
+
+func GetCertPath() string {
+	homePath := os.Getenv(nautesconst.EnvNautesHome)
+	return filepath.Join(homePath, DefaultCertsPath)
+}
 
 type LoadOptions struct {
 	path string
@@ -39,7 +46,7 @@ func CertPath(path string) LoadOption {
 
 func GetCertPool(opts ...LoadOption) (*x509.CertPool, error) {
 	loadOpts := &LoadOptions{
-		path: NautesDefaultCertsPath,
+		path: GetCertPath(),
 	}
 
 	for _, fn := range opts {

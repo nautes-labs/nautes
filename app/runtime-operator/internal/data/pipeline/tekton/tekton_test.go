@@ -1,7 +1,20 @@
+// Copyright 2023 Nautes Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tekton_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -13,26 +26,22 @@ import (
 	"github.com/nautes-labs/nautes/pkg/thirdpartapis/tekton/pipeline/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	pluginshared "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/shared"
-	shared "github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/tekton"
 )
 
 var _ = Describe("Tekton", func() {
-	var ctx context.Context
 	var seed string
 	var initInfo *component.ComponentInitInfo
 	var builtinVars map[component.BuiltinVar]string
-	var space component.Space
-	var authInfo = component.AuthInfo{}
 	BeforeEach(func() {
-		ctx = context.TODO()
 		seed = RandNum()
 
 		initInfo = &component.ComponentInitInfo{
-			ClusterConnectInfo:     component.ClusterConnectInfo{},
+			ClusterConnectInfo: component.ClusterConnectInfo{
+				ClusterKind: nautesv1alpha1.CLUSTER_KIND_KUBERNETES,
+				Kubernetes:  &component.ClusterConnectInfoKubernetes{},
+			},
 			ClusterName:            "",
-			NautesResourceSnapshot: nil,
+			NautesResourceSnapshot: &mockSnapShot{},
 			RuntimeName:            fmt.Sprintf("runtime-%s", seed),
 			NautesConfig:           configs.Config{},
 			Components: &component.ComponentList{
@@ -45,29 +54,13 @@ var _ = Describe("Tekton", func() {
 			component.VarPipelineFilePath:     fmt.Sprintf("pipeline/%s.yaml", seed),
 			component.VarPipelineCodeRepoName: fmt.Sprintf("codeRepo-%s", seed),
 		}
-		spaceName := fmt.Sprintf("space-%s", seed)
-		space = component.Space{
-			ResourceMetaData: component.ResourceMetaData{
-				Product: "",
-				Name:    spaceName,
-			},
-			SpaceType: component.SpaceTypeKubernetes,
-			Kubernetes: &component.SpaceKubernetes{
-				Namespace: spaceName,
-			},
-		}
-
-		fakeHook = &pluginshared.Hook{}
+		fakeHook = &component.Hook{}
 	})
 
 	It("can create init pipeline", func() {
-		status, _ := tekton.TektonFactory.NewStatus(nil)
-		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, status)
+		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, nil)
 		Expect(err).Should(BeNil())
-		Expect(status).Should(Equal(&tekton.TektonStatus{
-			Runtimes: map[string]tekton.RuntimeResource{},
-		}))
-		Expect(err)
+
 		hooks, resources, err := pipeline.GetHooks(component.HooksInitInfo{
 			BuiltinVars:       builtinVars,
 			Hooks:             nautesv1alpha1.Hooks{},
@@ -76,10 +69,10 @@ var _ = Describe("Tekton", func() {
 			EventListenerType: "",
 		})
 		Expect(err).Should(BeNil())
-		Expect(resources[0].(shared.ResourceRequest)).Should(Equal(shared.ResourceRequest{
-			Type: shared.ResourceTypeCodeRepoSSHKey,
-			SSHKey: &shared.ResourceRequestSSHKey{
-				ResourceName: tekton.SecretNamePipelineReadOnlySSHKey,
+		Expect(resources[0]).Should(Equal(component.RequestResource{
+			Type:         component.ResourceTypeCodeRepoSSHKey,
+			ResourceName: tekton.SecretNamePipelineReadOnlySSHKey,
+			SSHKey: &component.ResourceRequestSSHKey{
 				SecretInfo: component.SecretInfo{
 					Type: component.SecretTypeCodeRepo,
 					CodeRepo: &component.CodeRepo{
@@ -94,132 +87,11 @@ var _ = Describe("Tekton", func() {
 		_ = hooks
 	})
 
-	It("can create hook space", func() {
-		status, _ := tekton.TektonFactory.NewStatus(nil)
-		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, status)
-		Expect(err).Should(BeNil())
-
-		_, resources, err := pipeline.GetHooks(component.HooksInitInfo{
-			BuiltinVars: builtinVars,
-			Hooks:       nautesv1alpha1.Hooks{},
-			EventSource: component.EventSource{},
-		})
-		Expect(err).Should(BeNil())
-
-		err = pipeline.CreateHookSpace(ctx, authInfo, component.HookSpace{
-			BaseSpace:       space,
-			DeployResources: resources,
-		})
-		Expect(err).Should(BeNil())
-
-		Expect(status.(*tekton.TektonStatus)).Should(Equal(&tekton.TektonStatus{
-			Runtimes: map[string]tekton.RuntimeResource{
-				initInfo.RuntimeName: {
-					Space:     space,
-					Resources: ConvertInterfaceToRequest(resources),
-				},
-			},
-		}))
-	})
-
-	It("can merge duplicate requests", func() {
-		status, _ := tekton.TektonFactory.NewStatus(nil)
-		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, status)
-		Expect(err).Should(BeNil())
-
-		_, resources, err := pipeline.GetHooks(component.HooksInitInfo{
-			BuiltinVars: builtinVars,
-			Hooks:       nautesv1alpha1.Hooks{},
-			EventSource: component.EventSource{},
-		})
-		Expect(err).Should(BeNil())
-
-		resources2 := append(resources, resources...)
-
-		err = pipeline.CreateHookSpace(ctx, authInfo, component.HookSpace{
-			BaseSpace:       space,
-			DeployResources: resources2,
-		})
-		Expect(err).Should(BeNil())
-		Expect(status.(*tekton.TektonStatus)).Should(Equal(&tekton.TektonStatus{
-			Runtimes: map[string]tekton.RuntimeResource{
-				initInfo.RuntimeName: {
-					Space:     space,
-					Resources: ConvertInterfaceToRequest(resources),
-				},
-			},
-		}))
-	})
-
-	It("can clean up hook space", func() {
-		status, _ := tekton.TektonFactory.NewStatus(nil)
-		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, status)
-		Expect(err).Should(BeNil())
-
-		_, resources, err := pipeline.GetHooks(component.HooksInitInfo{
-			BuiltinVars: builtinVars,
-			Hooks:       nautesv1alpha1.Hooks{},
-			EventSource: component.EventSource{},
-		})
-		Expect(err).Should(BeNil())
-
-		err = pipeline.CreateHookSpace(ctx, authInfo, component.HookSpace{
-			BaseSpace:       space,
-			DeployResources: resources,
-		})
-		Expect(err).Should(BeNil())
-
-		pipeline, err = tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, status)
-		Expect(err).Should(BeNil())
-
-		err = pipeline.CleanUpHookSpace(ctx)
-		Expect(err).Should(BeNil())
-		Expect(status).Should(Equal(&tekton.TektonStatus{
-			Runtimes: map[string]tekton.RuntimeResource{},
-		}))
-	})
-
-	It("if space is changed, it will remove old resources and deploy new resources", func() {
-		status, _ := tekton.TektonFactory.NewStatus(nil)
-		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, status)
-		Expect(err).Should(BeNil())
-
-		_, resources, err := pipeline.GetHooks(component.HooksInitInfo{
-			BuiltinVars: builtinVars,
-			Hooks:       nautesv1alpha1.Hooks{},
-			EventSource: component.EventSource{},
-		})
-		Expect(err).Should(BeNil())
-
-		hookSpace := component.HookSpace{
-			BaseSpace:       space,
-			DeployResources: resources,
-		}
-		err = pipeline.CreateHookSpace(ctx, authInfo, hookSpace)
-		Expect(err).Should(BeNil())
-
-		space2 := space
-		space2.Kubernetes.Namespace = fmt.Sprintf("%s-2", space.Kubernetes.Namespace)
-		hookSpace.BaseSpace = space2
-
-		err = pipeline.CreateHookSpace(ctx, authInfo, hookSpace)
-		Expect(err).Should(BeNil())
-
-		Expect(status.(*tekton.TektonStatus)).Should(Equal(&tekton.TektonStatus{
-			Runtimes: map[string]tekton.RuntimeResource{
-				initInfo.RuntimeName: {
-					Space:     space2,
-					Resources: ConvertInterfaceToRequest(resources),
-				},
-			},
-		}))
-	})
-
 	It("if old resource is unused, it will remove old resources", func() {
-		reqByte, err := json.Marshal(shared.ResourceRequest{
-			Type: shared.ResourceTypeCodeRepoAccessToken,
-			AccessToken: &shared.ResourceRequestAccessToken{
-				ResourceName: "ttp",
+		req := component.RequestResource{
+			Type:         component.ResourceTypeCodeRepoAccessToken,
+			ResourceName: "ttp",
+			AccessToken: &component.ResourceRequestAccessToken{
 				SecretInfo: component.SecretInfo{
 					Type: component.SecretTypeCodeRepo,
 					CodeRepo: &component.CodeRepo{
@@ -230,20 +102,17 @@ var _ = Describe("Tekton", func() {
 					},
 				},
 			},
-		})
+		}
 		Expect(nil).Should(BeNil())
 		pr, _ := json.Marshal(v1alpha1.PipelineTask{
 			Name: "test",
 		})
-		fakeHook = &pluginshared.Hook{
-			RequestResources: [][]byte{
-				reqByte,
-			},
-			Resource: pr,
+		fakeHook = &component.Hook{
+			RequestResources: []component.RequestResource{req},
+			Resource:         pr,
 		}
 
-		status, _ := tekton.TektonFactory.NewStatus(nil)
-		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, status)
+		pipeline, err := tekton.TektonFactory.NewComponent(nautesv1alpha1.Component{}, initInfo, nil)
 		Expect(err).Should(BeNil())
 
 		hookInitInfo := component.HooksInitInfo{
@@ -261,36 +130,10 @@ var _ = Describe("Tekton", func() {
 			EventSource: component.EventSource{},
 		}
 
-		_, resources, err := pipeline.GetHooks(hookInitInfo)
+		hooks, resources, err := pipeline.GetHooks(hookInitInfo)
 		Expect(err).Should(BeNil())
 
-		hookSpace := component.HookSpace{
-			BaseSpace:       space,
-			DeployResources: resources,
-		}
-		err = pipeline.CreateHookSpace(ctx, authInfo, hookSpace)
-		Expect(err).Should(BeNil())
-
-		fakeHook.RequestResources = nil
-
-		_, resources, err = pipeline.GetHooks(hookInitInfo)
-		Expect(err).Should(BeNil())
-
-		hookSpace = component.HookSpace{
-			BaseSpace:       space,
-			DeployResources: resources,
-		}
-
-		err = pipeline.CreateHookSpace(ctx, authInfo, hookSpace)
-		Expect(err).Should(BeNil())
-
-		Expect(status.(*tekton.TektonStatus)).Should(Equal(&tekton.TektonStatus{
-			Runtimes: map[string]tekton.RuntimeResource{
-				initInfo.RuntimeName: {
-					Space:     space,
-					Resources: ConvertInterfaceToRequest(resources),
-				},
-			},
-		}))
+		Expect(resources[1]).Should(Equal(req))
+		_ = hooks
 	})
 })

@@ -14,6 +14,6 @@
 
 package nautesconst
 
-const (
-	EnvNautesHome = "NAUTES_HOME"
-)
+const EnvNautesHome = "NAUTES_HOME"
+
+const ConfigMapNameHooksMetadata = "nautes-hooks-metadata"

@@ -16,6 +16,7 @@ package argoevent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -96,7 +97,10 @@ func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, ev
 		return fmt.Errorf("create entrypoint failed: %w", err)
 	}
 
+	var oldEventSource []byte
+
 	operationResult, err := controllerutil.CreateOrUpdate(ctx, gel.K8sClient, es, func() error {
+		oldEventSource, _ = json.Marshal(es)
 		gitlabEventSources, err := gel.createGitlabEventSources(eventSource.UniqueID, eventSource)
 		if err != nil {
 			return fmt.Errorf("generate gitlab event source failed: %w", err)
@@ -110,7 +114,8 @@ func (gel *GitlabEventSourceGenerator) CreateEventSource(ctx context.Context, ev
 	})
 
 	if operationResult != controllerutil.OperationResultNone {
-		logger.V(1).Info("event source has been modified", "name", es.Name, "operation", operationResult)
+		newEventSource, _ := json.Marshal(es)
+		logger.V(1).Info("event source has been modified", "name", es.Name, "operation", operationResult, "oldResource", string(oldEventSource), "newResource", string(newEventSource))
 	}
 	return err
 }
@@ -413,7 +418,7 @@ func (gel *GitlabEventSourceGenerator) deleteAccessToken(ctx context.Context, un
 	}
 
 	if err := gel.Components.SecretManagement.RevokePermission(ctx, secReq.Source, gel.User); err != nil {
-		return fmt.Errorf("revoke coderepo access token permission from argo event user failed: %w", err)
+		return fmt.Errorf("revoke code repo access token permission from argo event user failed: %w", err)
 	}
 
 	return gel.Components.SecretSync.RemoveSecret(ctx, *secReq)

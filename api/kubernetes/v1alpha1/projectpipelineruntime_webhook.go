@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/shared"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
+	resource "github.com/nautes-labs/nautes/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -339,7 +340,7 @@ func getEventSourceTypesFromPipelineRuntime(runtime ProjectPipelineRuntime) []st
 	return evSet.UnsortedList()
 }
 
-func validateHooks(hooks *Hooks, eventSourceType []string, cluster Cluster, rules []shared.HookMetadata) error {
+func validateHooks(hooks *Hooks, eventSourceType []string, cluster Cluster, rules []resource.HookMetadata) error {
 	if hooks == nil {
 		return nil
 	}
@@ -411,22 +412,22 @@ func isHookSupportEventSourceTypes(supportEventSourceTypes, runtimeEventSourceTy
 	return nil
 }
 
-func convertMetadataArrayToMap(metadataArr []shared.HookMetadata) map[string]shared.HookMetadata {
-	metadataMap := map[string]shared.HookMetadata{}
+func convertMetadataArrayToMap(metadataArr []resource.HookMetadata) map[string]resource.HookMetadata {
+	metadataMap := map[string]resource.HookMetadata{}
 	for i := range metadataArr {
 		metadataMap[metadataArr[i].Name] = metadataArr[i]
 	}
 	return metadataMap
 }
 
-func GetPipelineHooksMetaData(ctx context.Context, k8sClient client.Client, pipelineName string) ([]shared.HookMetadata, error) {
+func GetPipelineHooksMetaData(ctx context.Context, k8sClient client.Client, pipelineName string) ([]resource.HookMetadata, error) {
 	nautesCfg, err := nautesconfigs.NewNautesConfigFromFile()
 	if err != nil {
 		return nil, fmt.Errorf("load nautes config failed: %w", err)
 	}
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shared.ConfigMapNameHooksMetadata,
+			Name:      nautesconst.ConfigMapNameHooksMetadata,
 			Namespace: nautesCfg.Nautes.Namespace,
 		},
 	}
@@ -444,7 +445,7 @@ func GetPipelineHooksMetaData(ctx context.Context, k8sClient client.Client, pipe
 		return nil, nil
 	}
 
-	metadataArr := &[]shared.HookMetadata{}
+	metadataArr := &[]resource.HookMetadata{}
 	err = json.Unmarshal([]byte(metadataJson), metadataArr)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal meta data failed: %w", err)

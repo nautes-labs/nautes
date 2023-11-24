@@ -49,12 +49,23 @@ var (
 	}
 )
 
+// NewFunctionHandler is a method that can generate a ResourceRequestHandler.
+var NewFunctionHandler NewHandler
+
+type NewHandler func(info *component.ComponentInitInfo) (ResourceRequestHandler, error)
+
+// ResourceRequestHandler can directly deploy specific resources in the environment based on the requested data type.
+type ResourceRequestHandler interface {
+	CreateResource(ctx context.Context, space component.Space, authInfo component.AuthInfo, req component.RequestResource) error
+	DeleteResource(ctx context.Context, space component.Space, req component.RequestResource) error
+}
+
 // PipelineRuntimeSyncHistory records the deployment information of pipeline runtime.
 type PipelineRuntimeSyncHistory struct {
 	// Cluster is the name of the cluster where the runtime is located.
 	Cluster string `json:"cluster,omitempty"`
 	// Space is the name of the space deployed by the runtime.
-	Space string `json:"space,omitempty"`
+	Space *component.Space `json:"space,omitempty"`
 	// CodeRepo is the name of the CodeRepo where the pipeline file is located.
 	CodeRepo string `json:"codeRepo,omitempty"`
 	// UniqueID is the index of the event source collection.
@@ -65,6 +76,8 @@ type PipelineRuntimeSyncHistory struct {
 	App *component.Application `json:"app,omitempty"`
 	// Permissions records the access permissions of the Runtime machine account for how many key information items it possesses.
 	Permissions []component.SecretInfo `json:"permissions,omitempty"`
+	// HookResources records the resources that need to be deployed in order for the hook to run in the space.
+	HookResources []component.RequestResource `json:"HookResources,omitempty"`
 }
 
 type PipelineRuntimeDeployer struct {
@@ -90,7 +103,8 @@ type PipelineRuntimeDeployer struct {
 	// secMgrAuthInfo is the authentication information of the runtime machine account in secretManagement.
 	secMgrAuthInfo component.AuthInfo
 	// reqResources stores the resources required to run hooks.
-	reqResources []interface{}
+	reqResources []component.RequestResource
+	reqHandler   ResourceRequestHandler
 }
 
 func newPipelineRuntimeDeployer(initInfo performerInitInfos) (taskPerformer, error) {
@@ -128,6 +142,11 @@ func newPipelineRuntimeDeployer(initInfo performerInitInfos) (taskPerformer, err
 		clusterName:     initInfo.ClusterName,
 	}
 
+	handler, err := NewFunctionHandler(initInfo.ComponentInitInfo)
+	if err != nil {
+		return nil, fmt.Errorf("create deployer failed: %w", err)
+	}
+
 	return &PipelineRuntimeDeployer{
 		runtime:         deployRuntime,
 		components:      initInfo.Components,
@@ -139,6 +158,7 @@ func newPipelineRuntimeDeployer(initInfo performerInitInfos) (taskPerformer, err
 		usageController: usageController,
 		cache:           *history,
 		newCache:        *newHistory,
+		reqHandler:      handler,
 	}, nil
 }
 
@@ -185,20 +205,20 @@ func (prd *PipelineRuntimeDeployer) deploy(ctx context.Context) error {
 				return fmt.Errorf("delete machine account failed: %w", err)
 			}
 		} else {
-			if err := prd.RevokeAccountPermissionInSecretManagement(ctx, &productUsage.Account); err != nil {
+			if err := prd.revokeAccountPermissionInSecretManagement(ctx, &productUsage.Account); err != nil {
 				return fmt.Errorf("clean up old account failed: %w", err)
 			}
 			req := component.PermissionRequest{
 				Resource: component.ResourceMetaData{
 					Product: prd.productID,
-					Name:    prd.cache.Space,
+					Name:    prd.cache.Space.Name,
 				},
-				User:         prd.cache.Space,
+				User:         oldAccountName,
 				RequestScope: component.RequestScopeAccount,
 			}
 
 			if err := prd.components.MultiTenant.DeleteSpaceUser(ctx, req); err != nil {
-				return fmt.Errorf("remove user %s from space %s failed :%w", req.User, req.Resource.Name, err)
+				return fmt.Errorf("remove user %s from space %s failed :%w", oldAccountName, req.Resource.Name, err)
 			}
 		}
 		productUsage.Account.DeleteRuntime(oldAccountName, prd.runtime.Name)
@@ -208,7 +228,9 @@ func (prd *PipelineRuntimeDeployer) deploy(ctx context.Context) error {
 	if err := prd.components.MultiTenant.CreateSpace(ctx, prd.productID, ns); err != nil {
 		return err
 	}
-	prd.newCache.Space = ns
+
+	space, _ := prd.components.MultiTenant.GetSpace(ctx, prd.productID, ns)
+	prd.newCache.Space = &space.Space
 
 	if err := prd.components.MultiTenant.CreateAccount(ctx, prd.productID, accountName); err != nil {
 		return fmt.Errorf("create account failed: %w", err)
@@ -298,8 +320,11 @@ func (prd *PipelineRuntimeDeployer) delete(ctx context.Context) error {
 		prd.newCache.Account = nil
 	}
 
-	if err := prd.components.MultiTenant.DeleteSpace(ctx, prd.productID, prd.cache.Space); err != nil {
-		return fmt.Errorf("delete space %s failed: %w", prd.cache.Space, err)
+	if prd.cache.Space != nil {
+		if err := prd.components.MultiTenant.DeleteSpace(ctx, prd.productID, prd.cache.Space.Name); err != nil {
+			return fmt.Errorf("delete space %s failed: %w", prd.cache.Space.Name, err)
+		}
+		prd.newCache.Space = nil
 	}
 
 	if productUsage.Runtimes.Len() == 0 {
@@ -346,14 +371,27 @@ func (prd *PipelineRuntimeDeployer) syncListenEvents(ctx context.Context, accoun
 	if err != nil {
 		return fmt.Errorf("get space failed: %w", err)
 	}
+
 	hookSpace := component.HookSpace{
 		BaseSpace:       space.Space,
-		DeployResources: prd.reqResources,
+		DeployResources: removeDuplicateRequests(prd.reqResources),
 	}
 
-	if err := prd.components.Pipeline.CreateHookSpace(ctx, prd.secMgrAuthInfo, hookSpace); err != nil {
+	if err := prd.createHookResource(ctx, prd.secMgrAuthInfo, hookSpace.BaseSpace, hookSpace.DeployResources); err != nil {
 		return fmt.Errorf("create hook space failed: %w", err)
 	}
+
+	var oldHookSpace *component.HookSpace
+	if prd.cache.HookResources != nil {
+		oldHookSpace = &component.HookSpace{
+			BaseSpace:       *prd.cache.Space,
+			DeployResources: prd.cache.HookResources,
+		}
+	}
+	if err := prd.removeUnusedHookResource(ctx, oldHookSpace, &hookSpace); err != nil {
+		return fmt.Errorf("remove unused hook resources failed: %w", err)
+	}
+	prd.newCache.HookResources = hookSpace.DeployResources
 
 	if err := prd.components.EventListener.CreateConsumer(ctx, *consumers); err != nil {
 		return fmt.Errorf("create consumer failed: %w", err)
@@ -371,14 +409,22 @@ func (prd *PipelineRuntimeDeployer) deleteListenEvents(ctx context.Context) erro
 		return fmt.Errorf("delete consumer failed: %w", err)
 	}
 
-	if err := prd.components.Pipeline.CleanUpHookSpace(ctx); err != nil {
-		return fmt.Errorf("clean up hook space failed: %w", err)
+	var oldHookSpace *component.HookSpace
+	if prd.cache.Space != nil && prd.cache.HookResources != nil {
+		oldHookSpace = &component.HookSpace{
+			BaseSpace:       *prd.cache.Space,
+			DeployResources: prd.cache.HookResources,
+		}
 	}
+	if err := prd.removeUnusedHookResource(ctx, oldHookSpace, nil); err != nil {
+		return fmt.Errorf("remove unused hook resources failed: %w", err)
+	}
+	prd.newCache.HookResources = nil
 
 	return nil
 }
 
-func (prd *PipelineRuntimeDeployer) RevokeAccountPermissionInSecretManagement(ctx context.Context, usage *cache.AccountUsage) error {
+func (prd *PipelineRuntimeDeployer) revokeAccountPermissionInSecretManagement(ctx context.Context, usage *cache.AccountUsage) error {
 	account := prd.cache.Account
 	accountPermissions := usage.Accounts[account.Name].ListPermissions(cache.ExcludedRuntimes([]string{prd.runtime.Name}))
 
@@ -495,32 +541,36 @@ func (prd *PipelineRuntimeDeployer) getGitlabEventSourcesFromEventSource(runtime
 			continue
 		}
 
-		gitEvent := runtimeEventSource.Gitlab
+		envSrc := runtimeEventSource.Gitlab
 
-		_, ok := eventMap[gitEvent.RepoName]
-		if !ok {
-			apiServer, err := prd.getCodeRepoApiServerAddr(gitEvent.RepoName)
-			if err != nil {
-				return nil, fmt.Errorf("get gitlab api server addr failed: %w", err)
-			}
+		_, ok := eventMap[envSrc.RepoName]
+		if ok {
+			continue
+		}
 
-			eventMap[gitEvent.RepoName] = component.EventSource{
-				Name: gitEvent.RepoName,
-				Gitlab: &component.EventSourceGitlab{
-					APIServer: apiServer,
-					Events:    gitEvent.Events,
-					CodeRepo:  gitEvent.RepoName,
-					RepoID:    getIDFromCodeRepo(gitEvent.RepoName),
-				},
-			}
-		} else {
-			eventMap[gitEvent.RepoName].Gitlab.Events = append(eventMap[gitEvent.RepoName].Gitlab.Events, gitEvent.Events...)
+		apiServer, err := prd.getCodeRepoApiServerAddr(envSrc.RepoName)
+		if err != nil {
+			return nil, fmt.Errorf("get gitlab api server addr failed: %w", err)
+		}
+
+		codeRepo, err := prd.snapshot.GetCodeRepo(envSrc.RepoName)
+		if err != nil {
+			return nil, fmt.Errorf("get code repo failed: %w", err)
+		}
+
+		eventMap[envSrc.RepoName] = component.EventSource{
+			Name: envSrc.RepoName,
+			Gitlab: &component.EventSourceGitlab{
+				APIServer: apiServer,
+				Events:    codeRepo.Spec.Webhook.Events,
+				CodeRepo:  envSrc.RepoName,
+				RepoID:    getIDFromCodeRepo(envSrc.RepoName),
+			},
 		}
 	}
 
 	var events []component.EventSource
 	for _, event := range eventMap {
-		event.Gitlab.Events = sets.New(event.Gitlab.Events...).UnsortedList()
 		events = append(events, event)
 	}
 
@@ -581,6 +631,10 @@ func (prd *PipelineRuntimeDeployer) convertRuntimeToConsumers(
 		}
 
 		if runtimeEventSource.Gitlab != nil {
+			if err := prd.addEventSourceToBuiltinVars(vars, runtimeEventSource.Gitlab.RepoName); err != nil {
+				return nil, err
+			}
+
 			filters, err := getGitlabFiltersFromEventSource(*runtimeEventSource.Gitlab)
 			if err != nil {
 				return nil, err
@@ -752,15 +806,15 @@ func (prd *PipelineRuntimeDeployer) buildBuiltinVars(pipelineRevision, codeRepoN
 	}
 
 	builtinVars := map[component.BuiltinVar]string{
-		component.VarEventSourceCodeRepoName: "",
-		component.VarEventSourceCodeRepoURL:  "",
-		component.VarServiceAccount:          account.Name,
-		component.VarNamespace:               prd.runtime.GetNamespaces()[0],
-		component.VarPipelineCodeRepoName:    codeRepo.Name,
-		component.VarPipelineCodeRepoURL:     codeRepo.Spec.URL,
-		component.VarPipelineFilePath:        pipeline.Path,
-		component.VarCodeRepoProviderType:    provider.Spec.ProviderType,
-		component.VarPipelineLabel:           pipeline.Label,
+		component.VarServiceAccount:       account.Name,
+		component.VarNamespace:            prd.runtime.GetNamespaces()[0],
+		component.VarPipelineCodeRepoName: codeRepo.Name,
+		component.VarPipelineCodeRepoURL:  codeRepo.Spec.URL,
+		component.VarPipelineFilePath:     pipeline.Path,
+		component.VarCodeRepoProviderType: provider.Spec.ProviderType,
+		component.VarCodeRepoProviderURL:  provider.Spec.ApiServer,
+		component.VarPipelineLabel:        pipeline.Label,
+		component.VarPipelineDashBoardURL: prd.components.Pipeline.GetPipelineDashBoardURL(),
 	}
 	if pipelineRevision != "" {
 		builtinVars[component.VarPipelineRevision] = pipelineRevision
@@ -811,4 +865,15 @@ func (prd *PipelineRuntimeDeployer) GetPermissionsFromRuntime() []component.Secr
 	}
 
 	return permission
+}
+
+func (prd *PipelineRuntimeDeployer) addEventSourceToBuiltinVars(vars map[component.BuiltinVar]string, repoName string) error {
+	codeRepo, err := prd.snapshot.GetCodeRepo(repoName)
+	if err != nil {
+		return fmt.Errorf("get code repo %s failed: %w", repoName, err)
+	}
+
+	vars[component.VarEventSourceCodeRepoName] = codeRepo.Name
+	vars[component.VarEventSourceCodeRepoURL] = codeRepo.Spec.URL
+	return nil
 }

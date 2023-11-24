@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
@@ -28,7 +29,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
-	nautesconst "github.com/nautes-labs/nautes/pkg/const"
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +53,7 @@ func init() {
 	ComponentFactoryMapPipeline["mock"] = &mockPipelineFactory{}
 
 	NewSnapshot = newMockDB
+	NewFunctionHandler = NewMockHandler
 }
 
 func TestV2(t *testing.T) {
@@ -346,12 +348,12 @@ func (mmt *mockMultiTenant) DeleteSpaceUser(ctx context.Context, request compone
 			continue
 		}
 		for j, accountName := range result.product.spaces[i].accounts {
-			if accountName != request.User {
-				continue
+			if accountName == request.User {
+				result.product.spaces[i].accounts = append(
+					result.product.spaces[i].accounts[:j],
+					result.product.spaces[i].accounts[j+1:]...)
+				break
 			}
-			result.product.spaces[i].accounts = append(
-				result.product.spaces[i].accounts[:j],
-				result.product.spaces[i].accounts[j+1:]...)
 		}
 	}
 
@@ -673,6 +675,8 @@ func (mpf *mockPipelineFactory) NewStatus(rawStatus []byte) (interface{}, error)
 // mp *mockPipeline component.Pipeline
 type mockPipeline struct{}
 
+var mockDataRequestResources []component.RequestResource
+
 func (mp *mockPipeline) CleanUp() error {
 	return nil
 }
@@ -681,14 +685,55 @@ func (mp *mockPipeline) GetComponentMachineAccount() *component.MachineAccount {
 	return nil
 }
 
-func (mp *mockPipeline) GetHooks(info component.HooksInitInfo) (*component.Hooks, []interface{}, error) {
-	return &component.Hooks{}, nil, nil
+func (mp *mockPipeline) GetHooks(info component.HooksInitInfo) (*component.Hooks, []component.RequestResource, error) {
+	return &component.Hooks{}, mockDataRequestResources, nil
 }
 
-func (mp *mockPipeline) CreateHookSpace(ctx context.Context, authInfo component.AuthInfo, space component.HookSpace) error {
+func (mp *mockPipeline) GetPipelineDashBoardURL() string {
+	return ""
+}
+
+type mockReqHandler struct{}
+
+var resultReqHandler map[string][]component.RequestResource
+
+func NewMockHandler(info *component.ComponentInitInfo) (ResourceRequestHandler, error) {
+	return &mockReqHandler{}, nil
+}
+
+func (mrh *mockReqHandler) CreateResource(ctx context.Context, space component.Space, authInfo component.AuthInfo, req component.RequestResource) error {
+	resources, ok := resultReqHandler[space.Name]
+	if !ok {
+		resultReqHandler[space.Name] = []component.RequestResource{req}
+		return nil
+	}
+	exist := false
+	for i := range resources {
+		if reflect.DeepEqual(resources[i], req) {
+			exist = true
+			break
+		}
+	}
+	if !exist {
+		resultReqHandler[space.Name] = append(resultReqHandler[space.Name], req)
+	}
 	return nil
 }
 
-func (mp *mockPipeline) CleanUpHookSpace(ctx context.Context) error {
+func (mrh *mockReqHandler) DeleteResource(ctx context.Context, space component.Space, req component.RequestResource) error {
+	resources, ok := resultReqHandler[space.Name]
+	if !ok {
+		return nil
+	}
+
+	for i := range resources {
+		ok := reflect.DeepEqual(resources[i], req)
+		if !ok {
+			continue
+		}
+
+		resultReqHandler[space.Name] = append(resources[:i], resources[i+1:]...)
+		break
+	}
 	return nil
 }

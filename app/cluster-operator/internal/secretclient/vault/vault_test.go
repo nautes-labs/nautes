@@ -25,6 +25,8 @@ import (
 	vault "github.com/hashicorp/vault/api"
 	clustercrd "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	vaultclient "github.com/nautes-labs/nautes/app/cluster-operator/internal/secretclient/vault"
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
+	loadcert "github.com/nautes-labs/nautes/pkg/util/loadcerts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -314,8 +316,14 @@ var _ = Describe("VaultStore", func() {
 
 	Describe("new object method", func() {
 		const nautesKeypairPath = "/tmp/keypair"
+		const nautesHomePath = "/tmp/cluster-test/"
 		BeforeEach(func() {
-			err := os.WriteFile("/tmp/ca.crt", []byte(CAPublic), 0600)
+			var err error
+			err = os.Setenv(nautesconst.EnvNautesHome, nautesHomePath)
+			err = os.Mkdir(nautesHomePath, 0755)
+			certPath := filepath.Join(nautesHomePath, loadcert.DefaultCertsPath)
+			err = os.Mkdir(certPath, 0755)
+			err = os.WriteFile(filepath.Join(certPath, "./ca.crt"), []byte(CAPublic), 0600)
 			Expect(err).Should(BeNil())
 			err = os.Mkdir(nautesKeypairPath, 0755)
 			Expect(err).Should(BeNil())
@@ -326,10 +334,14 @@ var _ = Describe("VaultStore", func() {
 			err = os.WriteFile(filepath.Join(nautesKeypairPath, "client.crt"), []byte(KeyPublic), 0600)
 			Expect(err).Should(BeNil())
 		})
+
 		AfterEach(func() {
-			err := os.RemoveAll(nautesKeypairPath)
+			err := os.RemoveAll(nautesHomePath)
+			Expect(err).Should(BeNil())
+			err = os.RemoveAll(nautesKeypairPath)
 			Expect(err).Should(BeNil())
 		})
+
 		It("new vault client", func() {
 			secretClient, err := vaultclient.NewVaultClient(context.Background(), nautesConfig, k8sClient)
 			Expect(err).Should(BeNil())

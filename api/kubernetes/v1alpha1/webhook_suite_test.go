@@ -42,7 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	nautesconst "github.com/nautes-labs/nautes/pkg/const"
+	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
 )
 
 var cfg *rest.Config
