@@ -215,11 +215,14 @@ func convertPipelineHooks(hooks interface{}) interface{} {
 	case []*projectpipelineruntimev1.Hook:
 		var hooks []resourcev1alpha1.Hook
 		for _, hook := range val {
-			hooks = append(hooks, resourcev1alpha1.Hook{
-				Name:  hook.Name,
-				Vars:  hook.Vars,
-				Alias: &hook.Alias,
-			})
+			h := resourcev1alpha1.Hook{
+				Name: hook.Name,
+				Vars: hook.Vars,
+			}
+			if hook.Alias != "" {
+				h.Alias = &hook.Alias
+			}
+			hooks = append(hooks, h)
 		}
 
 		return hooks
@@ -228,11 +231,14 @@ func convertPipelineHooks(hooks interface{}) interface{} {
 	case []resourcev1alpha1.Hook:
 		var hooks []*projectpipelineruntimev1.Hook
 		for _, hook := range val {
-			hooks = append(hooks, &projectpipelineruntimev1.Hook{
-				Name:  hook.Name,
-				Vars:  hook.Vars,
-				Alias: *hook.Alias,
-			})
+			h := projectpipelineruntimev1.Hook{
+				Name: hook.Name,
+				Vars: hook.Vars,
+			}
+			if hook.Alias != nil {
+				h.Alias = *hook.Alias
+			}
+			hooks = append(hooks, &h)
 		}
 		return hooks
 	}
