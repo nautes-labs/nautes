@@ -102,8 +102,11 @@ func NewHTTPServer(c *conf.Server, serviceProductGroup *ServiceProductGroup) *ht
 	return srv
 }
 
-const BearerToken = "token"
+type AuthType string
+
 const Authorization = "Authorization"
+const BearerToken AuthType = "token"
+const Oauth2 AuthType = "oauth2"
 
 func TokenWithContext() middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
@@ -112,8 +115,14 @@ func TokenWithContext() middleware.Middleware {
 				header := tr.RequestHeader()
 				bearerToken := header.Get(Authorization)
 				token := strings.TrimSpace(strings.Replace(bearerToken, "Bearer", "", 1))
+
+				// Threr are two ways obtain token:
+				// 1、Use Nautes clinet call to get the token in the request header.
+				// 2、Parse the Context and obtain token in HTTP request.
 				if token != "" {
 					ctx = context.WithValue(ctx, BearerToken, token)
+					authType := header.Get("AuthType")
+					ctx = context.WithValue(ctx, Oauth2, authType)
 				} else {
 					if md, ok := metadata.FromServerContext(ctx); ok {
 						token := md.Get(Authorization)
