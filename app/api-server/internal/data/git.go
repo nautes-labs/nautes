@@ -17,6 +17,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -25,26 +26,17 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/nautes-labs/nautes/app/api-server/internal/biz"
+	"github.com/nautes-labs/nautes/app/api-server/internal/server"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 )
 
 const (
-	_DefaultProject = "/tmp/product"
+	ProductDir = "/tmp/product"
 )
 
 type gitRepo struct {
 	config *nautesconfigs.Config
-}
-
-func extractRepoName(repoURL string) (string, error) {
-	re := regexp.MustCompile(`^.+/(.+)\.git$`)
-	matches := re.FindStringSubmatch(repoURL)
-	if len(matches) != 2 {
-		return "", fmt.Errorf("failed to extract repo name from URL %q", repoURL)
-	}
-
-	return strings.TrimSpace(matches[1]), nil
 }
 
 func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (string, error) {
@@ -52,41 +44,47 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 		return "", fmt.Errorf("please check that the parameters, url, user and email are not allowed to be empty")
 	}
 
-	localRepositarySubPath := fmt.Sprintf("%s%v", _DefaultProject, time.Now().Unix())
+	var user = param.User
+	var email = param.Email
+	var repoURL = param.URL
+
+	// create local directory used to clone repository.
+	localRepositarySubPath := fmt.Sprintf("%s%v", ProductDir, time.Now().Unix())
 	err := os.MkdirAll(localRepositarySubPath, os.FileMode(0777))
 	if err != nil {
 		return "", err
 	}
 
-	// clone product config repository according to token
-	token, ok := ctx.Value("token").(string)
-	if !ok {
-		return "", fmt.Errorf("token must be string type")
-	}
-	url := strings.Replace(param.URL, "https://", "", 1)
-	gitCloneURL := fmt.Sprintf("https://%s:%s@%s", param.User, token, url)
-	cmd := exec.Command("git", "clone", "--verbose", gitCloneURL)
-	cmd.Dir = localRepositarySubPath
-	data, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(data), fmt.Errorf("failed to clone the repository: %s, err: %w", url, err)
+	// clone product config repository according to token.
+	if output, err := cloneRepository(ctx, repoURL, user, localRepositarySubPath); err != nil {
+		return "", fmt.Errorf("failed to clone repository: %s", output)
 	}
 
-	repoName, err := extractRepoName(param.URL)
+	// extractRepoName is used to extract repository name.
+	extractRepoName := func(repoURL string) (string, error) {
+		re := regexp.MustCompile(`^.+/(.+)\.git$`)
+		matches := re.FindStringSubmatch(repoURL)
+		if len(matches) != 2 {
+			return "", fmt.Errorf("failed to extract repo name from URL %q", repoURL)
+		}
+
+		return strings.TrimSpace(matches[1]), nil
+	}
+
+	repoName, err := extractRepoName(repoURL)
 	if err != nil {
 		return "", err
 	}
-	// set git config user name
+
+	// set git config user and email, used to push code to repository.
 	localRepositoryPath := fmt.Sprintf("%s/%s", localRepositarySubPath, repoName)
-	setUserCMD := exec.Command("git", "config", "user.name", param.User)
+	setUserCMD := exec.Command("git", "config", "user.name", user)
 	setUserCMD.Dir = localRepositoryPath
 	err = setUserCMD.Run()
 	if err != nil {
 		return "", fmt.Errorf("failed to set git user user in %s, err: %w", localRepositoryPath, err)
 	}
-
-	// set git config user email
-	setEmailCMD := exec.Command("git", "config", "user.email", param.Email)
+	setEmailCMD := exec.Command("git", "config", "user.email", email)
 	setEmailCMD.Dir = localRepositoryPath
 	err = setEmailCMD.Run()
 	if err != nil {
@@ -94,6 +92,54 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 	}
 
 	return localRepositoryPath, nil
+}
+
+// cloneRepository clones the given repository into a local directory.
+func cloneRepository(ctx context.Context, repoURL, user, localRepositorySubPath string) (string, error) {
+	token, _ := ctx.Value(server.BearerToken).(string)
+	authType, _ := ctx.Value(server.Oauth2).(string)
+
+	if token == "" {
+		return "", fmt.Errorf("failed to get authorization, the token is not found")
+	}
+
+	if authType != "" {
+		cloneURL := formatGitURL(repoURL, string(server.Oauth2), token)
+		output, err := executeGitClone(cloneURL, localRepositorySubPath)
+		if err != nil {
+			return output, err
+		}
+
+		return output, nil
+	}
+
+	cloneURL := formatGitURL(repoURL, user, token)
+	output, err := executeGitClone(cloneURL, localRepositorySubPath)
+	if err != nil {
+		return output, err
+	}
+
+	return output, nil
+}
+
+// formatGitURL formats the git URL with the provided credentials.
+func formatGitURL(repoURL, username, token string) string {
+	parsedURL, _ := url.Parse(repoURL)
+	parsedURL.User = url.UserPassword(username, token)
+	return parsedURL.String()
+}
+
+// executeGitClone executes the git clone command.
+func executeGitClone(gitCloneURL, localRepositorySubPath string) (string, error) {
+	cmd := exec.Command("git", "clone", "--verbose", gitCloneURL)
+	cmd.Dir = localRepositorySubPath
+
+	data, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(data), fmt.Errorf("git clone error: %s", err)
+	}
+
+	return string(data), nil
 }
 
 func (g *gitRepo) Diff(_ context.Context, path string, command ...string) (string, error) {
