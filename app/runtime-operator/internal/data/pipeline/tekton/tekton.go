@@ -17,6 +17,7 @@ package tekton
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	nautesv1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 
@@ -77,6 +78,7 @@ type MountType string
 const (
 	MountTypeSecret MountType = "secret"
 	MountTypePVC    MountType = "pvc"
+	MountTypeEmpty  MountType = "empty"
 )
 
 var (
@@ -84,6 +86,7 @@ var (
 		component.ResourceTypeCodeRepoSSHKey:      MountTypeSecret,
 		component.ResourceTypeCodeRepoAccessToken: MountTypeSecret,
 		component.ResourceTypeCAFile:              MountTypeSecret,
+		component.ResourceTypeEmptyDir:            MountTypeEmpty,
 	}
 )
 
@@ -182,8 +185,12 @@ func (t *tekton) createUserHook(
 			return nil, nil, fmt.Errorf("convert hook to task failed: %w", err)
 		}
 
-		addTaskIntoPipelineRun(&pipelineRun, *task, true)
+		reqVars, err := addTaskIntoPipelineRun(&pipelineRun, *task, true)
+		if err != nil {
+			return nil, nil, fmt.Errorf("append task into init pipeline failed: %w", err)
+		}
 
+		requestVars = append(requestVars, reqVars...)
 		reqResources = append(reqResources, task.requestResources...)
 	}
 
@@ -199,8 +206,12 @@ func (t *tekton) createUserHook(
 			return nil, nil, fmt.Errorf("convert hook to task failed: %w", err)
 		}
 
-		addTaskIntoPipelineRun(&pipelineRun, *task, false)
+		reqVars, err := addTaskIntoPipelineRun(&pipelineRun, *task, false)
+		if err != nil {
+			return nil, nil, fmt.Errorf("append task into init pipeline failed: %w", err)
+		}
 
+		requestVars = append(requestVars, reqVars...)
 		reqResources = append(reqResources, task.requestResources...)
 	}
 
@@ -212,26 +223,16 @@ func (t *tekton) createUserHook(
 		nil
 }
 
-func addTaskIntoPipelineRun(pr *v1alpha1.PipelineRun, task Task, isPreTask bool) {
+func addTaskIntoPipelineRun(pr *v1alpha1.PipelineRun, task Task, isPreTask bool) ([]component.InputOverWrite, error) { //nolint
 	for i := range task.requestResources {
 		appendResourceRequest(pr, task.requestResources[i])
 	}
 
-	for i, reqVar := range task.requestVars {
-		if reqVar.Source.Type == component.SourceTypeEventSource {
-			paramName := fmt.Sprintf("%s-%d", task.resource.Name, i)
-			pr.Spec.PipelineSpec.Params = append(pr.Spec.PipelineSpec.Params, v1beta1.ParamSpec{
-				Name: paramName,
-			})
-			pr.Spec.Params = append(pr.Spec.Params, v1beta1.Param{
-				Name:  paramName,
-				Value: *v1beta1.NewArrayOrString(""),
-			})
-		}
-	}
-
+	var requestVars []component.InputOverWrite
+	var taskIndex int
 	if isPreTask {
 		pipelineCloneIndex := getTaskIndexPipelineFileClone(pr.Spec.PipelineSpec.Tasks)
+		taskIndex = pipelineCloneIndex - 1
 		pr.Spec.PipelineSpec.Tasks[pipelineCloneIndex].RunAfter = []string{task.resource.Name}
 
 		pr.Spec.PipelineSpec.Tasks = append(pr.Spec.PipelineSpec.Tasks[:pipelineCloneIndex],
@@ -242,7 +243,18 @@ func addTaskIntoPipelineRun(pr *v1alpha1.PipelineRun, task Task, isPreTask bool)
 		lastTaskName := getLastTaskName(pr.Spec.PipelineSpec.Tasks)
 		task.resource.RunAfter = []string{lastTaskName}
 		pr.Spec.PipelineSpec.Tasks = append(pr.Spec.PipelineSpec.Tasks, task.resource)
+		taskIndex = len(pr.Spec.PipelineSpec.Tasks) - 1
 	}
+
+	for i, reqVar := range task.requestVars {
+		requestVar, err := appendVar(pr, i, taskIndex, reqVar)
+		if err != nil {
+			return nil, err
+		}
+		requestVars = append(requestVars, *requestVar)
+	}
+
+	return requestVars, nil
 }
 
 func getTaskIndexPipelineFileClone(tasks []v1alpha1.PipelineTask) int {
@@ -302,6 +314,42 @@ func (t *tekton) convertHookToTask(nautesHook nautesv1alpha1.Hook, info componen
 	return task, nil
 }
 
+func appendVar(pr *v1alpha1.PipelineRun, paramIndex, taskIndex int, newVar component.PluginInputOverWrite) (*component.InputOverWrite, error) {
+	var requestVar *component.InputOverWrite
+	switch newVar.Source.Type {
+	case component.SourceTypeEventSource:
+		paramName := fmt.Sprintf("%s-%d", pr.Spec.PipelineSpec.Tasks[taskIndex].Name, paramIndex)
+		hookName := pr.Spec.PipelineSpec.Tasks[taskIndex].Name
+
+		pr.Spec.PipelineSpec.Params = append(pr.Spec.PipelineSpec.Params, v1beta1.ParamSpec{
+			Name: paramName,
+		})
+
+		taskParamIndex, err := strconv.Atoi(newVar.Destination)
+		if err != nil {
+			return nil, fmt.Errorf("request var destination in hook %s format error", hookName)
+		}
+		if len(pr.Spec.PipelineSpec.Tasks[taskIndex].Params) <= taskParamIndex {
+			return nil, fmt.Errorf("request var destination in hook %s not fount", hookName)
+		}
+		pr.Spec.PipelineSpec.Tasks[taskIndex].Params[taskParamIndex].Value = *v1beta1.NewArrayOrString(fmt.Sprintf("$(params.%s)", paramName))
+
+		requestVar = &component.InputOverWrite{
+			StaticeVar: newVar.Source.FromEventSource,
+			Dest:       fmt.Sprintf("spec.params.%d.value", len(pr.Spec.Params)),
+		}
+
+		pr.Spec.Params = append(pr.Spec.Params, v1beta1.Param{
+			Name:  paramName,
+			Value: *v1beta1.NewArrayOrString(""),
+		})
+	default:
+		return nil, fmt.Errorf("unknown source type %s", newVar.Source.Type)
+	}
+
+	return requestVar, nil
+}
+
 func appendResourceRequest(pr *v1alpha1.PipelineRun, req component.RequestResource) {
 	switch ResourceTypeMapMountType[req.Type] {
 	case MountTypeSecret:
@@ -318,6 +366,11 @@ func appendResourceRequest(pr *v1alpha1.PipelineRun, req component.RequestResour
 				ClaimName: req.ResourceName,
 				ReadOnly:  false,
 			},
+		})
+	case MountTypeEmpty:
+		pr.Spec.Workspaces = append(pr.Spec.Workspaces, v1beta1.WorkspaceBinding{
+			Name:     req.ResourceName,
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		})
 	}
 
