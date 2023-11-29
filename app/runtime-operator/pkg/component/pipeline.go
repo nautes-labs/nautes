@@ -93,6 +93,7 @@ const (
 	ResourceTypeCodeRepoSSHKey      ResourceType = "sshKey"
 	ResourceTypeCodeRepoAccessToken ResourceType = "accessToken"
 	ResourceTypeCAFile              ResourceType = "caFile"
+	ResourceTypeEmptyDir            ResourceType = "empty"
 )
 
 type RequestResource struct {

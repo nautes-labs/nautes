@@ -68,6 +68,8 @@ func (t *deployer) CreateResource(ctx context.Context, space component.Space, au
 		return t.CreateAccessToken(ctx, space, authInfo, req)
 	case component.ResourceTypeCAFile:
 		return t.CreateCAFile(ctx, space, authInfo, req)
+	case component.ResourceTypeEmptyDir:
+		return nil
 	default:
 		return fmt.Errorf("unknown request type %s", req.Type)
 	}
@@ -81,6 +83,8 @@ func (t *deployer) DeleteResource(ctx context.Context, space component.Space, re
 		return t.DeleteAccessToken(ctx, space, req)
 	case component.ResourceTypeCAFile:
 		return t.DeleteCAFile(ctx, space, req)
+	case component.ResourceTypeEmptyDir:
+		return nil
 	default:
 		return fmt.Errorf("unknown request type %s", req.Type)
 	}
@@ -188,10 +192,12 @@ func (t *deployer) CreateCAFile(ctx context.Context, space component.Space, auth
 }
 
 func (t *deployer) DeleteCAFile(ctx context.Context, space component.Space, req component.RequestResource) error {
-	return t.k8sClient.Delete(ctx, &corev1.Secret{
+	err := t.k8sClient.Delete(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.ResourceName,
 			Namespace: space.Kubernetes.Namespace,
 		},
 	})
+
+	return client.IgnoreNotFound(err)
 }
