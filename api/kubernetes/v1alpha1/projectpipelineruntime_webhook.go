@@ -159,7 +159,6 @@ func (r *ProjectPipelineRuntime) Validate(ctx context.Context, validateClient Va
 
 	illegalEventSources := []IllegalEventSource{}
 	for _, eventSource := range r.Spec.EventSources {
-
 		if eventSource.Gitlab != nil &&
 			eventSource.Gitlab.RepoName != "" {
 			err := hasCodeRepoPermission(ctx, validateClient, productName, projectName, eventSource.Gitlab.RepoName)
@@ -238,17 +237,17 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 }
 
 // Compare will check whether the pipeline already exists in the runtime.
-func (p *ProjectPipelineRuntime) Compare(obj client.Object) (bool, error) {
+func (r *ProjectPipelineRuntime) Compare(obj client.Object) (bool, error) {
 	val, ok := obj.(*ProjectPipelineRuntime)
 	if !ok {
 		return false, fmt.Errorf("the resource %s type is inconsistent", obj.GetName())
 	}
 
-	for i := 0; i < len(p.Spec.Pipelines); i++ {
+	for i := 0; i < len(r.Spec.Pipelines); i++ {
 		for j := 0; j < len(val.Spec.Pipelines); j++ {
-			if p.Spec.PipelineSource == val.Spec.PipelineSource &&
-				p.Spec.Destination == val.Spec.Destination &&
-				p.Spec.Pipelines[i].Path == val.Spec.Pipelines[j].Path {
+			if r.Spec.PipelineSource == val.Spec.PipelineSource &&
+				r.Spec.Destination == val.Spec.Destination &&
+				r.Spec.Pipelines[i].Path == val.Spec.Pipelines[j].Path {
 				return true, nil
 			}
 		}
@@ -347,44 +346,77 @@ func validateHooks(hooks *Hooks, eventSourceType []string, cluster Cluster, rule
 	clusterEventListenerName := cluster.Spec.ComponentsList.EventListener.Name
 
 	ruleMap := convertMetadataArrayToMap(rules)
+	hookTypes := sets.New[string]()
+	hookNames := sets.New[string]()
 	for _, hook := range hooks.PreHooks {
 		rule, ok := ruleMap[hook.Name]
 		if !ok {
 			return fmt.Errorf("unknown hook %s", hook.Name)
 		}
+
 		if !rule.IsPreHook {
-			return fmt.Errorf("hook %s can not be a post hook", hook.Name)
+			return fmt.Errorf("hook %s can not be a pre hook", hook.Name)
 		}
-		if !isHookSupportEventListener(rule.SupportEventListeners, clusterEventListenerName) {
-			return fmt.Errorf("hook %s doesn't support event listener %s",
-				hook.Name,
-				clusterEventListenerName,
-			)
+
+		if err := validateHookGeneral(hook, rule, eventSourceType, clusterEventListenerName, hookTypes, hookNames); err != nil {
+			return err
 		}
-		if err := isHookSupportEventSourceTypes(rule.SupportEventSourceTypes, eventSourceType); err != nil {
-			return fmt.Errorf("hook %s verify failed: %w", hook.Name, err)
-		}
+		hookTypes.Insert(hook.Name)
+		hookNames.Insert(getHookName(hook))
+
 	}
 
+	hookTypes = sets.New[string]()
 	for _, hook := range hooks.PostHooks {
 		rule, ok := ruleMap[hook.Name]
 		if !ok {
 			return fmt.Errorf("unknown hook %s", hook.Name)
 		}
+
 		if !rule.IsPostHook {
 			return fmt.Errorf("hook %s can not be a post hook", hook.Name)
 		}
-		if !isHookSupportEventListener(rule.SupportEventListeners, clusterEventListenerName) {
-			return fmt.Errorf("hook %s doesn't support event listener %s",
-				hook.Name,
-				clusterEventListenerName,
-			)
+
+		if err := validateHookGeneral(hook, rule, eventSourceType, clusterEventListenerName, hookTypes, hookNames); err != nil {
+			return err
 		}
-		if err := isHookSupportEventSourceTypes(rule.SupportEventSourceTypes, eventSourceType); err != nil {
-			return fmt.Errorf("hook %s verify failed: %w", hook.Name, err)
-		}
+		hookTypes.Insert(hook.Name)
+		hookNames.Insert(getHookName(hook))
 	}
 	return nil
+}
+
+func validateHookGeneral(hook Hook, rule resource.HookMetadata, eventSourceTypes []string, eventListenerName string, existHookName, existAlias sets.Set[string]) error {
+	if existHookName.Has(hook.Name) {
+		return fmt.Errorf("a duplicate hook %s was found", hook.Name)
+	}
+
+	hookName := getHookName(hook)
+	if existAlias.Has(hookName) {
+		return fmt.Errorf("hook alias %s is used by other hook", hookName)
+	}
+
+	if !isHookSupportEventListener(rule.SupportEventListeners, eventListenerName) {
+		return fmt.Errorf("hook %s doesn't support event listener %s",
+			hook.Name,
+			eventListenerName,
+		)
+	}
+
+	if err := isHookSupportEventSourceTypes(rule.SupportEventSourceTypes, eventSourceTypes); err != nil {
+		return fmt.Errorf("hook %s verify failed: %w", hook.Name, err)
+	}
+
+	return nil
+}
+
+func getHookName(hook Hook) string {
+	hookName := hook.Name
+	if hook.Alias != nil {
+		hookName = *hook.Alias
+	}
+
+	return hookName
 }
 
 func isHookSupportEventListener(supportEventListeners []string, clusterEventListener string) bool {
