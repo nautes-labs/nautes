@@ -399,7 +399,7 @@ func buildBaseHooks(builtinVars map[component.BuiltinVar]string) *v1alpha1.Pipel
 					{
 						Name: taskNameGitClone,
 						TaskRef: &v1alpha1.TaskRef{
-							Name: "git-clone",
+							Name: taskNameGitClone,
 							Kind: v1alpha1.ClusterTaskKind,
 						},
 						Params: []v1alpha1.Param{
@@ -429,7 +429,7 @@ func buildBaseHooks(builtinVars map[component.BuiltinVar]string) *v1alpha1.Pipel
 							Name: "kubernetes-actions",
 							Kind: v1alpha1.ClusterTaskKind,
 						},
-						RunAfter: []string{"git-clone"},
+						RunAfter: []string{taskNameGitClone},
 						Params: []v1alpha1.Param{
 							{
 								Name:  "image",
