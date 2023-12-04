@@ -23,7 +23,17 @@ import (
 	productv1 "github.com/nautes-labs/nautes/api/api-server/product/v1"
 	"github.com/nautes-labs/nautes/app/api-server/internal/biz"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/selector"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+)
+
+var (
+	// Data rules for filtering list cluster api.
+	ProductFilterRules = map[string]map[string]selector.FieldSelector{
+		"product_name": {
+			selector.EqualOperator: selector.NewStringSelector("Name", selector.In),
+		},
+	}
 )
 
 type ProductService struct {
@@ -39,7 +49,7 @@ func NewProductService(product *biz.ProductUsecase, configs *nautesconfigs.Confi
 	}
 }
 
-func (s *ProductService) CovertCodeRepoValueToReply(group *biz.Group) *productv1.GetProductReply {
+func (s *ProductService) covertCodeRepoValueToReply(group *biz.Group) *productv1.GetProductReply {
 	var git *productv1.GitGroup
 	if s.configs.Git.GitType == nautesconfigs.GIT_TYPE_GITLAB {
 		git = &productv1.GitGroup{
@@ -70,10 +80,10 @@ func (s *ProductService) GetProduct(ctx context.Context, req *productv1.GetProdu
 		return nil, err
 	}
 
-	return s.CovertCodeRepoValueToReply(product.Group), nil
+	return s.covertCodeRepoValueToReply(product.Group), nil
 }
 
-func (s *ProductService) ListProducts(ctx context.Context, _ *productv1.ListProductsRequest) (*productv1.ListProductsReply, error) {
+func (s *ProductService) ListProducts(ctx context.Context, req *productv1.ListProductsRequest) (*productv1.ListProductsReply, error) {
 	products, err := s.product.ListProducts(ctx)
 	if err != nil {
 		return nil, err
@@ -81,7 +91,17 @@ func (s *ProductService) ListProducts(ctx context.Context, _ *productv1.ListProd
 
 	var items []*productv1.GetProductReply
 	for _, product := range products {
-		items = append(items, s.CovertCodeRepoValueToReply(product.Group))
+		passed, err := selector.Match(req.FieldSelector, product.Group, ProductFilterRules)
+		if err != nil {
+			return nil, err
+		}
+		if !passed {
+			continue
+		}
+
+		item := s.covertCodeRepoValueToReply(product.Group)
+
+		items = append(items, item)
 	}
 
 	return &productv1.ListProductsReply{

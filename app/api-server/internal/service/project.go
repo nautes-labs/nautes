@@ -22,6 +22,16 @@ import (
 	resourcev1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/api-server/internal/biz"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/selector"
+)
+
+var (
+	// Data rules for filtering list cluster api.
+	ProjectFilterRules = map[string]map[string]selector.FieldSelector{
+		"project_name": {
+			selector.EqualOperator: selector.NewStringSelector("Name", selector.In),
+		},
+	}
 )
 
 type ProjectService struct {
@@ -60,7 +70,17 @@ func (s *ProjectService) ListProjects(ctx context.Context, req *projectv1.ListsR
 
 	var items []*projectv1.GetReply
 	for _, project := range projects {
-		items = append(items, s.CovertCodeRepoValueToReply(project))
+		passed, err := selector.Match(req.FieldSelector, project, ProjectFilterRules)
+		if err != nil {
+			return nil, err
+		}
+		if !passed {
+			continue
+		}
+
+		item := s.CovertCodeRepoValueToReply(project)
+
+		items = append(items, item)
 	}
 
 	return &projectv1.ListsReply{Items: items}, nil

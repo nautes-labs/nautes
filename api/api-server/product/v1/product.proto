@@ -125,7 +125,13 @@ message GetProductReply {
   GitGroup git = 2 [json_name = "git"];
 }
 
-message ListProductsRequest {};
+message ListProductsRequest {
+  // Filter the list by field. 
+  // eg: field_selector=product_name=test
+  // Field Support:
+  // product_name: exact match
+  string field_selector = 1 [json_name = "field_selector"];
+};
 
 message ListProductsReply {
   // The list of products

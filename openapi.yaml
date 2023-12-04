@@ -100,6 +100,12 @@ paths:
             tags:
                 - Product
             operationId: Product_ListProducts
+            parameters:
+                - name: field_selector
+                  in: query
+                  description: "Filter the list by field. \n eg: field_selector=product_name=test\n Field Support:\n product_name: exact match"
+                  schema:
+                    type: string
             responses:
                 "200":
                     description: OK

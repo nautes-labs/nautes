@@ -27,14 +27,14 @@ import (
 
 var (
 	codeRepoBindingFilterFieldRules = map[string]map[string]selector.FieldSelector{
-		FieldCodeRepo: {
-			selector.EqualOperator: selector.NewStringSelector(_CodeRepo, selector.In),
+		"coderepo": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.CodeRepo", selector.In),
 		},
-		FieldProduct: {
-			selector.EqualOperator: selector.NewStringSelector(_Product, selector.In),
+		"product": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.Product", selector.In),
 		},
-		FiledProjectsInProject: {
-			selector.EqualOperator: selector.NewStringSelector(_ProjectsInProject, selector.In),
+		"projects.in": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.Projects.In", selector.In),
 		},
 	}
 )
