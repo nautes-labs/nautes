@@ -35,15 +35,19 @@ import (
 )
 
 var (
-	clustrFilterFieldRules = map[string]map[string]selector.FieldSelector{
-		FieldClusterType: {
-			selector.EqualOperator: selector.NewStringSelector(_ClusterType, selector.Eq),
+	// Data rules for filtering list cluster api.
+	clusterFilterRules = map[string]map[string]selector.FieldSelector{
+		"cluster_name": {
+			selector.EqualOperator: selector.NewStringSelector("Name", selector.In),
 		},
-		FieldUsage: {
-			selector.EqualOperator: selector.NewStringSelector(_Usage, selector.Eq),
+		"cluster_type": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.ClusterType", selector.Eq),
 		},
-		FieldWorkType: {
-			selector.EqualOperator: selector.NewStringSelector(_WorkType, selector.Eq),
+		"usage": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.Usage", selector.Eq),
+		},
+		"worker_type": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.WorkerType", selector.Eq),
 		},
 	}
 )
@@ -92,7 +96,7 @@ func (s *ClusterService) ListClusters(ctx context.Context, req *clusterv1.ListsR
 
 	listReply := &clusterv1.ListsReply{}
 	for _, cluster := range clusters {
-		passed, err := selector.Match(req.FieldSelector, cluster, clustrFilterFieldRules)
+		passed, err := selector.Match(req.FieldSelector, cluster, clusterFilterRules)
 		if err != nil {
 			return nil, err
 		}

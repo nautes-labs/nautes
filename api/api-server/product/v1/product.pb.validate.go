@@ -1055,6 +1055,8 @@ func (m *ListProductsRequest) validate(all bool) error {
 
 	var errors []error
 
+	// no validation rules for FieldSelector
+
 	if len(errors) > 0 {
 		return ListProductsRequestMultiError(errors)
 	}

@@ -48,7 +48,6 @@ service Project {
 message GetRequest {
   // The name of the product the project belongs to.
   string product_name = 1 [json_name = "product_name"];
-
   // The name of the project being retrieved.
   string project_name = 2 [json_name = "project_name"];
 }
@@ -58,10 +57,8 @@ message GetRequest {
 message GetReply {
   // The name of the product the project belongs to.
   string product = 1 [json_name = "product"];
-
   // The name of the project.
   string name = 2 [json_name = "name"];
-
   // The language used in the project.
   string language = 3 [json_name = "language"];
 }

@@ -26,18 +26,21 @@ import (
 )
 
 var (
-	projectPipelineRuntimeFilterFieldRules = map[string]map[string]selector.FieldSelector{
-		FieldPipelineTriggersPipeline: {
-			selector.EqualOperator: selector.NewStringSelector(_PipelineTriggerPipeline, selector.In),
+	ProjectPipelineRuntimeFilterRules = map[string]map[string]selector.FieldSelector{
+		"project_name": {
+			selector.EqualOperator: selector.NewStringSelector("Name", selector.In),
 		},
-		FieldDestination: {
-			selector.EqualOperator: selector.NewStringSelector(_Destination, selector.In),
+		"pipeline_triggers.pipeline": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.PipelineTriggers.Pipeline", selector.In),
 		},
-		FieldPipelineSource: {
-			selector.EqualOperator: selector.NewStringSelector(_PipelineSource, selector.In),
+		"destination": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.Destination", selector.In),
 		},
-		FieldProject: {
-			selector.EqualOperator: selector.NewStringSelector(_Project, selector.In),
+		"pipeline_source": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.PipelineSource", selector.In),
+		},
+		"project": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.Project", selector.In),
 		},
 	}
 )
@@ -95,7 +98,7 @@ func (s *ProjectPipelineRuntimeService) ListProjectPipelineRuntimes(ctx context.
 
 		node.Content = runtime
 
-		passed, err := selector.Match(req.FieldSelector, node.Content, projectPipelineRuntimeFilterFieldRules)
+		passed, err := selector.Match(req.FieldSelector, node.Content, ProjectPipelineRuntimeFilterRules)
 		if err != nil {
 			return nil, err
 		}

@@ -26,15 +26,15 @@ import (
 )
 
 var (
-	deploymentRuntimeFilterFieldRules = map[string]map[string]selector.FieldSelector{
-		FieldProjectsRef: {
-			selector.EqualOperator: selector.NewStringSelector(_ProjectsRef, selector.In),
+	DeploymentRuntimeFilterRules = map[string]map[string]selector.FieldSelector{
+		"projects_ref.in": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.ProjectsRef.In", selector.In),
 		},
-		FeldManifestSourceCodeRepo: {
-			selector.EqualOperator: selector.NewStringSelector(_ManifestSource, selector.In),
+		"manifest_source.code_repo": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.ManifestSource.CodeRepo", selector.In),
 		},
-		FieldDestination: {
-			selector.EqualOperator: selector.NewStringSelector(_Destination, selector.In),
+		"destination": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.Destination", selector.In),
 		},
 	}
 )
@@ -100,7 +100,7 @@ func (s *DeploymentruntimeService) ListDeploymentRuntimes(ctx context.Context, r
 		}
 		node.Content = runtime
 
-		passed, err := selector.Match(req.FieldSelector, node.Content, deploymentRuntimeFilterFieldRules)
+		passed, err := selector.Match(req.FieldSelector, node.Content, DeploymentRuntimeFilterRules)
 		if err != nil {
 			return nil, err
 		}
