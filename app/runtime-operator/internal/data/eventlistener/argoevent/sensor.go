@@ -33,8 +33,9 @@ import (
 )
 
 type SensorGenerator struct {
-	Namespace string
-	k8sClient client.Client
+	namespace                  string
+	k8sClient                  client.Client
+	requestVarPathSearchEngine component.EventSourceSearchEngine
 }
 
 type ConsumerCache struct {
@@ -80,7 +81,7 @@ func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer component.
 
 		dependencies := []sensorv1alpha1.EventDependency{buildDependencies(consumer.Consumers[i])}
 
-		trigger, err := buildTrigger(consumer.Consumers[i])
+		trigger, err := sg.buildTrigger(consumer.Consumers[i])
 		if err != nil {
 			return fmt.Errorf("build trigger failed: %w", err)
 		}
@@ -123,7 +124,7 @@ func (sg *SensorGenerator) DeleteSensor(ctx context.Context, productName, name s
 func (sg *SensorGenerator) deleteSensor(ctx context.Context, productName, name string) error {
 	logger.V(1).Info("delete sensor set", "name", name)
 	deleteOpts := []client.DeleteAllOfOption{
-		client.InNamespace(sg.Namespace),
+		client.InNamespace(sg.namespace),
 		client.MatchingLabels{LabelConsumer: buildConsumerLabel(productName, name)},
 	}
 	if err := sg.k8sClient.DeleteAllOf(ctx, &sensorv1alpha1.Sensor{}, deleteOpts...); client.IgnoreNotFound(err) != nil {
@@ -137,7 +138,7 @@ func (sg *SensorGenerator) getConsumerCache(ctx context.Context, consumerLabel s
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConfigMapNameConsumerCache,
-			Namespace: sg.Namespace,
+			Namespace: sg.namespace,
 		},
 	}
 
@@ -172,7 +173,7 @@ func (sg *SensorGenerator) updateConsumerCache(ctx context.Context, consumer com
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConfigMapNameConsumerCache,
-			Namespace: sg.Namespace,
+			Namespace: sg.namespace,
 		},
 	}
 
@@ -193,7 +194,7 @@ func (sg *SensorGenerator) deleteConsumerCache(ctx context.Context, consumerLabe
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ConfigMapNameConsumerCache,
-			Namespace: sg.Namespace,
+			Namespace: sg.namespace,
 		},
 	}
 
@@ -209,7 +210,7 @@ func (sg *SensorGenerator) buildSensor(productName, name string, num int) *senso
 	return &sensorv1alpha1.Sensor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      buildSensorName(productName, name, num),
-			Namespace: sg.Namespace,
+			Namespace: sg.namespace,
 			Labels: map[string]string{
 				LabelConsumer: buildConsumerLabel(productName, name),
 			},
@@ -283,14 +284,19 @@ func buildMatchScript(filters []component.Filter) string {
 
 // buildTrigger builds a trigger instance which is custom resource in Kubernetes.
 // Combines parameters to trigger a stander Kubernetes trigger that is init pipeline.
-func buildTrigger(consumer component.Consumer) (*sensorv1alpha1.Trigger, error) {
+func (sg *SensorGenerator) buildTrigger(consumer component.Consumer) (*sensorv1alpha1.Trigger, error) {
 	comRes := common.NewResource(consumer.Task.Raw)
 
 	parameters := make([]sensorv1alpha1.TriggerParameter, len(consumer.Task.Vars))
 	for i, inputOverWrite := range consumer.Task.Vars {
-		eventSourcePath, err := GetEventSourcePath(inputOverWrite, consumer.EventSourceType)
+		eventSourcePath, err := sg.requestVarPathSearchEngine.GetTargetPathInEventSource(component.RequestDataConditions{
+			EventType:         "",
+			EventSourceType:   string(consumer.EventSourceType),
+			EventListenerType: eventListenerName,
+			RequestVar:        inputOverWrite.RequestVar,
+		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get target date path in event source failed: %w", err)
 		}
 		paras := sensorv1alpha1.TriggerParameter{
 			Src: &sensorv1alpha1.TriggerParameterSource{
@@ -316,25 +322,3 @@ func buildTrigger(consumer component.Consumer) (*sensorv1alpha1.Trigger, error) 
 		},
 	}, nil
 }
-
-func GetEventSourcePath(reqVar component.InputOverWrite, eventType component.EventSourceType) (string, error) {
-	if reqVar.StaticeVar != nil {
-		return *reqVar.StaticeVar, nil
-	}
-
-	if eventType == component.EventTypeGitlab {
-		requestPath, ok := RequestMapGitLab[reqVar.BuiltinRequestVar]
-		if !ok {
-			return "", fmt.Errorf("unknown request %s", requestPath)
-		}
-		return requestPath, nil
-	}
-
-	return "", fmt.Errorf("event source type %s not support builtin var %s", eventType, reqVar.BuiltinRequestVar)
-}
-
-var (
-	RequestMapGitLab = map[component.EventSourceVar]string{
-		component.EventSourceVarRef: "body.ref",
-	}
-)

@@ -144,6 +144,7 @@ var _ = Describe("Gitlab eventsource", func() {
 				SecretManagement: &mockSecMgr{},
 				SecretSync:       &mockSecSyncer{},
 			},
+			EventSourceSearchEngine: &mockRuleEngine{},
 		}
 
 		evListener, err = argoevent.NewArgoEvent(opt, info)
@@ -391,6 +392,7 @@ var _ = Describe("Sensor", func() {
 				SecretManagement: &mockSecMgr{},
 				SecretSync:       &mockSecSyncer{},
 			},
+			EventSourceSearchEngine: &mockRuleEngine{},
 		}
 
 		evListener, err = argoevent.NewArgoEvent(opt, info)
@@ -427,8 +429,8 @@ var _ = Describe("Sensor", func() {
 						Type: component.EventTaskTypeRaw,
 						Vars: []component.InputOverWrite{
 							{
-								BuiltinRequestVar: component.EventSourceVarRef,
-								Dest:              "spec.params.1.value",
+								RequestVar: component.EventSourceVarRef,
+								Dest:       "spec.params.1.value",
 							},
 						},
 						Raw: res,

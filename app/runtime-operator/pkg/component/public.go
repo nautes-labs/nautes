@@ -72,6 +72,8 @@ type ComponentInitInfo struct {
 	Components *ComponentList
 	// PipelinePluginManager is an instance that manages pipeline plugins.
 	PipelinePluginManager PipelinePluginManager
+	// EventSourceSearchEngine is an instance that can search data in event source.
+	EventSourceSearchEngine EventSourceSearchEngine
 }
 
 // ComponentList contains pointers to component implementations.

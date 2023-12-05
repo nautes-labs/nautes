@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package requestvar_test
 
-import "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+import (
+	"testing"
 
-type HookMetadata struct {
-	Name                    string                         `json:"name"`
-	IsPreHook               bool                           `json:"isPreHook"`
-	IsPostHook              bool                           `json:"isPostHook"`
-	SupportEventSourceTypes []string                       `json:"supportEventSourceTypes,omitempty"`
-	VarsDefinition          *apiextensions.JSONSchemaProps `json:"varsDefinition,omitempty"`
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestRequestvar(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Requestvar Suite")
 }

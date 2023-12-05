@@ -246,3 +246,9 @@ func (m *mockGateway) CreateEntryPoint(ctx context.Context, entrypoint component
 func (m *mockGateway) RemoveEntryPoint(ctx context.Context, entrypoint component.EntryPoint) error {
 	return nil
 }
+
+type mockRuleEngine struct{}
+
+func (mre *mockRuleEngine) GetTargetPathInEventSource(filter component.RequestDataConditions) (string, error) {
+	return "body.ref", nil
+}

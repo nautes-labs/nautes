@@ -17,7 +17,7 @@ touch /opt/nautes/configs/config
 # Run api server
 ./bin/api-server -conf=../app/api-server/configs/config.yaml
 
-# Run argo opertor
+# Run argo operator
 ./bin/argo-operator
 
 # Run base operator

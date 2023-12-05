@@ -158,7 +158,7 @@ type ProjectPipelineRuntimeStatus struct {
 	Cluster string `json:"cluster,omitempty"`
 	// +optional
 	// +nullable
-	// IllegalEventSources records eventsources that will not be synchronized to the environment,
+	// IllegalEventSources records event sources that will not be synchronized to the environment,
 	// and why it will not be synchronized to the past
 	IllegalEventSources []IllegalEventSource `json:"illegalEventSources"`
 	// +optional
