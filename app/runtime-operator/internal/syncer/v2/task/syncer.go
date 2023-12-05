@@ -31,6 +31,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/searchengine/requestvar"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,6 +63,8 @@ var (
 	}
 	// NewSnapshot is the method for generating a snapshot of the nautes resource.
 	NewSnapshot = database.NewRuntimeSnapshot
+	// NewSearchEngine is the method for generating a event source search engine.
+	NewSearchEngine = requestvar.NewSearchEngine
 )
 
 var (
@@ -144,19 +147,26 @@ func (s *Syncer) NewTask(ctx context.Context, runtime v1alpha1.Runtime, componen
 	}
 
 	initInfo := &component.ComponentInitInfo{
-		ClusterConnectInfo:     component.ClusterConnectInfo{},
-		ClusterName:            cluster.GetName(),
-		NautesResourceSnapshot: snapshot,
-		RuntimeName:            runtime.GetName(),
-		NautesConfig:           *cfg,
-		Components:             &component.ComponentList{Deployment: nil, MultiTenant: nil, SecretManagement: nil, SecretSync: nil, EventListener: nil},
-		PipelinePluginManager:  s.PluginMgr,
+		ClusterConnectInfo:      component.ClusterConnectInfo{},
+		ClusterName:             cluster.GetName(),
+		NautesResourceSnapshot:  snapshot,
+		RuntimeName:             runtime.GetName(),
+		NautesConfig:            *cfg,
+		Components:              &component.ComponentList{},
+		PipelinePluginManager:   s.PluginMgr,
+		EventSourceSearchEngine: nil,
 	}
 
 	newSecManagement, ok := NewFunctionMapSecretManagement[string(cfg.Secret.RepoType)]
 	if !ok {
 		return nil, fmt.Errorf("unknown secret management type %s", cfg.Secret.RepoType)
 	}
+
+	ruleEngine, err := NewSearchEngine(initInfo)
+	if err != nil {
+		return nil, fmt.Errorf("init rule engine failed: %w", err)
+	}
+	initInfo.EventSourceSearchEngine = ruleEngine
 
 	secMgr, err := newSecManagement(v1alpha1.Component{}, initInfo)
 	if err != nil {

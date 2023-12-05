@@ -13,7 +13,12 @@ spec:
         volumeMounts:
         - name: plugins
           mountPath: /opt/nautes/plugins
+        - name: rules
+          mountPath: /opt/nautes/rules
       volumes:
       - name: plugins
         persistentVolumeClaim:
           claimName: plugins
+      - name: rules
+        configMap:
+          name: rule-engine-rules

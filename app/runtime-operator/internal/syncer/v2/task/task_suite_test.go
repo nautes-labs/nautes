@@ -54,6 +54,7 @@ func init() {
 
 	NewSnapshot = newMockDB
 	NewFunctionHandler = NewMockHandler
+	NewSearchEngine = NewMockRuleEngine
 }
 
 func TestV2(t *testing.T) {
@@ -736,4 +737,8 @@ func (mrh *mockReqHandler) DeleteResource(ctx context.Context, space component.S
 		break
 	}
 	return nil
+}
+
+func NewMockRuleEngine(info *component.ComponentInitInfo) (component.EventSourceSearchEngine, error) {
+	return nil, nil
 }

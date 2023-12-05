@@ -55,6 +55,8 @@ var (
 	logger = logf.Log.WithName("argoEvent")
 )
 
+const eventListenerName = "argo-events"
+
 // CacheName indicates the name of the ConfigMap.
 const CacheName = "nautes-argo-event-cache"
 
@@ -66,17 +68,18 @@ const (
 )
 
 type ArgoEvent struct {
-	components            *component.ComponentList
-	clusterName           string
-	namespace             string
-	db                    database.Snapshot
-	k8sClient             client.Client
-	machineAccount        component.MachineAccount
-	space                 component.Space
-	entryPoint            utils.EntryPoint
-	eventSourceGenerators map[component.EventSourceType]eventSourceGenerator
-	sensorGenerator       SensorGenerator
-	secMgrAuthInfo        *component.AuthInfo
+	components                 *component.ComponentList
+	clusterName                string
+	namespace                  string
+	db                         database.Snapshot
+	k8sClient                  client.Client
+	machineAccount             component.MachineAccount
+	space                      component.Space
+	entryPoint                 utils.EntryPoint
+	eventSourceGenerators      map[component.EventSourceType]eventSourceGenerator
+	sensorGenerator            SensorGenerator
+	secMgrAuthInfo             *component.AuthInfo
+	requestVarPathSearchEngine component.EventSourceSearchEngine
 }
 
 type EventManager interface {
@@ -137,17 +140,18 @@ func NewArgoEvent(opt v1alpha1.Component, info *component.ComponentInitInfo) (co
 	}
 
 	ae := &ArgoEvent{
-		components:            info.Components,
-		clusterName:           info.ClusterName,
-		namespace:             namespace,
-		db:                    info.NautesResourceSnapshot,
-		k8sClient:             k8sClient,
-		machineAccount:        account,
-		space:                 buildArgoEventSpace(namespace),
-		entryPoint:            *entryPoint,
-		eventSourceGenerators: map[component.EventSourceType]eventSourceGenerator{},
-		sensorGenerator:       SensorGenerator{},
-		secMgrAuthInfo:        authInfo,
+		components:                 info.Components,
+		clusterName:                info.ClusterName,
+		namespace:                  namespace,
+		db:                         info.NautesResourceSnapshot,
+		k8sClient:                  k8sClient,
+		machineAccount:             account,
+		space:                      buildArgoEventSpace(namespace),
+		entryPoint:                 *entryPoint,
+		eventSourceGenerators:      map[component.EventSourceType]eventSourceGenerator{},
+		sensorGenerator:            SensorGenerator{},
+		secMgrAuthInfo:             authInfo,
+		requestVarPathSearchEngine: info.EventSourceSearchEngine,
 	}
 
 	ae.createEventSourceGenerators()
@@ -411,7 +415,8 @@ func (ae *ArgoEvent) newCalendarEventSourceGenerator() *CalendarEventSourceGener
 // newSensorGenerator returns an instance of sensor generator.
 func (ae *ArgoEvent) newSensorGenerator() SensorGenerator {
 	return SensorGenerator{
-		Namespace: ae.namespace,
-		k8sClient: ae.k8sClient,
+		namespace:                  ae.namespace,
+		k8sClient:                  ae.k8sClient,
+		requestVarPathSearchEngine: ae.requestVarPathSearchEngine,
 	}
 }

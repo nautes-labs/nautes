@@ -37,12 +37,10 @@ message HookMetadata {
     bool IsPreHook = 2;
     // IsPostHook indicates whether it can be set as a post-step.
     bool IsPostHook = 3;
-    // SupportEventListeners is the type of event listener supported by the hook.If it is empty, it means that any type is supported.
-    repeated string SupportEventListeners = 4;
     // SupportEventSourceTypes is the event source type supported by the hook.If it is empty, it means any type is supported.
-    repeated string SupportEventSourceTypes = 5;
+    repeated string SupportEventSourceTypes = 4;
     // VarsDefinition is the description information of the input and output parameters of the hook, in JSONSchema format.
-    optional bytes VarsDefinition = 6;
+    optional bytes VarsDefinition = 5;
 }
 
 // Hook is a task that can be executed before or after the user pipeline.

@@ -12,6 +12,7 @@ commonLabels:
 resources:
 - ../../base
 - pvc.yaml
+- rules.yaml
 
 patchesStrategicMerge:
 - manager_patch.yaml

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rule-engine-rules
+  namespace: system
+data:
+  event_source_path.grl: |
+    rule GitlabArgoEventsRef "Gitlab | Argo-Event | Ref" {
+       when
+         req.Filter.EventSourceType == "gitlab" &&
+         req.Filter.EventListenerType == "argo-events" &&
+         req.Filter.RequestVar == "ref"
+       then
+         req.Result = "body.ref";
+         Retract("GitlabArgoEventsRef");
+    }
+    rule GitlabArgoEventsCommitID "Gitlab | Argo-Event | CommitID" {
+      when
+        req.Filter.EventSourceType == "gitlab" &&
+        req.Filter.EventListenerType == "argo-events" &&
+        req.Filter.RequestVar == "commitID"
+      then
+        req.Result = "body.after";
+        Retract("GitlabArgoEventsCommitID");
+    }

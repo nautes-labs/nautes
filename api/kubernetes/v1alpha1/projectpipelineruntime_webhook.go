@@ -396,13 +396,6 @@ func validateHookGeneral(hook Hook, rule resource.HookMetadata, eventSourceTypes
 		return fmt.Errorf("hook alias %s is used by other hook", hookName)
 	}
 
-	if !isHookSupportEventListener(rule.SupportEventListeners, eventListenerName) {
-		return fmt.Errorf("hook %s doesn't support event listener %s",
-			hook.Name,
-			eventListenerName,
-		)
-	}
-
 	if err := isHookSupportEventSourceTypes(rule.SupportEventSourceTypes, eventSourceTypes); err != nil {
 		return fmt.Errorf("hook %s verify failed: %w", hook.Name, err)
 	}
@@ -417,16 +410,6 @@ func getHookName(hook Hook) string {
 	}
 
 	return hookName
-}
-
-func isHookSupportEventListener(supportEventListeners []string, clusterEventListener string) bool {
-	if len(supportEventListeners) == 0 {
-		return true
-	}
-	supportEventListenerSet := sets.New(supportEventListeners...)
-	ok := supportEventListenerSet.Has(clusterEventListener)
-
-	return ok
 }
 
 func isHookSupportEventSourceTypes(supportEventSourceTypes, runtimeEventSourceTypes []string) error {

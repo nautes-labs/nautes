@@ -173,3 +173,28 @@ const (
 	LessThanOrEqualTo    Comparator = "<=" // Less than or equal to value provided in consumer
 	Match                Comparator = "match"
 )
+
+type NewEventSourceRuleEngine func(info *ComponentInitInfo) EventSourceSearchEngine
+
+// RequestDataConditions is the condition for querying the path of the target data in the event source.
+type RequestDataConditions struct {
+	// EventType is the specific classification of messages in the event source.
+	EventType string
+	// EventSourceType is the type of event that triggers the event.
+	EventSourceType string
+	// EventListenerType is the name of the component that processes the event.
+	EventListenerType string
+	// RequestVar is the name of the data that needs to be obtained from the event source.
+	RequestVar string
+}
+
+const (
+	EventSourceVarRef      = "ref"      // The ref of the code repo that triggered the event.
+	EventSourceVarCommitID = "commitID" // The commit id of the code repo that triggered event.
+)
+
+// EventSourceSearchEngine is a search engine that can find data in event sources.
+type EventSourceSearchEngine interface {
+	// GetTargetPathInEventSource returns the specific path of the target data in the event source based on the incoming event type, event source type, event processor name, and the data to be requested.
+	GetTargetPathInEventSource(conditions RequestDataConditions) (string, error)
+}

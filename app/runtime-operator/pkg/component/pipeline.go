@@ -78,10 +78,8 @@ type Hooks struct {
 
 // InputOverWrite defines how to pass data from the event source to the task.
 type InputOverWrite struct {
-	// BuiltinRequestVar is the data to be obtained.
-	BuiltinRequestVar EventSourceVar
-	// // StaticeVar is the event source path specified by the pipeline.
-	StaticeVar *string
+	// RequestVar is the data to be obtained.
+	RequestVar string
 	// Dest is the path to be replaced in the task resource.
 	// The current version only considers the addressing method of json, such as spec.data.1.value.
 	Dest string
@@ -132,11 +130,4 @@ const (
 	VarCodeRepoProviderURL     BuiltinVar = "CodeRepoProviderURL"     // The API server URL of the code repo provider.
 	VarPipelineDashBoardURL    BuiltinVar = "PipelineDashBoardURL"    // The url address to view the pipeline running status
 	VarPipelineLabel           BuiltinVar = "PipelineLabel"
-)
-
-// EventSourceVar is a variable type that can be obtained from the event source.
-type EventSourceVar string
-
-const (
-	EventSourceVarRef EventSourceVar = "EventSourceRef" // The ref of the code repo that triggered the event.
 )

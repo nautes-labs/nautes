@@ -25,3 +25,26 @@ Controller 会根据 Deployment Runtime 资源引用的 Environment 资源找到
   - 根据运行时资源中定义的 Pipeline Triggers 创建流水线触发器，触发器会根据事件监听器发出的内部事件触发指定的流水线。
   - 创建流水线模板同步程序，同步程序会将 default.project 项目指定路径下的流水线模板同步至集群，供产品中各个流水线使用。
   - 授权该运行时所属产品下的用户管理流水线实例的权限。
+
+### 添加自定义步骤
+
+用户可以根据自己业务需要在流水线执行前后添加自定义的步骤。该功能通过插件实现，默认不支持任何自定义步骤。
+使用该功能需要按照以下步骤操作：
+1. 往 runtime-operator 中添加插件。（具体方式请参考[这里](https://github.com/nautes-labs/plugin-sample)）
+2. 在 projectPipelineRuntime资源中添加自定义步骤。
+```yaml
+# 以下是演示配置，假定已经在 runtime operator 中注册了插件，可以提供 ls 的功能, 它会 ls 镜像中指定的路径。
+spec:
+  hooks:                    # 需要在流水线前后添加的步骤。
+    preHooks:               # 在用户流水线执行前执行的步骤。
+      - name: ls            # 要执行的步骤，如果有多个，顺序执行。
+        vars:               # 该步骤的入参，可选项由插件提供方定义。
+          imageName: bash
+          printPath: /var
+    postHooks:              # 在用户流水线执行前执行的步骤
+      - name: ls
+        alias: post-log     # 步骤的名字要全局唯一，如果有冲突，可以指定一个别名。
+        vars:
+          imageName: bash
+          printPath: /usr
+```

@@ -79,7 +79,6 @@ func (c *GRPCClient) GetHooksMetadata() ([]resource.HookMetadata, error) {
 			Name:                    metadata.Name,
 			IsPreHook:               metadata.IsPreHook,
 			IsPostHook:              metadata.IsPostHook,
-			SupportEventListeners:   metadata.SupportEventListeners,
 			SupportEventSourceTypes: metadata.SupportEventSourceTypes,
 			VarsDefinition:          nil,
 		}
@@ -167,7 +166,6 @@ func (s *GRPCServer) GetHooksMetaData(_ context.Context, _ *proto.Empty) (*proto
 			Name:                    metadata[i].Name,
 			IsPreHook:               metadata[i].IsPreHook,
 			IsPostHook:              metadata[i].IsPostHook,
-			SupportEventListeners:   metadata[i].SupportEventListeners,
 			SupportEventSourceTypes: metadata[i].SupportEventSourceTypes,
 			VarsDefinition:          nil,
 		}

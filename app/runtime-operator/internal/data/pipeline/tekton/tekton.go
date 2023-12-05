@@ -335,7 +335,7 @@ func appendVar(pr *v1alpha1.PipelineRun, paramIndex, taskIndex int, newVar compo
 		pr.Spec.PipelineSpec.Tasks[taskIndex].Params[taskParamIndex].Value = *v1beta1.NewArrayOrString(fmt.Sprintf("$(params.%s)", paramName))
 
 		requestVar = &component.InputOverWrite{
-			StaticeVar: newVar.Source.FromEventSource,
+			RequestVar: *newVar.Source.FromEventSource,
 			Dest:       fmt.Sprintf("spec.params.%d.value", len(pr.Spec.Params)),
 		}
 
@@ -547,8 +547,8 @@ func buildBaseInputOverWrite(info component.HooksInitInfo, pipelineRun *v1alpha1
 	var reqVars []component.InputOverWrite
 	if info.EventSourceType == component.EventTypeGitlab {
 		reqVars = append(reqVars, component.InputOverWrite{
-			BuiltinRequestVar: component.EventSourceVarRef,
-			Dest:              "spec.params.0.value",
+			RequestVar: component.EventSourceVarRef,
+			Dest:       "spec.params.0.value",
 		})
 	}
 
@@ -556,8 +556,8 @@ func buildBaseInputOverWrite(info component.HooksInitInfo, pipelineRun *v1alpha1
 		pipelineRun.Spec.Params[1].Value.StringVal = pipelineRevision
 	} else {
 		reqVars = append(reqVars, component.InputOverWrite{
-			BuiltinRequestVar: component.EventSourceVarRef,
-			Dest:              "spec.params.1.value",
+			RequestVar: component.EventSourceVarRef,
+			Dest:       "spec.params.1.value",
 		})
 	}
 	return reqVars
