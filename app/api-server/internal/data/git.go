@@ -26,7 +26,7 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/nautes-labs/nautes/app/api-server/internal/biz"
-	"github.com/nautes-labs/nautes/app/api-server/internal/server"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/middleware/auth"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/nodestree"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 )
@@ -96,15 +96,15 @@ func (g *gitRepo) Clone(ctx context.Context, param *biz.CloneRepositoryParam) (s
 
 // cloneRepository clones the given repository into a local directory.
 func cloneRepository(ctx context.Context, repoURL, user, localRepositorySubPath string) (string, error) {
-	token, _ := ctx.Value(server.BearerToken).(string)
-	authType, _ := ctx.Value(server.Oauth2).(string)
+	token, _ := ctx.Value(auth.BearerToken).(string)
+	authType, _ := ctx.Value(auth.Oauth2).(string)
 
 	if token == "" {
 		return "", fmt.Errorf("failed to get authorization, the token is not found")
 	}
 
 	if authType != "" {
-		cloneURL := formatGitURL(repoURL, string(server.Oauth2), token)
+		cloneURL := formatGitURL(repoURL, string(auth.Oauth2), token)
 		output, err := executeGitClone(cloneURL, localRepositorySubPath)
 		if err != nil {
 			return output, err

@@ -24,6 +24,7 @@ import (
 
 	clustermanagement "github.com/nautes-labs/nautes/app/api-server/pkg/clusters"
 	gitlab "github.com/nautes-labs/nautes/app/api-server/pkg/gitlab"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/middleware/auth"
 	utilstrings "github.com/nautes-labs/nautes/app/api-server/util/string"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	"github.com/nautes-labs/nautes/pkg/queue"
@@ -249,8 +250,7 @@ func (c *ClusterUsecase) RefreshHostCluster(clusterName string, bytes []byte) er
 		return err
 	}
 
-	key := "token"
-	ctx := context.WithValue(context.Background(), key, body.Token)
+	ctx := context.WithValue(context.Background(), auth.BearerToken, body.Token)
 
 	repositoriesInfo, err := c.getRepositoriesInfo(ctx)
 	if err != nil {
@@ -334,9 +334,12 @@ func (c *ClusterUsecase) DeleteCluster(ctx context.Context, clusterName string) 
 
 func (c *ClusterUsecase) isRefreshHostCluster(ctx context.Context, cluster *resourcev1alpha1.Cluster) error {
 	if clustermanagement.IsVirtual(cluster) {
-		token := ctx.Value("token").(string)
+		tokenStr, ok := ctx.Value(auth.BearerToken).(string)
+		if !ok {
+			return fmt.Errorf("failed to refresh host cluster and could not obtain token")
+		}
 		body := &Body{
-			Token: token,
+			Token: tokenStr,
 		}
 		bytes, err := json.Marshal(body)
 		if err != nil {

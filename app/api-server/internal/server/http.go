@@ -15,9 +15,6 @@
 package server
 
 import (
-	"context"
-	"strings"
-
 	mmd "github.com/go-kratos/kratos/v2/middleware/metadata"
 	clusterv1 "github.com/nautes-labs/nautes/api/api-server/cluster/v1"
 	coderepov1 "github.com/nautes-labs/nautes/api/api-server/coderepo/v1"
@@ -31,13 +28,11 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/internal/service"
 
 	"github.com/go-kratos/grpc-gateway/v2/protoc-gen-openapiv2/generator"
-	"github.com/go-kratos/kratos/v2/metadata"
-	"github.com/go-kratos/kratos/v2/middleware"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/middleware/validate"
-	"github.com/go-kratos/kratos/v2/transport"
 	"github.com/go-kratos/kratos/v2/transport/http"
 	"github.com/go-kratos/swagger-api/openapiv2"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/middleware/auth"
 )
 
 type ServiceProductGroup struct {
@@ -82,7 +77,7 @@ func NewHTTPServer(c *conf.Server, serviceProductGroup *ServiceProductGroup) *ht
 		http.Middleware(
 			mmd.Server(),
 			recovery.Recovery(),
-			TokenWithContext(),
+			auth.SetTokenInContext(),
 			validate.Validator(),
 		),
 	}
@@ -100,38 +95,4 @@ func NewHTTPServer(c *conf.Server, serviceProductGroup *ServiceProductGroup) *ht
 	srv.HandlePrefix("/q/", openAPIhandler)
 	serviceProductGroup.Register(srv)
 	return srv
-}
-
-type AuthType string
-
-const Authorization = "Authorization"
-const BearerToken AuthType = "token"
-const Oauth2 AuthType = "oauth2"
-
-func TokenWithContext() middleware.Middleware {
-	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
-			if tr, ok := transport.FromServerContext(ctx); ok {
-				header := tr.RequestHeader()
-				bearerToken := header.Get(Authorization)
-				token := strings.TrimSpace(strings.Replace(bearerToken, "Bearer", "", 1))
-
-				// Threr are two ways obtain token:
-				// 1、Use Nautes clinet call to get the token in the request header.
-				// 2、Parse the Context and obtain token in HTTP request.
-				if token != "" {
-					ctx = context.WithValue(ctx, BearerToken, token)
-					authType := header.Get("AuthType")
-					ctx = context.WithValue(ctx, Oauth2, authType)
-				} else {
-					if md, ok := metadata.FromServerContext(ctx); ok {
-						token := md.Get(Authorization)
-						ctx = context.WithValue(ctx, BearerToken, token)
-					}
-				}
-			}
-
-			return handler(ctx, req)
-		}
-	}
 }
