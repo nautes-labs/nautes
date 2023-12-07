@@ -21,8 +21,8 @@ import (
 
 	commonv1 "github.com/nautes-labs/nautes/api/api-server/common/v1"
 	"github.com/nautes-labs/nautes/app/api-server/internal/biz"
-	"github.com/nautes-labs/nautes/app/api-server/internal/server"
 	gitlabclient "github.com/nautes-labs/nautes/app/api-server/pkg/gitlab"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/middleware/auth"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -679,7 +679,7 @@ func (g *GitlabRepo) DeleteProjectAccessToken(ctx context.Context, pid interface
 }
 
 func NewGitlabClient(ctx context.Context, g *GitlabRepo) (gitlabclient.GitlabOperator, error) {
-	token := ctx.Value(server.BearerToken).(string)
+	token := ctx.Value(auth.BearerToken).(string)
 	if token == "" {
 		return nil, fmt.Errorf("token is not found")
 	}

@@ -31,6 +31,7 @@ import (
 	clusterregistration "github.com/nautes-labs/nautes/app/api-server/pkg/clusters"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/gitlab"
 	"github.com/nautes-labs/nautes/app/api-server/pkg/kubernetes"
+	"github.com/nautes-labs/nautes/app/api-server/pkg/middleware/auth"
 
 	clusterConfig "github.com/nautes-labs/nautes/pkg/config/cluster"
 
@@ -583,7 +584,7 @@ var _ = Describe("Save cluster", func() {
 		q := nautesqueue.NewQueue(stop, 1)
 
 		clusterUsecase := NewClusterUsecase(logger, codeRepo, secretRepo, resourceusecase, nautesConfigs, client, clusteroperator, q)
-		ctx := context.WithValue(context.Background(), "token", "token")
+		ctx := context.WithValue(context.Background(), auth.BearerToken, "token")
 		err := clusterUsecase.SaveCluster(ctx, params, kubeconfig)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
