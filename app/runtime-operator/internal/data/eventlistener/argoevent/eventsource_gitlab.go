@@ -177,7 +177,7 @@ func (gel *GitlabEventSourceGenerator) createGitlabEventSources(uniqueID string,
 func (gel *GitlabEventSourceGenerator) buildBaseEventSource(uniqueID string) *eventsourcev1alpha1.EventSource {
 	return &eventsourcev1alpha1.EventSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildEventSourceName(uniqueID, component.EventTypeGitlab),
+			Name:      buildEventSourceName(uniqueID, component.EventSourceTypeGitlab),
 			Namespace: gel.Namespace,
 		},
 		Spec: eventsourcev1alpha1.EventSourceSpec{
@@ -306,7 +306,7 @@ func (gel *GitlabEventSourceGenerator) buildEntrypoint(uniqueID string) componen
 		Destination: component.EntryPointDestination{
 			Type: component.DestinationTypeKubernetes,
 			KubernetesService: &component.KubernetesService{
-				Name:      buildServiceName(uniqueID, component.EventTypeGitlab),
+				Name:      buildServiceName(uniqueID, component.EventSourceTypeGitlab),
 				Namespace: gel.Namespace,
 				Port:      targetPort,
 			},

@@ -182,7 +182,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventSourceTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -223,7 +223,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventSourceTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -263,7 +263,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventSourceTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -296,7 +296,7 @@ var _ = Describe("Gitlab eventsource", func() {
 
 		currentEs := &eventsourcev1alpha1.EventSource{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
+				Name:      fmt.Sprintf("%s-%s", uuids[0], component.EventSourceTypeGitlab),
 				Namespace: argoEventNamespace,
 			},
 		}
@@ -304,7 +304,7 @@ var _ = Describe("Gitlab eventsource", func() {
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(currentEs), currentEs)
 		Expect(apierrors.IsNotFound(err)).Should(BeTrue())
 
-		currentEs.Name = fmt.Sprintf("%s-%s", uuids[0], component.EventTypeCalendar)
+		currentEs.Name = fmt.Sprintf("%s-%s", uuids[0], component.EventSourceTypeCalendar)
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(currentEs), currentEs)
 		Expect(err).Should(BeNil())
 
@@ -417,7 +417,7 @@ var _ = Describe("Sensor", func() {
 				{
 					UniqueID:        uuids[0],
 					EventSourceName: evNames[0],
-					EventSourceType: component.EventTypeGitlab,
+					EventSourceType: component.EventSourceTypeGitlab,
 					Filters: []component.Filter{
 						{
 							Key:        "headers.X-Gitlab-Event",
@@ -463,7 +463,7 @@ var _ = Describe("Sensor", func() {
 			Dependencies: []sensorv1alpha1.EventDependency{
 				{
 					Name:            dependName,
-					EventSourceName: fmt.Sprintf("%s-%s", uuids[0], component.EventTypeGitlab),
+					EventSourceName: fmt.Sprintf("%s-%s", uuids[0], component.EventSourceTypeGitlab),
 					EventName:       evNames[0],
 					Filters: &sensorv1alpha1.EventDependencyFilter{
 						Data: []sensorv1alpha1.DataFilter{
@@ -509,6 +509,7 @@ var _ = Describe("Sensor", func() {
 				ServiceAccountName: argoevent.ServiceAccountArgoEvents,
 			},
 		}
+		sensor.Spec.Dependencies[0].Transform = nil
 		ok := reflect.DeepEqual(destSpec.Dependencies, sensor.Spec.Dependencies)
 		Expect(ok).Should(BeTrue())
 		ok = reflect.DeepEqual(destSpec.Triggers, sensor.Spec.Triggers)

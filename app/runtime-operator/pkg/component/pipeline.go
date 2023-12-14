@@ -51,14 +51,16 @@ type HooksInitInfo struct {
 	// BuiltinVars stores information derived from pipeline resources.
 	// For example, the URL corresponding to the code repository.For specific options, please refer to the constant definition of BuiltinVar.
 	BuiltinVars map[BuiltinVar]string
+	// UserRequestInputs are the information that needs to be passed from the runtime or event source to the user pipeline.
+	UserRequestInputs []v1alpha1.UserPipelineInput
 	// Hooks are user-defined pre- and post-pipeline steps
 	Hooks v1alpha1.Hooks
 	// The EventSource stores the event sources corresponding to the pipeline.
 	EventSource EventSource
 	// EventSourceType is the type of event source in the event source.
 	EventSourceType EventSourceType
-	// EventListerType is the name of the event listener component deployed in the runtime.
-	EventListenerType string
+	// EventTypes are specific event types in the event source.
+	EventTypes []string
 }
 
 // HookSpace defines a space that can run specific hooks.
@@ -128,6 +130,6 @@ const (
 	VarPipelineFilePath        BuiltinVar = "PipelineFilePath"        // The path of the pipeline file specified by the user.
 	VarCodeRepoProviderType    BuiltinVar = "ProviderType"            // Type of code repository provider.
 	VarCodeRepoProviderURL     BuiltinVar = "CodeRepoProviderURL"     // The API server URL of the code repo provider.
-	VarPipelineDashBoardURL    BuiltinVar = "PipelineDashBoardURL"    // The url address to view the pipeline running status
-	VarPipelineLabel           BuiltinVar = "PipelineLabel"
+	VarPipelineDashBoardURL    BuiltinVar = "PipelineDashBoardURL"    // The url address to view the pipeline running status.
+	VarPipelineLabel           BuiltinVar = "PipelineLabel"           // The tags to be placed on the user pipeline are used for the execution status of the end user pipeline.
 )

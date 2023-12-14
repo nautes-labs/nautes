@@ -122,7 +122,6 @@ spec:
                       required:
                       - events
                       - repoName
-                      - revision
                       type: object
                     name:
                       minLength: 1
@@ -208,14 +207,56 @@ spec:
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
+                    inputs:
+                      description: Inputs is a list of parameters that need to be
+                        passed to the user pipeline.
+                      items:
+                        description: UserPipelineInput defines the parameters to be
+                          passed to the user pipeline.
+                        properties:
+                          source:
+                            description: UserPipelineInputSource defines the source
+                              of the user pipeline input.
+                            properties:
+                              builtInVar:
+                                description: BuiltInVar defines how to get the data
+                                  associated with the pipeline runtime.
+                                type: string
+                              fromEvent:
+                                description: FromEvent defines how to get data from
+                                  the data source.
+                                type: string
+                            type: object
+                          transmissionMethod:
+                            description: TransmissionMethod is the method passed to
+                              the user pipeline.
+                            properties:
+                              kustomization:
+                                description: Kustomization defines how users can pass
+                                  data to the pipeline file through the kustomize.
+                                properties:
+                                  path:
+                                    description: Path is the path to be replaced in
+                                      the pipeline file.
+                                    type: string
+                                required:
+                                - path
+                                type: object
+                            type: object
+                        required:
+                        - source
+                        - transmissionMethod
+                        type: object
+                      nullable: true
+                      type: array
                     pipeline:
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     revision:
-                      description: Optional Regular expressions are not supported,
-                        If it is empty, the trigger will determine the revision of
-                        the pipeline based on the revision of the event source
+                      description: Regular expressions are not supported, If it is
+                        empty, the trigger will determine the revision of the pipeline
+                        based on the revision of the event source
                       type: string
                   required:
                   - eventSource
@@ -333,7 +374,7 @@ spec:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               illegalEventSources:
-                description: IllegalEventSources records eventsources that will not
+                description: IllegalEventSources records event sources that will not
                   be synchronized to the environment, and why it will not be synchronized
                   to the past
                 items:
@@ -378,7 +419,6 @@ spec:
                           required:
                           - events
                           - repoName
-                          - revision
                           type: object
                         name:
                           minLength: 1

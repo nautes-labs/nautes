@@ -625,13 +625,13 @@ func (prd *PipelineRuntimeDeployer) convertRuntimeToConsumers(
 			return nil, err
 		}
 
-		vars, err := prd.buildBuiltinVars(trigger.Revision, runtime.Spec.PipelineSource, account, runtimePipeline)
+		builtInVars, err := prd.buildBuiltinVars(trigger.Revision, runtime.Spec.PipelineSource, account, runtimePipeline)
 		if err != nil {
 			return nil, err
 		}
 
 		if runtimeEventSource.Gitlab != nil {
-			if err := prd.addEventSourceToBuiltinVars(vars, runtimeEventSource.Gitlab.RepoName); err != nil {
+			if err := prd.addEventSourceToBuiltinVars(builtInVars, runtimeEventSource.Gitlab.RepoName); err != nil {
 				return nil, err
 			}
 
@@ -643,7 +643,7 @@ func (prd *PipelineRuntimeDeployer) convertRuntimeToConsumers(
 			eventSourceName := runtimeEventSource.Gitlab.RepoName
 
 			eventSource, _ := GetEventSourceFromEventSourceSet(eventSourceSet, eventSourceName)
-			evTask, err := prd.getEventTaskFromEventSource(*eventSource, component.EventTypeGitlab, vars)
+			evTask, err := prd.getEventTaskFromEventSource(*eventSource, component.EventSourceTypeGitlab, builtInVars, trigger.Inputs, runtimeEventSource.Gitlab.Events)
 			if err != nil {
 				return nil, err
 			}
@@ -651,7 +651,8 @@ func (prd *PipelineRuntimeDeployer) convertRuntimeToConsumers(
 			consumer := component.Consumer{
 				UniqueID:        uniqueID,
 				EventSourceName: eventSourceName,
-				EventSourceType: component.EventTypeGitlab,
+				EventSourceType: component.EventSourceTypeGitlab,
+				EventTypes:      runtimeEventSource.Gitlab.Events,
 				Filters:         filters,
 				Task:            evTask,
 			}
@@ -662,7 +663,7 @@ func (prd *PipelineRuntimeDeployer) convertRuntimeToConsumers(
 			eventSourceName := buildCalendarEventName(runtimeEventSource.Name)
 
 			eventSource, _ := GetEventSourceFromEventSourceSet(eventSourceSet, eventSourceName)
-			evTask, err := prd.getEventTaskFromEventSource(*eventSource, component.EventTypeCalendar, vars)
+			evTask, err := prd.getEventTaskFromEventSource(*eventSource, component.EventSourceTypeCalendar, builtInVars, trigger.Inputs, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -670,7 +671,7 @@ func (prd *PipelineRuntimeDeployer) convertRuntimeToConsumers(
 			consumer := component.Consumer{
 				UniqueID:        uniqueID,
 				EventSourceName: eventSourceName,
-				EventSourceType: component.EventTypeCalendar,
+				EventSourceType: component.EventSourceTypeCalendar,
 				Task:            evTask,
 			}
 			consumers.Consumers = append(consumers.Consumers, consumer)
@@ -688,7 +689,12 @@ func GetEventSourceFromEventSourceSet(esSet component.EventSourceSet, name strin
 	return nil, fmt.Errorf("event source %s not found", name)
 }
 
-func (prd *PipelineRuntimeDeployer) getEventTaskFromEventSource(eventSource component.EventSource, eventType component.EventSourceType, vars map[component.BuiltinVar]string) (component.EventTask, error) {
+func (prd *PipelineRuntimeDeployer) getEventTaskFromEventSource(
+	eventSource component.EventSource,
+	eventSourceType component.EventSourceType,
+	builtInVars map[component.BuiltinVar]string,
+	userVars []v1alpha1.UserPipelineInput,
+	eventTypes []string) (component.EventTask, error) {
 	task := component.EventTask{
 		Type: component.EventTaskTypeRaw,
 		Vars: nil,
@@ -701,11 +707,12 @@ func (prd *PipelineRuntimeDeployer) getEventTaskFromEventSource(eventSource comp
 	}
 
 	info := component.HooksInitInfo{
-		BuiltinVars:       vars,
+		BuiltinVars:       builtInVars,
+		UserRequestInputs: userVars,
 		Hooks:             userDefHooks,
 		EventSource:       eventSource,
-		EventSourceType:   eventType,
-		EventListenerType: "",
+		EventSourceType:   eventSourceType,
+		EventTypes:        eventTypes,
 	}
 
 	hooks, requestResources, err := prd.components.Pipeline.GetHooks(info)
@@ -718,6 +725,14 @@ func (prd *PipelineRuntimeDeployer) getEventTaskFromEventSource(eventSource comp
 	prd.reqResources = append(prd.reqResources, requestResources...)
 	return task, nil
 }
+
+// func getEventsFromEventSource(eventSource component.EventSource, eventSourceType component.EventSourceType) []string {
+// switch eventSourceType {
+// case component.EventSourceTypeGitlab:
+// return eventSource.Gitlab.Events
+// }
+// return nil
+// }
 
 const (
 	GitlabWebhookIndexEventType = "headers.X-Gitlab-Event"
@@ -773,7 +788,7 @@ func getIDFromCodeRepo(name string) string {
 }
 
 func buildCalendarEventName(eventName string) string {
-	return fmt.Sprintf("%s-%s", eventName, component.EventTypeCalendar)
+	return fmt.Sprintf("%s-%s", eventName, component.EventSourceTypeCalendar)
 }
 
 func getPipelineFromPipelines(name string, pipelines []v1alpha1.Pipeline) (v1alpha1.Pipeline, error) {

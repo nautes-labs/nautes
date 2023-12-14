@@ -30,10 +30,10 @@ type HookFactory interface {
 }
 
 type HookBuildData struct {
-	UserVars          map[string]string
-	BuiltinVars       map[string]string
-	EventSourceType   string
-	EventListenerType string
+	UserVars        map[string]string
+	BuiltinVars     map[string]string
+	EventSourceType string
+	EventType       string
 }
 
 type Hook struct {

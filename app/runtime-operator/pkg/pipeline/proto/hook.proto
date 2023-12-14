@@ -26,8 +26,8 @@ message HookBuildData {
     map<string, string> BuiltinVars = 2;
     // EventSourceType is the type of the event source corresponding to the hook.
     string EventSourceType = 3;
-    // EventListenerType is the type of event listener for the cluster where the pipeline is located.
-    string EventListenerType = 4;
+    // EventType is specific event type in the event source.
+    string EventType = 4;
 }
 
 // HookMetadata stores the metadata information of the hook.

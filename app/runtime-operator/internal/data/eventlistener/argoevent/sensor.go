@@ -17,18 +17,15 @@ package argoevent
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/argoproj/argo-events/pkg/apis/common"
 	sensorv1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,42 +35,22 @@ type SensorGenerator struct {
 	requestVarPathSearchEngine component.EventSourceSearchEngine
 }
 
-type ConsumerCache struct {
-	component.ResourceMetaData
-	Hash uint32 `json:"hash"`
-}
-
-func NewConsumerCache(consumerSet component.ConsumerSet) ConsumerCache {
-	return ConsumerCache{
-		ResourceMetaData: consumerSet.ResourceMetaData,
-		Hash:             utils.GetStructHash(consumerSet),
-	}
-}
-
-func (c *ConsumerCache) isSame(consumerSet component.ConsumerSet) bool {
-	hash := utils.GetStructHash(consumerSet)
-	return c.Hash == hash
-}
-
 const LabelConsumer = "nautes.argoevents.consumer"
 const ConfigMapNameConsumerCache = "nautes-consumer-cache"
 const ServiceAccountArgoEvents = "argo-events-sa"
 
 // CreateSensor creates the consumer to trigger the init pipeline.
 // The consumers listen to different types of event sources that generate events.
-// 1. It checks the cache that finding if the consumer is changed then deleted.
-// 2. It creates or updates all the Sensors by the consumer.
-// 3. Tt updates the consumer to the cache.
+// 1. It creates or updates all the Sensors by the consumer.
+// 2. Remove out date sensors.
 func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer component.ConsumerSet) error {
-	cache, err := sg.getConsumerCache(ctx, buildConsumerLabel(consumer.Product, consumer.Name))
-	if err != nil {
-		return fmt.Errorf("load consumer cache failed: %w", err)
+	listOpts := []client.ListOption{
+		client.InNamespace(sg.namespace),
+		client.MatchingLabels{LabelConsumer: buildConsumerLabel(consumer.Product, consumer.Name)},
 	}
-
-	if cache == nil || !cache.isSame(consumer) {
-		if err := sg.deleteSensor(ctx, consumer.Product, consumer.Name); err != nil {
-			return fmt.Errorf("clean sensor failed: %w", err)
-		}
+	sensorList := &sensorv1alpha1.SensorList{}
+	if err := sg.k8sClient.List(ctx, sensorList, listOpts...); err != nil {
+		return fmt.Errorf("list existed sensor failed, product %s, name %s: %w", consumer.Product, consumer.Name, err)
 	}
 
 	for i := range consumer.Consumers {
@@ -87,7 +64,7 @@ func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer component.
 		}
 		triggers := []sensorv1alpha1.Trigger{*trigger}
 
-		_, err = controllerutil.CreateOrUpdate(ctx, sg.k8sClient, sensor, func() error {
+		operation, err := controllerutil.CreateOrUpdate(ctx, sg.k8sClient, sensor, func() error {
 			sensor.Spec.Dependencies = dependencies
 			sensor.Spec.Triggers = triggers
 			sensor.Spec.Template = &sensorv1alpha1.Template{
@@ -99,10 +76,20 @@ func (sg *SensorGenerator) CreateSensor(ctx context.Context, consumer component.
 		if err != nil {
 			return fmt.Errorf("create sensor failed: %w", err)
 		}
+		if operation != controllerutil.OperationResultNone {
+			logger.V(1).Info("sensor has been modified", "name", sensor.Name, "operation", operation)
+		}
 	}
 
-	if err := sg.updateConsumerCache(ctx, consumer); err != nil {
-		return fmt.Errorf("update consumer cache failed: %w", err)
+	for i := len(consumer.Consumers); i < len(sensorList.Items); i++ {
+		sensor := &sensorv1alpha1.Sensor{ObjectMeta: metav1.ObjectMeta{
+			Name:      buildSensorName(consumer.Product, consumer.Name, i),
+			Namespace: sg.namespace,
+		}}
+		if err := sg.k8sClient.Delete(ctx, sensor); err != nil {
+			return fmt.Errorf("delete sensor failed: %w", err)
+		}
+		logger.V(1).Info("sensor has been deleted", "name", sensor.Name)
 	}
 
 	return nil
@@ -131,62 +118,6 @@ func (sg *SensorGenerator) deleteSensor(ctx context.Context, productName, name s
 		return fmt.Errorf("delete sensors from consumer %s failed: %w", buildConsumerLabel(productName, name), err)
 	}
 	return nil
-}
-
-// getConsumerCache gets the consumers by product name and consumer name.
-func (sg *SensorGenerator) getConsumerCache(ctx context.Context, consumerLabel string) (*ConsumerCache, error) {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConfigMapNameConsumerCache,
-			Namespace: sg.namespace,
-		},
-	}
-
-	err := sg.k8sClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	consumerStr, ok := cm.Data[consumerLabel]
-	if !ok {
-		return nil, nil
-	}
-
-	num, err := strconv.Atoi(consumerStr)
-	if err != nil {
-		logger.Error(err, "parse consumer cache failed", "name", consumerLabel)
-		num = 0
-	}
-
-	consumer := &ConsumerCache{
-		Hash: uint32(num),
-	}
-
-	return consumer, nil
-}
-
-// updateConsumerCache updates the consumer by product name and consumer name.
-func (sg *SensorGenerator) updateConsumerCache(ctx context.Context, consumer component.ConsumerSet) error {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConfigMapNameConsumerCache,
-			Namespace: sg.namespace,
-		},
-	}
-
-	cache := NewConsumerCache(consumer)
-	_, err := controllerutil.CreateOrPatch(ctx, sg.k8sClient, cm, func() error {
-		if cm.Data == nil {
-			cm.Data = map[string]string{}
-		}
-		cm.Data[buildConsumerLabel(consumer.Product, consumer.Name)] = fmt.Sprintf("%d", cache.Hash)
-		return nil
-	})
-
-	return err
 }
 
 // deleteConsumerCache deletes the consumer by product name and consumer name.
@@ -266,7 +197,35 @@ func buildDependencies(consumer component.Consumer) sensorv1alpha1.EventDependen
 		eventDependency.Filters.Script = buildMatchScript(matchRules)
 	}
 
+	if component.CodeRepoEventSourceList.Has(consumer.EventSourceType) {
+		eventDependency.Transform = buildTransformer(consumer.EventSourceType)
+	}
+
 	return eventDependency
+}
+
+func buildTransformer(eventSourceType component.EventSourceType) *sensorv1alpha1.EventDependencyTransformer {
+	switch eventSourceType {
+	case component.EventSourceTypeGitlab:
+		return &sensorv1alpha1.EventDependencyTransformer{
+			Script: `event.default = {}
+event.default.ref = ""
+
+eventType = ""
+for k, v in pairs(event.headers['X-Gitlab-Event']) do
+    eventType = v
+end
+if eventType == "Push Hook" or eventType == "Tag Push Hook"
+then
+    event.default.ref = event.body.ref
+end
+
+return event
+`,
+		}
+	}
+	logger.Info("unknown event source type", "TypeName", string(eventSourceType))
+	return nil
 }
 
 var scriptTemplate = "if not string.match(%s, \"%s\") then return false end"
@@ -289,8 +248,13 @@ func (sg *SensorGenerator) buildTrigger(consumer component.Consumer) (*sensorv1a
 
 	parameters := make([]sensorv1alpha1.TriggerParameter, len(consumer.Task.Vars))
 	for i, inputOverWrite := range consumer.Task.Vars {
+		eventType := ""
+		if len(consumer.EventTypes) != 0 {
+			eventType = consumer.EventTypes[0]
+		}
+
 		eventSourcePath, err := sg.requestVarPathSearchEngine.GetTargetPathInEventSource(component.RequestDataConditions{
-			EventType:         "",
+			EventType:         eventType,
 			EventSourceType:   string(consumer.EventSourceType),
 			EventListenerType: eventListenerName,
 			RequestVar:        inputOverWrite.RequestVar,

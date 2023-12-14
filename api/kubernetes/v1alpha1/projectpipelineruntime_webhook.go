@@ -233,6 +233,30 @@ func (r *ProjectPipelineRuntime) StaticCheck() error {
 		triggerTags[tag] = true
 	}
 
+	if err := checkUserPipelineInputSourceIsLegal(r.Spec.PipelineTriggers); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func checkUserPipelineInputSourceIsLegal(triggers []PipelineTrigger) error {
+	for _, trigger := range triggers {
+		if len(trigger.Inputs) == 0 {
+			continue
+		}
+
+		for _, input := range trigger.Inputs {
+			if input.Source.BuiltInVar == nil && input.Source.FromEvent == nil {
+				return fmt.Errorf("builtInVar and fromEvent cannot be empty at the same time")
+			}
+
+			if input.Source.BuiltInVar != nil && input.Source.FromEvent != nil {
+				return fmt.Errorf("both builtInVar and fromEvent has value")
+			}
+
+		}
+	}
 	return nil
 }
 
