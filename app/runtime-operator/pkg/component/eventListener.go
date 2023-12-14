@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // NewEventListener returns an implementation of the event listener.
@@ -68,10 +69,10 @@ type EventSourceSet struct {
 type EventSourceType string
 
 const (
-	// EventTypeCalendar indicates the event source that the type is Calendar.
-	EventTypeCalendar EventSourceType = "calendar"
-	// EventTypeGitlab indicates the event source that the type is GitLab.
-	EventTypeGitlab EventSourceType = "gitlab"
+	// EventSourceTypeCalendar indicates the event source that the type is Calendar.
+	EventSourceTypeCalendar EventSourceType = "calendar"
+	// EventSourceTypeGitlab indicates the event source that the type is GitLab.
+	EventSourceTypeGitlab EventSourceType = "gitlab"
 )
 
 // EventSource indicates the details of the event source.
@@ -127,6 +128,8 @@ type Consumer struct {
 	EventSourceName string
 	// EventSourceType indicates event source type.
 	EventSourceType EventSourceType
+	// EventTypes is the specific event types in EventSourceType.
+	EventTypes []string
 	// Filters indicates the collection of the condition for consuming events.
 	Filters []Filter
 	// Task indicates details of the task that will be dealt with after consuming the event.
@@ -198,3 +201,7 @@ type EventSourceSearchEngine interface {
 	// GetTargetPathInEventSource returns the specific path of the target data in the event source based on the incoming event type, event source type, event processor name, and the data to be requested.
 	GetTargetPathInEventSource(conditions RequestDataConditions) (string, error)
 }
+
+// CodeRepoEventSourceList records the list of event sources for the code repository.
+// It is used to determine whether to pass default parameters to the user pipeline.
+var CodeRepoEventSourceList = sets.New[EventSourceType](EventSourceTypeGitlab)

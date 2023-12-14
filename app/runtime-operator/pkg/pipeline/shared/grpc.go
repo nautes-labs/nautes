@@ -99,10 +99,10 @@ func (c *GRPCClient) BuildHook(hookName string, info component.HookBuildData) (*
 	resp, err := c.client.BuildHook(context.TODO(), &proto.BuildHookRequest{
 		HookName: hookName,
 		Info: &proto.HookBuildData{
-			UserVars:          info.UserVars,
-			BuiltinVars:       info.BuiltinVars,
-			EventSourceType:   info.EventSourceType,
-			EventListenerType: info.EventListenerType,
+			UserVars:        info.UserVars,
+			BuiltinVars:     info.BuiltinVars,
+			EventSourceType: info.EventSourceType,
+			EventType:       info.EventType,
 		},
 	})
 	if err != nil {
@@ -185,10 +185,10 @@ func (s *GRPCServer) GetHooksMetaData(_ context.Context, _ *proto.Empty) (*proto
 
 func (s *GRPCServer) BuildHook(_ context.Context, in *proto.BuildHookRequest) (*proto.BuildHookResponse, error) {
 	info := component.HookBuildData{
-		UserVars:          in.Info.UserVars,
-		BuiltinVars:       in.Info.BuiltinVars,
-		EventSourceType:   in.Info.EventSourceType,
-		EventListenerType: in.Info.EventListenerType,
+		UserVars:        in.Info.UserVars,
+		BuiltinVars:     in.Info.BuiltinVars,
+		EventSourceType: in.Info.EventSourceType,
+		EventType:       in.Info.EventType,
 	}
 	hook, err := s.Impl.BuildHook(in.HookName, info)
 	if err != nil {

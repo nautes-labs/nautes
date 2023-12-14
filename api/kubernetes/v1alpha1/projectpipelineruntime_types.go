@@ -23,8 +23,9 @@ type Gitlab struct {
 	// Gitlab project name.
 	// +kubebuilder:validation:MinLength=1
 	RepoName string `json:"repoName"`
+	// +optional
 	// Supports regular expressions.
-	Revision string `json:"revision"`
+	Revision string `json:"revision,omitempty"`
 	// Gitlab webhook events: push_events, tag_push_events, etc.
 	Events []string `json:"events"`
 }
@@ -62,9 +63,39 @@ type PipelineTrigger struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	// +kubebuilder:validation:MinLength=1
 	Pipeline string `json:"pipeline"`
-	// Optional
+	// +optional
 	// Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
 	Revision string `json:"revision,omitempty"`
+	// +optional
+	// +nullable
+	// Inputs is a list of parameters that need to be passed to the user pipeline.
+	Inputs []UserPipelineInput `json:"inputs,omitempty"`
+}
+
+// UserPipelineInput defines the parameters to be passed to the user pipeline.
+type UserPipelineInput struct {
+	Source UserPipelineInputSource `json:"source"`
+	// TransmissionMethod is the method passed to the user pipeline.
+	TransmissionMethod TransmissionMethod `json:"transmissionMethod"`
+}
+
+// UserPipelineInputSource defines the source of the user pipeline input.
+type UserPipelineInputSource struct {
+	// BuiltInVar defines how to get the data associated with the pipeline runtime.
+	BuiltInVar *string `json:"builtInVar,omitempty"`
+	// FromEvent defines how to get data from the data source.
+	FromEvent *string `json:"fromEvent,omitempty"`
+}
+
+// TransmissionMethod defines the method for transmitting variables to the user pipeline.
+type TransmissionMethod struct {
+	// Kustomization defines how users can pass data to the pipeline file through the kustomize.
+	Kustomization *TransmissionMethodKustomization `json:"kustomization,omitempty"`
+}
+
+type TransmissionMethodKustomization struct {
+	// Path is the path to be replaced in the pipeline file.
+	Path string `json:"path"`
 }
 
 // The definition of a multi-branch pipeline.One pipeline corresponds to one declaration file in the Git repository.

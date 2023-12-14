@@ -60,7 +60,7 @@ func (cg *CalendarEventSourceGenerator) DeleteEventSource(ctx context.Context, u
 func (cg *CalendarEventSourceGenerator) buildBaseEventSource(uniqueID string) *eventsourcev1alpha1.EventSource {
 	return &eventsourcev1alpha1.EventSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildEventSourceName(uniqueID, component.EventTypeCalendar),
+			Name:      buildEventSourceName(uniqueID, component.EventSourceTypeCalendar),
 			Namespace: cg.Namespace,
 		},
 	}

@@ -62,11 +62,11 @@ var _ = Describe("Tekton", func() {
 		Expect(err).Should(BeNil())
 
 		hooks, resources, err := pipeline.GetHooks(component.HooksInitInfo{
-			BuiltinVars:       builtinVars,
-			Hooks:             nautesv1alpha1.Hooks{},
-			EventSource:       component.EventSource{},
-			EventSourceType:   "",
-			EventListenerType: "",
+			BuiltinVars:     builtinVars,
+			Hooks:           nautesv1alpha1.Hooks{},
+			EventSource:     component.EventSource{},
+			EventSourceType: "",
+			EventTypes:      nil,
 		})
 		Expect(err).Should(BeNil())
 		Expect(resources[0]).Should(Equal(component.RequestResource{

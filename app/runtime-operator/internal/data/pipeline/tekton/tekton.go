@@ -15,9 +15,11 @@
 package tekton
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"text/template"
 
 	nautesv1alpha1 "github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 
@@ -32,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func init() {
@@ -40,6 +43,7 @@ func init() {
 
 var (
 	scheme = runtime.NewScheme()
+	logger = logf.Log.WithName("tekton")
 )
 
 type tekton struct {
@@ -47,6 +51,14 @@ type tekton struct {
 	components     *component.ComponentList
 	plgMgr         component.PipelinePluginManager
 	opts           map[string]string
+}
+
+type userParam struct {
+	Name string
+	// Index is the index of the variable in pipeline run
+	Index int
+	// Destination is the position to be replaced in the user pipeline
+	Destination string
 }
 
 const (
@@ -143,12 +155,17 @@ func (t *tekton) GetComponentMachineAccount() *component.MachineAccount {
 // and run the list of resources that need to be created in the environment for the hooks.
 func (t *tekton) GetHooks(info component.HooksInitInfo) (*component.Hooks, []component.RequestResource, error) {
 	pipelineRun := buildBaseHooks(info.BuiltinVars)
-	runUserPipelineScript := buildRunPipelineScript(info.BuiltinVars, info.EventSourceType)
-	addRunPipelineScriptIntoBasePipelineRun(pipelineRun, runUserPipelineScript)
-	reqVars := buildBaseInputOverWrite(info, pipelineRun)
-	resReqs := buildBaseResourceRequest(info.BuiltinVars)
+	pipelineRun, reqVars, defaultUserParams := buildBaseInputOverWrite(info, pipelineRun)
+	pipelineRun, userReqVars, userParams := addUserRequestVarIntoBasePipelineRun(info, pipelineRun)
 
-	hooks, resReqs, err := t.createUserHook(info, *pipelineRun, reqVars, resReqs)
+	reqVars = append(reqVars, userReqVars...)
+	resReqs := buildBaseResourceRequest(info.BuiltinVars)
+	userParams = append(defaultUserParams, userParams...)
+
+	runUserPipelineScript := buildRunPipelineScript(info, userParams)
+	pipelineRun = addRunPipelineScriptIntoBasePipelineRun(pipelineRun, runUserPipelineScript)
+
+	hooks, resReqs, err := t.createUserHooks(info, pipelineRun, reqVars, resReqs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create user hooks failed: %w", err)
 	}
@@ -160,9 +177,9 @@ func (t *tekton) GetPipelineDashBoardURL() string {
 	return t.opts[OptKeyDashBoardURL]
 }
 
-// createUserHook will append pre- and post-tasks to pipelineRun based on the hook information passed in by the user,
+// createUserHooks will append pre- and post-tasks to pipelineRun based on the hook information passed in by the user,
 // and return a new PipelineRun with the input requirement list and resource requirement list.
-func (t *tekton) createUserHook(
+func (t *tekton) createUserHooks(
 	info component.HooksInitInfo,
 	pipelineRun v1alpha1.PipelineRun,
 	requestVars []component.InputOverWrite,
@@ -173,12 +190,17 @@ func (t *tekton) createUserHook(
 		builtinVars[string(k)] = v
 	}
 
+	eventType := ""
+	if len(info.EventTypes) != 0 {
+		eventType = info.EventTypes[0]
+	}
+
 	for _, hook := range info.Hooks.PreHooks {
 		hookBuildInfo := component.HookBuildData{
-			UserVars:          hook.Vars,
-			BuiltinVars:       builtinVars,
-			EventSourceType:   string(info.EventSourceType),
-			EventListenerType: info.EventListenerType,
+			UserVars:        hook.Vars,
+			BuiltinVars:     builtinVars,
+			EventSourceType: string(info.EventSourceType),
+			EventType:       eventType,
 		}
 		task, err := t.convertHookToTask(hook, hookBuildInfo)
 		if err != nil {
@@ -196,10 +218,10 @@ func (t *tekton) createUserHook(
 
 	for _, hook := range info.Hooks.PostHooks {
 		hookBuildInfo := component.HookBuildData{
-			UserVars:          hook.Vars,
-			BuiltinVars:       builtinVars,
-			EventSourceType:   string(info.EventSourceType),
-			EventListenerType: info.EventListenerType,
+			UserVars:        hook.Vars,
+			BuiltinVars:     builtinVars,
+			EventSourceType: string(info.EventSourceType),
+			EventType:       eventType,
 		}
 		task, err := t.convertHookToTask(hook, hookBuildInfo)
 		if err != nil {
@@ -380,8 +402,10 @@ func appendResourceRequest(pr *v1alpha1.PipelineRun, req component.RequestResour
 	})
 }
 
+var imageNameRunUserPipeline = "ghcr.io/nautes-labs/kubectl:v1.27.3-alpine-v3.18-v2"
+
 // buildBaseHooks will return a 'PipelineRun' with the tasks "pipeline file download" and "run pipeline file".
-func buildBaseHooks(builtinVars map[component.BuiltinVar]string) *v1alpha1.PipelineRun {
+func buildBaseHooks(builtinVars map[component.BuiltinVar]string) v1alpha1.PipelineRun {
 	storageSize := "10M"
 	pr := &v1alpha1.PipelineRun{
 		TypeMeta: metav1.TypeMeta{
@@ -433,7 +457,7 @@ func buildBaseHooks(builtinVars map[component.BuiltinVar]string) *v1alpha1.Pipel
 						Params: []v1alpha1.Param{
 							{
 								Name:  "image",
-								Value: *v1beta1.NewArrayOrString("ghcr.io/nautes-labs/kubectl:v1.27.3-alpine-v3.18-v2"),
+								Value: *v1beta1.NewArrayOrString(imageNameRunUserPipeline),
 							},
 							{
 								Name: "script",
@@ -497,58 +521,75 @@ func buildBaseHooks(builtinVars map[component.BuiltinVar]string) *v1alpha1.Pipel
 		},
 	}
 
-	return pr
+	return *pr
 }
 
-// buildRunPipelineScript will build the script to run the pipeline file.
-func buildRunPipelineScript(builtinVars map[component.BuiltinVar]string, eventType component.EventSourceType) string {
-	var script string
-	script += "SUFFIX=" + "`" + "openssl rand -hex 2" + "`"
-	script += `
+var scriptTemplate = `
+SUFFIX="{{ .BackQuote }}openssl rand -hex 2{{ .BackQuote }}"
 cat > ./kustomization.yaml << EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - $(params.PipelineFile)
+{{ if ne .PipelineLabel "" -}}
 nameSuffix: -n${SUFFIX}
-`
-	if pipelineLabel, ok := builtinVars[component.VarPipelineLabel]; ok {
-		script += fmt.Sprintf(`
 commonLabels:
-  branch: %s
-`, pipelineLabel)
-	}
-
-	if eventType == component.EventTypeGitlab {
-		script += fmt.Sprintf(`
+  branch: {{ .PipelineLabel }}
+{{- end }}
+{{ if (len .Vars) -}}
 patches:
 - patch: |-
+    {{ range .Vars -}}
     - op: replace
-      path: /spec/params/0/value
-      value: $(params.%s)
+      path: {{ .Destination }}
+      value: $(params.{{ .Name }})
+    {{ end }}
   target:
     kind: PipelineRun
-`, ParamNamePipelineRevision)
-	}
-	script += fmt.Sprintf(`
+{{- end }}
 EOF
 cat ./kustomization.yaml
-kubectl kustomize . | kubectl -n %s create -f -
-`, builtinVars[component.VarNamespace])
-	return script
+kubectl kustomize . | kubectl -n {{ .Namespace }} create -f -`
+
+type templateInput struct {
+	BackQuote     string
+	PipelineLabel string
+	Vars          []userParam
+	Namespace     string
 }
 
-// addRunPipelineScriptIntoBasePipelineRun will insert the run pipeline script into the pipeline run template.
-func addRunPipelineScriptIntoBasePipelineRun(pr *v1alpha1.PipelineRun, script string) {
-	pr.Spec.PipelineSpec.Tasks[1].Params[1].Value = *v1beta1.NewArrayOrString(script)
+// buildRunPipelineScript will build the script to run the pipeline file.
+func buildRunPipelineScript(info component.HooksInitInfo, userParams []userParam) string {
+	input := templateInput{
+		BackQuote:     "`",
+		PipelineLabel: info.BuiltinVars[component.VarPipelineLabel],
+		Vars:          userParams,
+		Namespace:     info.BuiltinVars[component.VarNamespace],
+	}
+	tpl := template.Must(template.New("").Parse(scriptTemplate))
+	var buff bytes.Buffer
+	err := tpl.Execute(&buff, input)
+	if err != nil {
+		logger.Error(err, "build run pipeline script failed")
+	}
+
+	return buff.String()
 }
 
-func buildBaseInputOverWrite(info component.HooksInitInfo, pipelineRun *v1alpha1.PipelineRun) []component.InputOverWrite {
+func buildBaseInputOverWrite(info component.HooksInitInfo, pipelineRun v1alpha1.PipelineRun) (v1alpha1.PipelineRun, []component.InputOverWrite, []userParam) {
 	var reqVars []component.InputOverWrite
-	if info.EventSourceType == component.EventTypeGitlab {
+	var defaultParams []userParam
+
+	if len(info.UserRequestInputs) == 0 &&
+		component.CodeRepoEventSourceList.Has(info.EventSourceType) {
 		reqVars = append(reqVars, component.InputOverWrite{
 			RequestVar: component.EventSourceVarRef,
 			Dest:       "spec.params.0.value",
+		})
+		defaultParams = append(defaultParams, userParam{
+			Name:        ParamNameRevision,
+			Index:       0,
+			Destination: "/spec/params/0/value",
 		})
 	}
 
@@ -560,7 +601,79 @@ func buildBaseInputOverWrite(info component.HooksInitInfo, pipelineRun *v1alpha1
 			Dest:       "spec.params.1.value",
 		})
 	}
-	return reqVars
+	return pipelineRun, reqVars, defaultParams
+}
+
+// addRunPipelineScriptIntoBasePipelineRun will insert the run pipeline script into the pipeline run template.
+func addRunPipelineScriptIntoBasePipelineRun(pr v1alpha1.PipelineRun, script string) v1alpha1.PipelineRun {
+	pr.Spec.PipelineSpec.Tasks[1].Params[1].Value = *v1beta1.NewArrayOrString(script)
+	return pr
+}
+
+const nameTemplateUserRequestVar = "UserRequest-%d"
+
+// addUserRequestVarIntoBasePipelineRun will insert the parameters that the user needs to pass to the pipeline into the init pipeline.
+// It will create new pipeline run parameters in the pipeline based on the data in UserRequestInputs in info.
+// It will return:
+// - Modified init pipeline run resource.
+// - Requires parameters passed in by the event listener.
+// - New input information used to generate a script to replace the user pipeline.
+func addUserRequestVarIntoBasePipelineRun(info component.HooksInitInfo, pr v1alpha1.PipelineRun) (v1alpha1.PipelineRun, []component.InputOverWrite, []userParam) {
+	userParamCount := 0
+	paramLen := len(pr.Spec.Params)
+	reqVars := []component.InputOverWrite{}
+	userParams := []userParam{}
+
+	for _, req := range info.UserRequestInputs {
+		param := userParam{
+			Destination: req.TransmissionMethod.Kustomization.Path,
+		}
+
+		if req.Source.BuiltInVar != nil {
+			paramName := fmt.Sprintf(nameTemplateUserRequestVar, userParamCount)
+			paramIndex := paramLen + userParamCount
+
+			pr.Spec.Params = append(pr.Spec.Params, v1beta1.Param{
+				Name:  paramName,
+				Value: *v1beta1.NewArrayOrString(info.BuiltinVars[component.BuiltinVar(*req.Source.BuiltInVar)]),
+			})
+
+			pr.Spec.PipelineSpec.Params = append(pr.Spec.PipelineSpec.Params, v1beta1.ParamSpec{
+				Name: paramName,
+			})
+
+			param.Name = paramName
+			param.Index = paramIndex
+			userParamCount++
+		}
+
+		if req.Source.FromEvent != nil {
+			paramName := fmt.Sprintf(nameTemplateUserRequestVar, userParamCount)
+			paramIndex := paramLen + userParamCount
+
+			pr.Spec.Params = append(pr.Spec.Params, v1beta1.Param{
+				Name:  paramName,
+				Value: *v1beta1.NewArrayOrString(""),
+			})
+
+			pr.Spec.PipelineSpec.Params = append(pr.Spec.PipelineSpec.Params, v1beta1.ParamSpec{
+				Name:    paramName,
+				Default: v1beta1.NewArrayOrString(""),
+			})
+
+			reqVars = append(reqVars, component.InputOverWrite{
+				RequestVar: *req.Source.FromEvent,
+				Dest:       fmt.Sprintf("spec.params.%d.value", paramIndex),
+			})
+
+			param.Name = paramName
+			param.Index = paramIndex
+			userParamCount++
+		}
+
+		userParams = append(userParams, param)
+	}
+	return pr, reqVars, userParams
 }
 
 func buildBaseResourceRequest(builtinVars map[component.BuiltinVar]string) []component.RequestResource {

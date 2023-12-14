@@ -276,10 +276,10 @@ func (c *Cache) GetMissingEventTypes(pairCache Cache) []component.EventSourceTyp
 func (c *Cache) GetEventType() []component.EventSourceType {
 	var evTypes []component.EventSourceType
 	if c.Gitlab.Len() != 0 {
-		evTypes = append(evTypes, component.EventTypeGitlab)
+		evTypes = append(evTypes, component.EventSourceTypeGitlab)
 	}
 	if c.Calendar.Len() != 0 {
-		evTypes = append(evTypes, component.EventTypeCalendar)
+		evTypes = append(evTypes, component.EventSourceTypeCalendar)
 	}
 	return evTypes
 }
@@ -379,8 +379,8 @@ type eventSourceGenerator interface {
 // createEventSourceGenerators creates a map to store implementation instance.
 func (ae *ArgoEvent) createEventSourceGenerators() {
 	generators := map[component.EventSourceType]eventSourceGenerator{}
-	generators[component.EventTypeGitlab] = ae.newGitlabEventSourceGenerator()
-	generators[component.EventTypeCalendar] = ae.newCalendarEventSourceGenerator()
+	generators[component.EventSourceTypeGitlab] = ae.newGitlabEventSourceGenerator()
+	generators[component.EventSourceTypeCalendar] = ae.newCalendarEventSourceGenerator()
 	ae.eventSourceGenerators = generators
 }
 
