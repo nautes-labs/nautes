@@ -542,7 +542,7 @@ patches:
     {{ range .Vars -}}
     - op: replace
       path: {{ .Destination }}
-      value: $(params.{{ .Name }})
+      value: "$(params.{{ .Name }})"
     {{ end }}
   target:
     kind: PipelineRun
@@ -610,7 +610,7 @@ func addRunPipelineScriptIntoBasePipelineRun(pr v1alpha1.PipelineRun, script str
 	return pr
 }
 
-const nameTemplateUserRequestVar = "UserRequest-%d"
+const nameTemplateUserRequestVar = "UserRequest_%d"
 
 // addUserRequestVarIntoBasePipelineRun will insert the parameters that the user needs to pass to the pipeline into the init pipeline.
 // It will create new pipeline run parameters in the pipeline based on the data in UserRequestInputs in info.
