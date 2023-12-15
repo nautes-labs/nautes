@@ -503,7 +503,7 @@ func DeleteProduct(ctx context.Context, productID, productName string, component
 	}
 
 	if err := components.MultiTenant.DeleteProduct(ctx, productID); err != nil {
-		return fmt.Errorf("create product in multi tenant failed: %w", err)
+		return fmt.Errorf("delete product in multi tenant failed: %w", err)
 	}
 
 	if err := components.Deployment.DeleteProduct(ctx, productID); err != nil {
