@@ -421,7 +421,7 @@ var _ = Describe("Sensor", func() {
 					Filters: []component.Filter{
 						{
 							Key:        "headers.X-Gitlab-Event",
-							Value:      "Tag Push Hook",
+							Value:      []string{"Tag Push Hook"},
 							Comparator: component.EqualTo,
 						},
 					},
@@ -468,11 +468,9 @@ var _ = Describe("Sensor", func() {
 					Filters: &sensorv1alpha1.EventDependencyFilter{
 						Data: []sensorv1alpha1.DataFilter{
 							{
-								Path: consumer.Consumers[0].Filters[0].Key,
-								Type: "string",
-								Value: []string{
-									consumer.Consumers[0].Filters[0].Value,
-								},
+								Path:       consumer.Consumers[0].Filters[0].Key,
+								Type:       "string",
+								Value:      consumer.Consumers[0].Filters[0].Value,
 								Comparator: "=",
 							},
 						},

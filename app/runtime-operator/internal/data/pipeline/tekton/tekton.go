@@ -542,7 +542,8 @@ patches:
     {{ range .Vars -}}
     - op: replace
       path: {{ .Destination }}
-      value: "$(params.{{ .Name }})"
+      value: |
+        $(params.{{ .Name }})
     {{ end }}
   target:
     kind: PipelineRun

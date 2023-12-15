@@ -186,7 +186,7 @@ func buildDependencies(consumer component.Consumer) sensorv1alpha1.EventDependen
 			dataFilters = append(dataFilters, sensorv1alpha1.DataFilter{
 				Path:       filter.Key,
 				Type:       sensorv1alpha1.JSONTypeString,
-				Value:      []string{filter.Value},
+				Value:      filter.Value,
 				Comparator: comparatorMap[filter.Comparator],
 			})
 		}

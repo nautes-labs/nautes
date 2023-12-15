@@ -160,7 +160,7 @@ type Filter struct {
 	// Key indicates the key of the attribute in the event source. The value is obtained from the key.
 	Key string
 	// Value indicates the value to be compared. It is compared with the value corresponding to the key.
-	Value string
+	Value []string
 	// Comparator is only a symbol that is used to compare.
 	Comparator Comparator
 }
