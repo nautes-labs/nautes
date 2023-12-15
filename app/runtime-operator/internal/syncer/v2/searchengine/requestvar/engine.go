@@ -15,6 +15,7 @@
 package requestvar
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -81,6 +82,13 @@ func (rvse *RequestVarSearchEngine) GetTargetPathInEventSource(conditions compon
 
 	if err := rvse.engine.Execute(dataCtx, rvse.knowledgeBase[knowledgeBaseNameEventSourcePath]); err != nil {
 		return "", err
+	}
+	if req.Result == "" {
+		return "", fmt.Errorf("unable to search for the corresponding rule, event type, %s, event source type, %s, event listener type, %s, request var, %s",
+			conditions.EventType,
+			conditions.EventSourceType,
+			conditions.EventListenerType,
+			conditions.RequestVar)
 	}
 
 	return req.Result, nil

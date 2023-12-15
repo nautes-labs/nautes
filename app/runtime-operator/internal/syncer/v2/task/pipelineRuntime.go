@@ -741,22 +741,25 @@ const (
 
 func getGitlabFiltersFromEventSource(eventSource v1alpha1.Gitlab) ([]component.Filter, error) {
 	var filters []component.Filter
+	var events []string
 	for i := range eventSource.Events {
 		eventHead, ok := gitlabWebhookEventToGitlabEventHeaderMapping[eventSource.Events[i]]
 		if !ok {
 			return nil, fmt.Errorf("un support event type %s", eventSource.Events[i])
 		}
+		events = append(events, eventHead)
 
-		filters = append(filters, component.Filter{
-			Key:        GitlabWebhookIndexEventType,
-			Value:      eventHead,
-			Comparator: component.EqualTo,
-		})
 	}
+	filters = append(filters, component.Filter{
+		Key:        GitlabWebhookIndexEventType,
+		Value:      events,
+		Comparator: component.EqualTo,
+	})
+
 	if eventSource.Revision != "" {
 		filters = append(filters, component.Filter{
 			Key:        GitlabWebhookIndexRef,
-			Value:      eventSource.Revision,
+			Value:      []string{eventSource.Revision},
 			Comparator: component.Match,
 		})
 	}
