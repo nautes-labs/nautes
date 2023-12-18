@@ -551,6 +551,508 @@ var _ interface {
 	ErrorName() string
 } = PipelineValidationError{}
 
+// Validate checks the field values on UserPipelineInputSource with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *UserPipelineInputSource) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UserPipelineInputSource with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UserPipelineInputSourceMultiError, or nil if none found.
+func (m *UserPipelineInputSource) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UserPipelineInputSource) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for BuiltInVar
+
+	// no validation rules for FromEvent
+
+	if len(errors) > 0 {
+		return UserPipelineInputSourceMultiError(errors)
+	}
+
+	return nil
+}
+
+// UserPipelineInputSourceMultiError is an error wrapping multiple validation
+// errors returned by UserPipelineInputSource.ValidateAll() if the designated
+// constraints aren't met.
+type UserPipelineInputSourceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UserPipelineInputSourceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UserPipelineInputSourceMultiError) AllErrors() []error { return m }
+
+// UserPipelineInputSourceValidationError is the validation error returned by
+// UserPipelineInputSource.Validate if the designated constraints aren't met.
+type UserPipelineInputSourceValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e UserPipelineInputSourceValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e UserPipelineInputSourceValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e UserPipelineInputSourceValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e UserPipelineInputSourceValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e UserPipelineInputSourceValidationError) ErrorName() string {
+	return "UserPipelineInputSourceValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e UserPipelineInputSourceValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sUserPipelineInputSource.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = UserPipelineInputSourceValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = UserPipelineInputSourceValidationError{}
+
+// Validate checks the field values on TransmissionMethodKustomization with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *TransmissionMethodKustomization) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TransmissionMethodKustomization with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// TransmissionMethodKustomizationMultiError, or nil if none found.
+func (m *TransmissionMethodKustomization) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TransmissionMethodKustomization) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Path
+
+	if len(errors) > 0 {
+		return TransmissionMethodKustomizationMultiError(errors)
+	}
+
+	return nil
+}
+
+// TransmissionMethodKustomizationMultiError is an error wrapping multiple
+// validation errors returned by TransmissionMethodKustomization.ValidateAll()
+// if the designated constraints aren't met.
+type TransmissionMethodKustomizationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TransmissionMethodKustomizationMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TransmissionMethodKustomizationMultiError) AllErrors() []error { return m }
+
+// TransmissionMethodKustomizationValidationError is the validation error
+// returned by TransmissionMethodKustomization.Validate if the designated
+// constraints aren't met.
+type TransmissionMethodKustomizationValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TransmissionMethodKustomizationValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TransmissionMethodKustomizationValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TransmissionMethodKustomizationValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TransmissionMethodKustomizationValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TransmissionMethodKustomizationValidationError) ErrorName() string {
+	return "TransmissionMethodKustomizationValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e TransmissionMethodKustomizationValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTransmissionMethodKustomization.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TransmissionMethodKustomizationValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TransmissionMethodKustomizationValidationError{}
+
+// Validate checks the field values on TransmissionMethod with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *TransmissionMethod) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TransmissionMethod with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TransmissionMethodMultiError, or nil if none found.
+func (m *TransmissionMethod) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TransmissionMethod) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetKustomization()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TransmissionMethodValidationError{
+					field:  "Kustomization",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TransmissionMethodValidationError{
+					field:  "Kustomization",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetKustomization()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TransmissionMethodValidationError{
+				field:  "Kustomization",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return TransmissionMethodMultiError(errors)
+	}
+
+	return nil
+}
+
+// TransmissionMethodMultiError is an error wrapping multiple validation errors
+// returned by TransmissionMethod.ValidateAll() if the designated constraints
+// aren't met.
+type TransmissionMethodMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TransmissionMethodMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TransmissionMethodMultiError) AllErrors() []error { return m }
+
+// TransmissionMethodValidationError is the validation error returned by
+// TransmissionMethod.Validate if the designated constraints aren't met.
+type TransmissionMethodValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TransmissionMethodValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TransmissionMethodValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TransmissionMethodValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TransmissionMethodValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TransmissionMethodValidationError) ErrorName() string {
+	return "TransmissionMethodValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e TransmissionMethodValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTransmissionMethod.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TransmissionMethodValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TransmissionMethodValidationError{}
+
+// Validate checks the field values on UserPipelineInput with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *UserPipelineInput) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UserPipelineInput with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// UserPipelineInputMultiError, or nil if none found.
+func (m *UserPipelineInput) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UserPipelineInput) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetSource()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UserPipelineInputValidationError{
+					field:  "Source",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UserPipelineInputValidationError{
+					field:  "Source",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSource()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return UserPipelineInputValidationError{
+				field:  "Source",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetTransmissionMethod()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UserPipelineInputValidationError{
+					field:  "TransmissionMethod",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UserPipelineInputValidationError{
+					field:  "TransmissionMethod",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTransmissionMethod()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return UserPipelineInputValidationError{
+				field:  "TransmissionMethod",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return UserPipelineInputMultiError(errors)
+	}
+
+	return nil
+}
+
+// UserPipelineInputMultiError is an error wrapping multiple validation errors
+// returned by UserPipelineInput.ValidateAll() if the designated constraints
+// aren't met.
+type UserPipelineInputMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UserPipelineInputMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UserPipelineInputMultiError) AllErrors() []error { return m }
+
+// UserPipelineInputValidationError is the validation error returned by
+// UserPipelineInput.Validate if the designated constraints aren't met.
+type UserPipelineInputValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e UserPipelineInputValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e UserPipelineInputValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e UserPipelineInputValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e UserPipelineInputValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e UserPipelineInputValidationError) ErrorName() string {
+	return "UserPipelineInputValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e UserPipelineInputValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sUserPipelineInput.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = UserPipelineInputValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = UserPipelineInputValidationError{}
+
 // Validate checks the field values on PipelineTriggers with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -596,6 +1098,40 @@ func (m *PipelineTriggers) validate(all bool) error {
 	}
 
 	// no validation rules for Revision
+
+	for idx, item := range m.GetInputs() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PipelineTriggersValidationError{
+						field:  fmt.Sprintf("Inputs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PipelineTriggersValidationError{
+						field:  fmt.Sprintf("Inputs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PipelineTriggersValidationError{
+					field:  fmt.Sprintf("Inputs[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
 
 	if len(errors) > 0 {
 		return PipelineTriggersMultiError(errors)

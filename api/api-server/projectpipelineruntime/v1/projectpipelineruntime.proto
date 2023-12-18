@@ -87,6 +87,30 @@ message Pipeline {
   string path = 3 [json_name = "path", (validate.rules).string.min_len = 1];
 }
 
+// UserPipelineInputSource defines the source of the user pipeline input.
+message UserPipelineInputSource {
+  // BuiltInVar defines how to get the data associated with the pipeline runtime.
+  string built_in_var = 1 [json_name = "built_in_var"];
+  // FromEvent defines how to get data from the data source.
+  string from_event = 2 [json_name = "from_event"];
+}
+
+message TransmissionMethodKustomization {
+  // Path is the path to be replaced in the pipeline file.
+  string path = 1 [json_name = "path"];
+}
+
+// TransmissionMethod defines the method for transmitting variables to the user pipeline.
+message TransmissionMethod {
+ TransmissionMethodKustomization kustomization = 1 [json_name = "kustomization"];
+}
+
+// UserPipelineInput defines the parameters to be passed to the user pipeline.
+message UserPipelineInput {
+  UserPipelineInputSource source = 1 [json_name = "source"];
+  TransmissionMethod transmission_method = 2 [json_name = "transmission_method"];
+}
+
 message PipelineTriggers {
   // Key of the event source.
   string event_source = 1 [json_name = "event_source", (validate.rules).string.min_len = 1];
@@ -94,6 +118,8 @@ message PipelineTriggers {
   string pipeline = 2 [json_name = "pipeline", (validate.rules).string.min_len = 1];
   // Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
   string revision = 3 [json_name = "revision"];
+  // Inputs is a list of parameters that need to be passed to the user pipeline.
+  repeated UserPipelineInput inputs = 4 [json_name = "inputs"];
 }
 
 // Hooks are hooks will to add before or after the user pipeline.

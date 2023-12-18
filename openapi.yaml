@@ -1692,6 +1692,11 @@ components:
                 revision:
                     type: string
                     description: Regular expressions are not supported, If it is empty, the trigger will determine the revision of the pipeline based on the revision of the event source
+                inputs:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.projectpipelineruntime.v1.UserPipelineInput'
+                    description: Inputs is a list of parameters that need to be passed to the user pipeline.
         api.projectpipelineruntime.v1.ProjectPipelineDestination:
             type: object
             properties:
@@ -1770,6 +1775,36 @@ components:
                         - $ref: '#/components/schemas/api.projectpipelineruntime.v1.Hooks'
                     description: Hooks are hooks will to add before or after the user pipeline.
             description: Message containing the body of the request.
+        api.projectpipelineruntime.v1.TransmissionMethod:
+            type: object
+            properties:
+                kustomization:
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.TransmissionMethodKustomization'
+            description: TransmissionMethod defines the method for transmitting variables to the user pipeline.
+        api.projectpipelineruntime.v1.TransmissionMethodKustomization:
+            type: object
+            properties:
+                path:
+                    type: string
+                    description: Path is the path to be replaced in the pipeline file.
+        api.projectpipelineruntime.v1.UserPipelineInput:
+            type: object
+            properties:
+                source:
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.UserPipelineInputSource'
+                transmission_method:
+                    $ref: '#/components/schemas/api.projectpipelineruntime.v1.TransmissionMethod'
+            description: UserPipelineInput defines the parameters to be passed to the user pipeline.
+        api.projectpipelineruntime.v1.UserPipelineInputSource:
+            type: object
+            properties:
+                built_in_var:
+                    type: string
+                    description: BuiltInVar defines how to get the data associated with the pipeline runtime.
+                from_event:
+                    type: string
+                    description: FromEvent defines how to get data from the data source.
+            description: UserPipelineInputSource defines the source of the user pipeline input.
         google.protobuf.ListValue:
             type: object
             properties:
