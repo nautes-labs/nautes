@@ -74,7 +74,7 @@ func (s *ProjectPipelineRuntimeService) GetProjectPipelineRuntime(ctx context.Co
 		return nil, err
 	}
 
-	return covertProjectPipelineRuntime(runtime)
+	return NewReplay(runtime)
 }
 
 func (s *ProjectPipelineRuntimeService) ListProjectPipelineRuntimes(ctx context.Context, req *projectpipelineruntimev1.ListsRequest) (*projectpipelineruntimev1.ListsReply, error) {
@@ -106,7 +106,7 @@ func (s *ProjectPipelineRuntimeService) ListProjectPipelineRuntimes(ctx context.
 			continue
 		}
 
-		item, err := covertProjectPipelineRuntime(runtime)
+		item, err := NewReplay(runtime)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +124,7 @@ func (s *ProjectPipelineRuntimeService) SaveProjectPipelineRuntime(ctx context.C
 		return nil, err
 	}
 
-	data := s.constructData(req)
+	data := s.NewProjectPipelineRuntimeData(req)
 
 	options := &biz.BizOptions{
 		ResouceName:       req.ProjectPipelineRuntimeName,
@@ -172,7 +172,7 @@ func (s *ProjectPipelineRuntimeService) DeleteProjectPipelineRuntime(ctx context
 	}, nil
 }
 
-func (s *ProjectPipelineRuntimeService) constructData(req *projectpipelineruntimev1.SaveRequest) *biz.ProjectPipelineRuntimeData {
+func (s *ProjectPipelineRuntimeService) NewProjectPipelineRuntimeData(req *projectpipelineruntimev1.SaveRequest) *biz.ProjectPipelineRuntimeData {
 	eventSources := convertEventsToEventSource(req.Body.EventSources)
 	pipelines := convertPipelines(req.Body.Pipelines)
 	pipelineTriggers := convertTriggersToPipelineTriggers(req.Body.PipelineTriggers)
@@ -285,7 +285,7 @@ func convertAdditionalResources(additionalResources interface{}) interface{} {
 	return nil
 }
 
-func covertProjectPipelineRuntime(projectPipelineRuntime *resourcev1alpha1.ProjectPipelineRuntime) (*projectpipelineruntimev1.GetReply, error) {
+func NewReplay(projectPipelineRuntime *resourcev1alpha1.ProjectPipelineRuntime) (*projectpipelineruntimev1.GetReply, error) {
 	pipelines := convertProjectRuntimeToPipelines(projectPipelineRuntime)
 	eventSources := convertEventSourceToEvent(projectPipelineRuntime)
 	pipelineTriggers := convertPipelineTriggersToTriggers(projectPipelineRuntime)
@@ -410,11 +410,27 @@ func checkPipelineTriggers(req *projectpipelineruntimev1.SaveRequest) error {
 }
 
 func convertTriggersToPipelineTriggers(triggers []*projectpipelineruntimev1.PipelineTriggers) (pipelineTriggers []resourcev1alpha1.PipelineTrigger) {
-	for _, trigger := range triggers {
+	for i := range triggers {
+		var inputs []resourcev1alpha1.UserPipelineInput
+		for j := range triggers[i].Inputs {
+			inputs = append(inputs, resourcev1alpha1.UserPipelineInput{
+				Source: resourcev1alpha1.UserPipelineInputSource{
+					BuiltInVar: &triggers[i].Inputs[j].Source.BuiltInVar,
+					FromEvent:  &triggers[i].Inputs[j].Source.FromEvent,
+				},
+				TransmissionMethod: resourcev1alpha1.TransmissionMethod{
+					Kustomization: &resourcev1alpha1.TransmissionMethodKustomization{
+						Path: triggers[i].Inputs[j].TransmissionMethod.Kustomization.Path,
+					},
+				},
+			})
+		}
+
 		resourcePipelineTrigger := resourcev1alpha1.PipelineTrigger{
-			EventSource: trigger.EventSource,
-			Pipeline:    trigger.Pipeline,
-			Revision:    trigger.Revision,
+			EventSource: triggers[i].EventSource,
+			Pipeline:    triggers[i].Pipeline,
+			Revision:    triggers[i].Revision,
+			Inputs:      inputs,
 		}
 
 		pipelineTriggers = append(pipelineTriggers, resourcePipelineTrigger)
@@ -425,11 +441,30 @@ func convertTriggersToPipelineTriggers(triggers []*projectpipelineruntimev1.Pipe
 
 func convertPipelineTriggersToTriggers(projectPipelineRuntime *resourcev1alpha1.ProjectPipelineRuntime) []*projectpipelineruntimev1.PipelineTriggers {
 	var pipelineTriggers []*projectpipelineruntimev1.PipelineTriggers
+	var inputs []*projectpipelineruntimev1.UserPipelineInput
+
 	for _, trigger := range projectPipelineRuntime.Spec.PipelineTriggers {
+
+		// Convert input parameters
+		for i := range trigger.Inputs {
+			inputs = append(inputs, &projectpipelineruntimev1.UserPipelineInput{
+				Source: &projectpipelineruntimev1.UserPipelineInputSource{
+					BuiltInVar: *trigger.Inputs[i].Source.BuiltInVar,
+					FromEvent:  *trigger.Inputs[i].Source.FromEvent,
+				},
+				TransmissionMethod: &projectpipelineruntimev1.TransmissionMethod{
+					Kustomization: &projectpipelineruntimev1.TransmissionMethodKustomization{
+						Path: trigger.Inputs[i].TransmissionMethod.Kustomization.Path,
+					},
+				},
+			})
+		}
+
 		pipelineTriggers = append(pipelineTriggers, &projectpipelineruntimev1.PipelineTriggers{
 			EventSource: trigger.EventSource,
 			Pipeline:    trigger.Pipeline,
 			Revision:    trigger.Revision,
+			Inputs:      inputs,
 		})
 	}
 	return pipelineTriggers
