@@ -413,17 +413,25 @@ func convertTriggersToPipelineTriggers(triggers []*projectpipelineruntimev1.Pipe
 	for i := range triggers {
 		var inputs []resourcev1alpha1.UserPipelineInput
 		for j := range triggers[i].Inputs {
-			inputs = append(inputs, resourcev1alpha1.UserPipelineInput{
-				Source: resourcev1alpha1.UserPipelineInputSource{
+			var input resourcev1alpha1.UserPipelineInput
+
+			if triggers[i].Inputs[j].Source != nil {
+				input.Source = resourcev1alpha1.UserPipelineInputSource{
 					BuiltInVar: &triggers[i].Inputs[j].Source.BuiltInVar,
 					FromEvent:  &triggers[i].Inputs[j].Source.FromEvent,
-				},
-				TransmissionMethod: resourcev1alpha1.TransmissionMethod{
+				}
+			}
+
+			if triggers[i].Inputs[j].TransmissionMethod != nil &&
+				triggers[i].Inputs[j].TransmissionMethod.Kustomization != nil {
+				input.TransmissionMethod = resourcev1alpha1.TransmissionMethod{
 					Kustomization: &resourcev1alpha1.TransmissionMethodKustomization{
 						Path: triggers[i].Inputs[j].TransmissionMethod.Kustomization.Path,
 					},
-				},
-			})
+				}
+			}
+
+			inputs = append(inputs, input)
 		}
 
 		resourcePipelineTrigger := resourcev1alpha1.PipelineTrigger{
