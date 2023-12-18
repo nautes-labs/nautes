@@ -25,18 +25,13 @@ import (
 	"github.com/nautes-labs/nautes/app/api-server/pkg/selector"
 )
 
-const (
-	_Cluster = "Spec.Cluster"
-	_EnvType = "Spec.EnvType"
-)
-
 var (
 	environmentFilterFieldRules = map[string]map[string]selector.FieldSelector{
-		FieldCluster: {
-			selector.EqualOperator: selector.NewStringSelector(_Cluster, selector.In),
+		"cluster": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.Cluster", selector.In),
 		},
-		FieldEnvType: {
-			selector.EqualOperator: selector.NewStringSelector(_EnvType, selector.In),
+		"env_type": {
+			selector.EqualOperator: selector.NewStringSelector("Spec.EnvType", selector.In),
 		},
 	}
 )
