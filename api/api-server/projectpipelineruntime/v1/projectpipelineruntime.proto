@@ -62,7 +62,7 @@ message Gitlab {
   // Gitlab project name.
   string repo_name = 1 [json_name = "repo_name", (validate.rules).string.min_len = 1];
   // Supports regular expressions.
-  string revision = 2 [json_name = "revision", (validate.rules).string.min_len = 1];
+  string revision = 2 [json_name = "revision"];
   // Gitlab webhook events: push_events, tag_push_events, etc.
   repeated string events = 3 [json_name = "events"];
 }
