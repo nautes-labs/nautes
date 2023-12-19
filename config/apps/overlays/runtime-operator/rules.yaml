@@ -36,6 +36,17 @@ data:
          Retract("GitlabArgoEventsTargetBranch");
     }
 
+    rule GitlabArgoEventsSourceBranch "Gitlab | Argo-Event | MergeRequest | SourceBranch" {
+       when
+         req.Filter.EventSourceType == "gitlab" &&
+         req.Filter.EventType == "merge_requests_events" &&
+         req.Filter.EventListenerType == "argo-events" &&
+         req.Filter.RequestVar == "source_branch"
+       then
+         req.Result = "body.object_attributes.source_branch";
+         Retract("GitlabArgoEventsSourceBranch");
+    }
+
     rule GitlabArgoEventsMergeRequestStatus "Gitlab | Argo-Event | MergeRequest | Status" {
        when
          req.Filter.EventSourceType == "gitlab" &&
@@ -56,4 +67,15 @@ data:
        then
          req.Result = "body.object_attributes.labels";
          Retract("GitlabArgoEventsMergeRequestLabels");
+    }
+
+    rule GitlabArgoEventsTitle "Gitlab | Argo-Event | MergeRequest | Title" {
+       when
+         req.Filter.EventSourceType == "gitlab" &&
+         req.Filter.EventType == "merge_requests_events" &&
+         req.Filter.EventListenerType == "argo-events" &&
+         req.Filter.RequestVar == "title"
+       then
+         req.Result = "body.object_attributes.title";
+         Retract("GitlabArgoEventsTitle");
     }

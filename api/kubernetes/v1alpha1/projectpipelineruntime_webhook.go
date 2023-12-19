@@ -255,6 +255,9 @@ func checkUserPipelineInputSourceIsLegal(triggers []PipelineTrigger) error {
 				return fmt.Errorf("both builtInVar and fromEvent has value")
 			}
 
+			if input.TransmissionMethod.Kustomization == nil {
+				return fmt.Errorf("transmission method can not be nil")
+			}
 		}
 	}
 	return nil
