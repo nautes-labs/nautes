@@ -542,7 +542,7 @@ patches:
     {{ range .Vars -}}
     - op: replace
       path: {{ .Destination }}
-      value: |
+      value: |-
         $(params.{{ .Name }})
     {{ end }}
   target:
@@ -625,7 +625,12 @@ func addUserRequestVarIntoBasePipelineRun(info component.HooksInitInfo, pr v1alp
 	reqVars := []component.InputOverWrite{}
 	userParams := []userParam{}
 
-	for _, req := range info.UserRequestInputs {
+	for i, req := range info.UserRequestInputs {
+		if req.TransmissionMethod.Kustomization == nil {
+			logger.Info("transmissionMethod is not kustomize", "index", i)
+			continue
+		}
+
 		param := userParam{
 			Destination: req.TransmissionMethod.Kustomization.Path,
 		}
