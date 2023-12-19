@@ -416,10 +416,21 @@ func convertTriggersToPipelineTriggers(triggers []*projectpipelineruntimev1.Pipe
 			var input resourcev1alpha1.UserPipelineInput
 
 			if triggers[i].Inputs[j].Source != nil {
-				input.Source = resourcev1alpha1.UserPipelineInputSource{
-					BuiltInVar: &triggers[i].Inputs[j].Source.BuiltInVar,
-					FromEvent:  &triggers[i].Inputs[j].Source.FromEvent,
+				source := resourcev1alpha1.UserPipelineInputSource{}
+
+				if triggers[i].Inputs[j].Source.BuiltInVar != "" {
+					source.BuiltInVar = &triggers[i].Inputs[j].Source.BuiltInVar
+				} else {
+					source.BuiltInVar = nil
 				}
+
+				if triggers[i].Inputs[j].Source.FromEvent != "" {
+					source.FromEvent = &triggers[i].Inputs[j].Source.FromEvent
+				} else {
+					source.FromEvent = nil
+				}
+
+				input.Source = source
 			}
 
 			if triggers[i].Inputs[j].TransmissionMethod != nil &&
