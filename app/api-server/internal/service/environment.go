@@ -45,7 +45,7 @@ func NewEnvironmentService(environment *biz.EnvironmentUsecase) *EnvironmentServ
 	return &EnvironmentService{environment: environment}
 }
 
-func (s *EnvironmentService) CovertCodeRepoValueToReply(env *resourcev1alpha1.Environment) *environmentv1.GetReply {
+func (s *EnvironmentService) NewGetReply(env *resourcev1alpha1.Environment) *environmentv1.GetReply {
 	return &environmentv1.GetReply{
 		Product: env.Spec.Product,
 		Name:    env.Name,
@@ -60,7 +60,7 @@ func (s *EnvironmentService) GetEnvironment(ctx context.Context, req *environmen
 		return nil, err
 	}
 
-	return s.CovertCodeRepoValueToReply(env), nil
+	return s.NewGetReply(env), nil
 }
 
 func (s *EnvironmentService) ListEnvironments(ctx context.Context, req *environmentv1.ListsRequest) (*environmentv1.ListsReply, error) {
@@ -90,7 +90,7 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, req *environm
 			continue
 		}
 
-		items = append(items, s.CovertCodeRepoValueToReply(env))
+		items = append(items, s.NewGetReply(env))
 	}
 
 	return &environmentv1.ListsReply{Items: items}, nil
