@@ -228,16 +228,28 @@ return event
 	return nil
 }
 
-var scriptTemplate = "if not string.match(%s, \"%s\") then return false end"
+var scriptTemplate = `local patterns = {%s}
+
+for _, pattern in ipairs(patterns) do
+  if string.match(%s, pattern) then
+    isMatch = true
+  end
+end
+`
 
 // buildMatchScript builds a filter of the Lua script from webhook events.
 func buildMatchScript(filters []component.Filter) string {
-	scripts := make([]string, len(filters)+1)
+	scripts := []string{"local isMatch = false"}
 	for i := range filters {
-		scripts[i] = fmt.Sprintf(scriptTemplate, filters[i].Key, filters[i].Value)
+		var patterns []string
+		for _, pattern := range filters[i].Value {
+			patterns = append(patterns, fmt.Sprintf("\"%s\"", pattern))
+		}
+		script := fmt.Sprintf(scriptTemplate, strings.Join(patterns, ","), filters[i].Key)
+		scripts = append(scripts, script)
 	}
 
-	scripts[len(filters)] = "return true"
+	scripts = append(scripts, "return isMatch")
 	return strings.Join(scripts, "\n")
 }
 
