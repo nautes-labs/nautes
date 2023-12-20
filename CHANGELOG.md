@@ -1,5 +1,18 @@
 # Change Log
 
+## v0.4.2
+
+> Change log since v0.4.1
+
+### Changes
+* Support adding hooks before and after the user pipeline.
+* Support transfer of specified variables to user pipelines.
+* Reconstructed the code for tuning pipeline runtime and deployment runtime
+* The logic of the init pipeline has been restructured. The generation of the init pipeline is no longer from the template file, but from the pipeline component instead.
+
+### Fix
+* Fixed the problem that pipeline event source does not support multiple events.
+
 ## v0.4.1
 
 > Change log since v0.4.0
@@ -64,7 +77,7 @@ spec:
    Now there would have been more implementation for every component. such as Gateway may use APISIX or NginxIngress as an implementer.
 
 ### New Feature
-1. Supported custom components for cluster resource. It would be best to use the componentsList attribute when adding a cluster. 
+1. Supported custom components for cluster resource. It would be best to use the componentsList attribute when adding a cluster.
 The componentsList includes three properties which are name and namespace and additions which are additional properties. The Key is the component attribute, the Value is value of the component attribute.
 eg: If the traefik as gateway, it can be set attributes of traefik by the additions attribute.
 ```yaml
