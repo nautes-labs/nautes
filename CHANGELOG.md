@@ -7,8 +7,8 @@
 ### Changes
 * Support adding hooks before and after the user pipeline.
 * Support transfer of specified variables to user pipelines.
-* Reconstructed the code for tuning pipeline runtime and deployment runtime
-* The logic of the init pipeline has been restructured. The generation of the init pipeline is no longer from the template file, but from the pipeline component instead.
+* Reconfigure the code for deploying deployment runtime and project pipeline runtime.
+* Modify the generation logic of init pipeline and generate it by pipeline component instead.
 
 ### Fix
 * Fixed the problem that pipeline event source does not support multiple events.
