@@ -1,0 +1,14 @@
+changelog:
+  categories:
+    - title: Added
+      labels:
+        - new
+    - title: Fixed
+      labels:
+        - fix
+    - title: Changed
+      labels:
+        - update
+    - title: Removed
+      labels:
+        - remove
