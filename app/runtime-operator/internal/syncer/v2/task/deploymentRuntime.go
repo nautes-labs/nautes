@@ -60,7 +60,7 @@ type DeploymentRuntimeSyncHistory struct {
 	Permissions []component.SecretInfo `json:"permissions,omitempty"`
 }
 
-func newDeploymentRuntimeDeployer(initInfo performerInitInfos) (taskPerformer, error) {
+func newDeploymentRuntimeDeployer(initInfo PerformerInitInfos) (TaskPerformer, error) {
 	deployRuntime := initInfo.runtime.(*v1alpha1.DeploymentRuntime)
 
 	productID := deployRuntime.GetProduct()

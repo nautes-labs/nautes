@@ -72,10 +72,10 @@ var (
 )
 
 // NewTaskPerformer will generate a taskPerformer instance.
-type NewTaskPerformer func(initInfo performerInitInfos) (taskPerformer, error)
+type NewTaskPerformer func(initInfo PerformerInitInfos) (TaskPerformer, error)
 
-// performerInitInfos stores the information needed to initialize taskPerformer.
-type performerInitInfos struct {
+// PerformerInitInfos stores the information needed to initialize taskPerformer.
+type PerformerInitInfos struct {
 	*component.ComponentInitInfo
 	// runtime is the runtime resource to be deployed.
 	runtime v1alpha1.Runtime
@@ -85,8 +85,8 @@ type performerInitInfos struct {
 	tenantK8sClient client.Client
 }
 
-// taskPerformer can deploy or clean up specific types of runtime.
-type taskPerformer interface {
+// TaskPerformer can deploy or clean up specific types of runtime.
+type TaskPerformer interface {
 	// Deploy will deploy the runtime in the cluster and return the information to be cached in the runtime resource.
 	//
 	// Additional notes:
@@ -185,7 +185,7 @@ func (s *Syncer) NewTask(ctx context.Context, runtime v1alpha1.Runtime, componen
 		return nil, fmt.Errorf("init componentList failed: %w", err)
 	}
 
-	performerInitInfos := performerInitInfos{
+	performerInitInfos := PerformerInitInfos{
 		ComponentInitInfo: initInfo,
 		runtime:           runtime,
 		cache:             componentsStatus,
@@ -219,7 +219,7 @@ type Task struct {
 	// components stores the component instances required for deployment tasks.
 	components *component.ComponentList
 	// performer stores the execution instance of the runtime deployment.
-	performer taskPerformer
+	performer TaskPerformer
 	// clusterName is the name of the cluster deployed by the runtime.
 	clusterName string
 	// nautesNamespace is the namespace where the nautes component is located

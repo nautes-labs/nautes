@@ -44,6 +44,7 @@ const (
 const (
 	ClusterWorkTypeDeployment ClusterWorkType = "deployment"
 	ClusterWorkTypePipeline   ClusterWorkType = "pipeline"
+	ClusterWorkTypeMiddleware ClusterWorkType = "middleware"
 )
 
 // ClusterSpec defines the desired state of Cluster
@@ -65,10 +66,15 @@ type ClusterSpec struct {
 	// PrimaryDomain is used to build the domain of components within the cluster
 	PrimaryDomain string `json:"primaryDomain,omitempty" yaml:"primaryDomain"`
 	// +optional
-	// +kubebuilder:validation:Enum="";pipeline;deployment
+	// +kubebuilder:validation:Enum="";pipeline;deployment;middleware
 	// pipeline or deployment, when the cluster usage is 'worker', the WorkType is required.
-	WorkerType     ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
-	ComponentsList ComponentsList  `json:"componentsList"`
+	WorkerType ClusterWorkType `json:"workerType,omitempty" yaml:"workerType"`
+	// ComponentsList declares the specific components used by the cluster.
+	ComponentsList ComponentsList `json:"componentsList"`
+	// MiddlewareProvider are the middlewares that can be deployed in the cluster.
+	// +optional
+	// +nullable
+	MiddlewareProvider *MiddlewareProvider `json:"middlewareProvider,omitempty"`
 	// +optional
 	// +nullable
 	// ReservedNamespacesAllowedProducts key is namespace name, value is the product name list witch can use namespace.
@@ -128,6 +134,37 @@ type ComponentsList struct {
 	// +optional
 	// +nullable
 	OauthProxy *Component `json:"oauthProxy,omitempty" componentName:"oauthProxy"`
+}
+
+// MiddlewareDeploymentImplementation is the implementation of middleware deployment.
+type MiddlewareDeploymentImplementation struct {
+	// Type is the name of the middleware deployment implementation.
+	// +kubebuilder:validation:MinLength=1
+	Type string `json:"type"`
+	// Namespace is the namespace used by this implementation.
+	Namespace string `json:"namespace"`
+	// Additions contains additional configuration options for this implementation.
+	// +optional
+	// +nullable
+	Additions map[string]string `json:"additions,omitempty"`
+}
+
+// MiddlewareProvider represents a set of middleware deployment solutions.
+type MiddlewareProvider struct {
+	// Type is the name of the middleware provider.
+	Type string `json:"type"`
+
+	// Cache is a map of cache middleware deployment solutions.
+	// The key represents the middleware type, and the value represents a list of available middleware deployment implementations.
+	// +optional
+	// +nullable
+	Cache map[string][]MiddlewareDeploymentImplementation `json:"cache,omitempty"`
+
+	// Database is a map of database middleware deployment solutions.
+	// The key represents the middleware type, and the value represents a list of available middleware deployment implementations.
+	// +optional
+	// +nullable
+	Database map[string][]MiddlewareDeploymentImplementation `json:"database,omitempty"`
 }
 
 // ClusterStatus defines the observed state of Cluster

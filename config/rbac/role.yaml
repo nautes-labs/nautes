@@ -86,6 +86,32 @@ rules:
   - list
   - update
 - apiGroups:
+  - nautes.nautes.io
+  resources:
+  - middlewareruntimes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.nautes.io
+  resources:
+  - middlewareruntimes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.nautes.io
+  resources:
+  - middlewareruntimes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - nautes.resource.nautes.io
   resources:
   - artifactrepoes

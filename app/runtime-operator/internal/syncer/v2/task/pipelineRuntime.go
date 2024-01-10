@@ -107,7 +107,7 @@ type PipelineRuntimeDeployer struct {
 	reqHandler   ResourceRequestHandler
 }
 
-func newPipelineRuntimeDeployer(initInfo performerInitInfos) (taskPerformer, error) {
+func newPipelineRuntimeDeployer(initInfo PerformerInitInfos) (TaskPerformer, error) {
 	deployRuntime := initInfo.runtime.(*v1alpha1.ProjectPipelineRuntime)
 
 	productID := deployRuntime.GetProduct()

@@ -190,6 +190,8 @@ type AuthType string
 const (
 	AuthTypeKubernetesServiceAccount AuthType = "ServiceAccount"
 	AuthTypeUserPassword             AuthType = "Password"
+	AuthTypeKeypair                  AuthType = "Keypair"
+	AuthTypeToken                    AuthType = "Token"
 )
 
 // AuthInfo stores information related to identity authentication.
