@@ -188,6 +188,27 @@ type ClusterStatus struct {
 	// +optional
 	// ComponentsStatus is the status where components are stored.
 	ComponentsStatus map[string]runtime.RawExtension `json:"componentsStatus,omitempty"`
+	// +optional
+	// +nullable
+	// ResourceUsage records the usage of preemptive resources in the cluster.
+	ResourceUsage *ResourceUsage `json:"resourceUsage,omitempty"`
+}
+
+// ResourceUsage records the usage of the cluster.
+type ResourceUsage struct {
+	// +optional
+	// +nullable
+	// RuntimeUsage records the usage of the runtime.
+	// The key is the product name, and the value is the list of runtime usage.
+	RuntimeUsage map[string][]RuntimeUsage `json:"runtimeUsage,omitempty"`
+}
+
+type RuntimeUsage struct {
+	Name        string `json:"name"`
+	AccountName string `json:"account"`
+	// +optional
+	// +nullable
+	Namespaces []string `json:"namespaces,omitempty"`
 }
 
 type ServiceType string

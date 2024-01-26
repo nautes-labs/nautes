@@ -18,18 +18,26 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
+	"github.com/go-logr/logr"
+	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	syncer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/task"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // MiddlewareRuntimeReconciler reconciles a MiddlewareRuntime object
 type MiddlewareRuntimeReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme *k8sruntime.Scheme
 	Syncer syncer.Syncer
 }
 
@@ -47,17 +55,86 @@ type MiddlewareRuntimeReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.4/pkg/reconcile
 func (r *MiddlewareRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	runtime := &v1alpha1.MiddlewareRuntime{}
+	if err := r.Get(ctx, req.NamespacedName, runtime); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	return ctrl.Result{}, nil
+	if !controllerutil.ContainsFinalizer(runtime, runtimeFinalizerName) {
+		controllerutil.AddFinalizer(runtime, runtimeFinalizerName)
+		logger.Info("Add finalizer", "name", runtime.Name)
+		if err := r.Client.Update(ctx, runtime); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update runtime: %w", err)
+		}
+	}
+
+	task, err := r.Syncer.NewTask(ctx, runtime, nil)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to create task: %w", err)
+	}
+
+	if !runtime.DeletionTimestamp.IsZero() {
+		logger.Info("Delete runtime", "name", runtime.Name)
+		if _, err := task.Delete(ctx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete task: %w", err)
+		}
+
+		controllerutil.RemoveFinalizer(runtime, runtimeFinalizerName)
+		if err := r.Client.Update(ctx, runtime); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update runtime: %w", err)
+		}
+		return ctrl.Result{}, nil
+	}
+
+	status, err := task.Run(ctx)
+	changed := setMiddlewareRuntimeStatus(logger, runtime, status, err)
+	if changed {
+		logger.V(1).Info("Update runtime status", "name", runtime.Name)
+		if err := r.Status().Update(ctx, runtime); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update runtime status: %w", err)
+		}
+	}
+
+	return ctrl.Result{RequeueAfter: reconcileFrequency}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MiddlewareRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		// For().
+		For(&v1alpha1.MiddlewareRuntime{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
+}
+
+func setMiddlewareRuntimeStatus(logger logr.Logger, runtime *v1alpha1.MiddlewareRuntime, status *k8sruntime.RawExtension, err error) (changed bool) {
+	runtimeStatus := &v1alpha1.MiddlewareRuntimeStatus{}
+	if err := json.Unmarshal(status.Raw, runtimeStatus); err != nil {
+		logger.Error(err, "failed to unmarshal runtime status")
+		return false
+	}
+
+	lastStatus := runtime.Status.DeepCopy()
+	condition := metav1.Condition{
+		Type: runtimeConditionType,
+	}
+
+	if err != nil {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = runtimeConditionReason
+		condition.Message = err.Error()
+	} else {
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = runtimeConditionReason
+		condition.Message = "Success"
+	}
+
+	runtimeStatus.Conditions = v1alpha1.GetNewConditions(runtimeStatus.Conditions, []metav1.Condition{condition}, map[string]bool{runtimeConditionType: true})
+	if equality.Semantic.DeepEqual(lastStatus, runtimeStatus) {
+		return false
+	}
+	runtime.Status = *runtimeStatus
+
+	return true
 }

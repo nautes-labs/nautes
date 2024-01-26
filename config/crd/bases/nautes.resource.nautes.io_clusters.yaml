@@ -491,6 +491,35 @@ spec:
                 description: ProductIDMap records the corresponding relationship between
                   product name and product in kubernetes.
                 type: object
+              resourceUsage:
+                description: ResourceUsage records the usage of preemptive resources
+                  in the cluster.
+                nullable: true
+                properties:
+                  runtimeUsage:
+                    additionalProperties:
+                      items:
+                        properties:
+                          account:
+                            type: string
+                          name:
+                            type: string
+                          namespaces:
+                            items:
+                              type: string
+                            nullable: true
+                            type: array
+                        required:
+                        - account
+                        - name
+                        type: object
+                      type: array
+                    description: RuntimeUsage records the usage of the runtime. The
+                      key is the product name, and the value is the list of runtime
+                      usage.
+                    nullable: true
+                    type: object
+                type: object
               sync2ArgoStatus:
                 properties:
                   lastSuccessSpec:

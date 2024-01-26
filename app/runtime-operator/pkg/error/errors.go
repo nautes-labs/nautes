@@ -22,7 +22,11 @@ import (
 type ErrorReason string
 
 const (
-	ResourceNotBelongsToProduct ErrorReason = "ResourceNotBelongsToProduct"
+	ResourceNotBelongsToProduct ErrorReason = "resource not belongs to product"
+	TransformRuleNotFound       ErrorReason = "transform rule not found"
+	TransformRuleExists         ErrorReason = "transform rule exists"
+	ResourceResourceNotFound    ErrorReason = "resource not found"
+	ResourceResourceExists      ErrorReason = "resource exists"
 )
 
 type runtimeErrors struct {
@@ -39,8 +43,60 @@ func ErrorResourceNotBelongsToProduct(resourceName, product string) error {
 
 func IsErrorNotBelongsToProduct(err error) bool {
 	runtimeErr := &runtimeErrors{}
-	if errors.As(err, runtimeErr) && runtimeErr.reason == ResourceNotBelongsToProduct {
-		return true
+	if errors.As(err, runtimeErr) {
+		return runtimeErr.reason == ResourceNotBelongsToProduct
 	}
 	return false
+}
+
+func ErrorResourceNotFound(err error) error {
+	return runtimeErrors{
+		reason: ResourceResourceNotFound,
+		error:  fmt.Errorf("resource not found: %w", err),
+	}
+}
+
+func IsResourceNotFoundError(err error) bool {
+	runtimeErr := &runtimeErrors{}
+	if errors.As(err, runtimeErr) {
+		return runtimeErr.reason == ResourceResourceNotFound
+	}
+	return false
+}
+
+func ErrorResourceExists(err error) error {
+	return runtimeErrors{
+		reason: ResourceResourceExists,
+		error:  fmt.Errorf("resource exists: %w", err),
+	}
+}
+
+func IsResourceExistsError(err error) bool {
+	runtimeErr := &runtimeErrors{}
+	if errors.As(err, runtimeErr) {
+		return runtimeErr.reason == ResourceResourceExists
+	}
+	return false
+}
+
+func ErrorTransformRuleNotFound(err error) error {
+	return runtimeErrors{
+		reason: TransformRuleNotFound,
+		error:  fmt.Errorf("transform rule not found: %w", err),
+	}
+}
+
+func IsTransformRuleNotFoundError(err error) bool {
+	runtimeErr := &runtimeErrors{}
+	if errors.As(err, runtimeErr) {
+		return runtimeErr.reason == TransformRuleNotFound
+	}
+	return false
+}
+
+func ErrorTransformRuleExists(err error) error {
+	return runtimeErrors{
+		reason: TransformRuleExists,
+		error:  fmt.Errorf("transform rule exists: %w", err),
+	}
 }

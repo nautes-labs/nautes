@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package http
+package transformer_test
 
-type RequestHTTP struct {
-	// Method is the method of the request.
-	Method string
-	// Path is the path of the request.
-	Path string
-	// Body is the body of the request.
-	Body any
-	// Header is the header of the request.
-	Header map[string]string
-	// Query is the query parameters of the request.
-	Query map[string]string
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestTransformer(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Transformer Suite")
 }

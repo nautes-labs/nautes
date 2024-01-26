@@ -38,20 +38,12 @@ type MiddlewareRuntimeSpec struct {
 	Account string `json:"account,omitempty"`
 	// +optional
 	// +nullable
-	// DataBases is a list of middleware of type "Databases".
+	// Caches is a list of cache middlewares.
+	Caches []Middleware `json:"caches,omitempty"`
+	// +optional
+	// +nullable
+	// DataBases is a list of database middlewares.
 	DataBases []Middleware `json:"databases,omitempty"`
-	// +optional
-	// +nullable
-	// Monitors is a list of middleware of type "Monitors".
-	Monitors []Middleware `json:"monitors,omitempty"`
-	// +optional
-	// +nullable
-	// Storages is a list of middleware of type "Storages".
-	Storages []Middleware `json:"storages,omitempty"`
-	// +optional
-	// +nullable
-	// SecureStores is a list of middleware of type "SecureStores".
-	SecureStores []Middleware `json:"secureStores,omitempty"`
 }
 
 // MiddlewareRuntimeDestination represents the target environment where the middleware runtime should be deployed.
@@ -75,9 +67,11 @@ type Middleware struct {
 	// Implementation is the implementation of the middleware.
 	// If the middleware has multiple implementation modes, you can specify which mode to use by setting this field.
 	// +optional
-	Implementation string `json:"implementationMode,omitempty"`
+	Implementation string `json:"implementation,omitempty"`
+	// +optional
+	// +nullable
 	// Labels are the labels to be added to the middleware.
-	Labels map[string]string `json:"labels"`
+	Labels map[string]string `json:"labels,omitempty"`
 	// +optional
 	// +nullable
 	// Entrypoint represents the external entrypoint configuration for the middleware.
@@ -86,6 +80,8 @@ type Middleware struct {
 	// +nullable
 	// Redis represents the deployment information for middleware of type "redis".
 	Redis *MiddlewareDeploymentRedis `json:"redis,omitempty"`
+	// +optional
+	// +nullable
 	// CommonMiddlewareInfo represents the deployment information for middleware of common types.
 	// For more information, please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
 	CommonMiddlewareInfo map[string]string `json:"commonMiddlewareInfo,omitempty"`
@@ -148,8 +144,8 @@ type MiddlewareRuntimeStatus struct {
 
 // MiddlewareStatus defines the status of a middleware.
 type MiddlewareStatus struct {
-	// Resource represents the declaration information of the middleware.
-	Resource Middleware `json:"resource"`
+	// Middleware stores the declaration of the middleware used in the last deployment.
+	Middleware Middleware `json:"middleware"`
 	// +optional
 	// +nullable
 	// Status represents the deployment status of the middleware. Its format is determined by the caller implementing the deployment.
@@ -158,6 +154,7 @@ type MiddlewareStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=mr
 
 // MiddlewareRuntime is the Schema for the middlewareruntimes API
 type MiddlewareRuntime struct {

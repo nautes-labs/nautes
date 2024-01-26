@@ -20,21 +20,21 @@ import (
 	"fmt"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
+	middlewareperformer "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/searchengine/requestvar"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/performer"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
-	kubeconvert "github.com/nautes-labs/nautes/pkg/kubeconvert"
+	"github.com/nautes-labs/nautes/pkg/kubeconvert"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgruntime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
-	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/searchengine/requestvar"
-	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 var (
@@ -57,9 +57,10 @@ var (
 var (
 	// newFunctionMapTaskPerformer records a set of New methods for TaskPerformer.
 	// The index is a runtime type.
-	newFunctionMapTaskPerformer = map[v1alpha1.RuntimeType]NewTaskPerformer{
+	newFunctionMapTaskPerformer = map[v1alpha1.RuntimeType]performer.NewTaskPerformer{
 		v1alpha1.RuntimeTypeDeploymentRuntime: newDeploymentRuntimeDeployer,
 		v1alpha1.RuntimeTypePipelineRuntime:   newPipelineRuntimeDeployer,
+		v1alpha1.RuntimeTypeMiddlewareRuntime: middlewareperformer.NewPerformer,
 	}
 	// NewSnapshot is the method for generating a snapshot of the nautes resource.
 	NewSnapshot = database.NewRuntimeSnapshot
@@ -70,40 +71,6 @@ var (
 var (
 	logger = logf.Log.WithName("task")
 )
-
-// NewTaskPerformer will generate a taskPerformer instance.
-type NewTaskPerformer func(initInfo PerformerInitInfos) (TaskPerformer, error)
-
-// PerformerInitInfos stores the information needed to initialize taskPerformer.
-type PerformerInitInfos struct {
-	*component.ComponentInitInfo
-	// runtime is the runtime resource to be deployed.
-	runtime v1alpha1.Runtime
-	// cache is the information last deployed on the runtime.
-	cache *pkgruntime.RawExtension
-	// tenantK8sClient is the k8s client of tenant cluster.
-	tenantK8sClient client.Client
-}
-
-// TaskPerformer can deploy or clean up specific types of runtime.
-type TaskPerformer interface {
-	// Deploy will deploy the runtime in the cluster and return the information to be cached in the runtime resource.
-	//
-	// Additional notes:
-	// - The environment information and runtime information to be deployed have been passed in the new method of taskPerformer.
-	//
-	// Return:
-	// - The cache will be written to the runtime regardless of success. If nil is returned, all cache in the runtime will be cleared.
-	Deploy(ctx context.Context) (interface{}, error)
-	// Delete will clean up the runtime deployed in the cluster.
-	//
-	// Additional notes:
-	// - The environment information and runtime information to be deployed have been passed in the new method of taskPerformer.
-	//
-	// Return:
-	// - If the cleanup is successful, the returned cache should be nil.  If the cleanup fails, the remaining resource information should be returned.
-	Delete(ctx context.Context) (interface{}, error)
-}
 
 // Syncer can create tasks based on environment information and runtime.
 type Syncer struct {
@@ -185,14 +152,14 @@ func (s *Syncer) NewTask(ctx context.Context, runtime v1alpha1.Runtime, componen
 		return nil, fmt.Errorf("init componentList failed: %w", err)
 	}
 
-	performerInitInfos := PerformerInitInfos{
+	performerInitInfos := performer.PerformerInitInfos{
 		ComponentInitInfo: initInfo,
-		runtime:           runtime,
-		cache:             componentsStatus,
-		tenantK8sClient:   s.KubernetesClient,
+		Runtime:           runtime,
+		Cache:             componentsStatus,
+		TenantK8sClient:   s.KubernetesClient,
 	}
 
-	performer, err := newFunctionMapTaskPerformer[runtime.GetRuntimeType()](performerInitInfos)
+	taskPerformer, err := newFunctionMapTaskPerformer[runtime.GetRuntimeType()](performerInitInfos)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +167,7 @@ func (s *Syncer) NewTask(ctx context.Context, runtime v1alpha1.Runtime, componen
 	return &Task{
 		runtimeCache:    componentsStatus,
 		components:      initInfo.Components,
-		performer:       performer,
+		performer:       taskPerformer,
 		clusterName:     cluster.Name,
 		nautesNamespace: cfg.Nautes.Namespace,
 		tenantK8sClient: s.KubernetesClient,
@@ -219,7 +186,7 @@ type Task struct {
 	// components stores the component instances required for deployment tasks.
 	components *component.ComponentList
 	// performer stores the execution instance of the runtime deployment.
-	performer TaskPerformer
+	performer performer.TaskPerformer
 	// clusterName is the name of the cluster deployed by the runtime.
 	clusterName string
 	// nautesNamespace is the namespace where the nautes component is located

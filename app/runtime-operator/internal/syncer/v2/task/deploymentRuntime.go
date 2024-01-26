@@ -23,6 +23,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/performer"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 )
 
@@ -60,8 +61,8 @@ type DeploymentRuntimeSyncHistory struct {
 	Permissions []component.SecretInfo `json:"permissions,omitempty"`
 }
 
-func newDeploymentRuntimeDeployer(initInfo PerformerInitInfos) (TaskPerformer, error) {
-	deployRuntime := initInfo.runtime.(*v1alpha1.DeploymentRuntime)
+func newDeploymentRuntimeDeployer(initInfo performer.PerformerInitInfos) (performer.TaskPerformer, error) {
+	deployRuntime := initInfo.Runtime.(*v1alpha1.DeploymentRuntime)
 
 	productID := deployRuntime.GetProduct()
 	product, err := initInfo.NautesResourceSnapshot.GetProduct(productID)
@@ -82,11 +83,11 @@ func newDeploymentRuntimeDeployer(initInfo PerformerInitInfos) (TaskPerformer, e
 
 	history := &DeploymentRuntimeSyncHistory{}
 	newHistory := &DeploymentRuntimeSyncHistory{}
-	if initInfo.cache != nil {
-		if err := json.Unmarshal(initInfo.cache.Raw, history); err != nil {
+	if initInfo.Cache != nil {
+		if err := json.Unmarshal(initInfo.Cache.Raw, history); err != nil {
 			return nil, fmt.Errorf("unmarshal history failed: %w", err)
 		}
-		_ = json.Unmarshal(initInfo.cache.Raw, newHistory)
+		_ = json.Unmarshal(initInfo.Cache.Raw, newHistory)
 	}
 	if history.Spaces.Set == nil {
 		history.Spaces = utils.NewStringSet()
@@ -95,7 +96,7 @@ func newDeploymentRuntimeDeployer(initInfo PerformerInitInfos) (TaskPerformer, e
 
 	usageController := UsageController{
 		nautesNamespace: initInfo.NautesConfig.Nautes.Namespace,
-		k8sClient:       initInfo.tenantK8sClient,
+		k8sClient:       initInfo.TenantK8sClient,
 		clusterName:     initInfo.ClusterName,
 	}
 

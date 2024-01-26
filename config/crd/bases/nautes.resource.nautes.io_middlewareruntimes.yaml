@@ -12,6 +12,8 @@ spec:
     kind: MiddlewareRuntime
     listKind: MiddlewareRuntimeList
     plural: middlewareruntimes
+    shortNames:
+    - mr
     singular: middlewareruntime
   scope: Namespaced
   versions:
@@ -42,8 +44,8 @@ spec:
               account:
                 description: Account is the account used for running the middleware.
                 type: string
-              databases:
-                description: DataBases is a list of middleware of type "Databases".
+              caches:
+                description: Caches is a list of cache middlewares.
                 items:
                   description: Middleware defines the middleware to be deployed.
                   properties:
@@ -53,6 +55,7 @@ spec:
                       description: CommonMiddlewareInfo represents the deployment
                         information for middleware of common types. For more information,
                         please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
+                      nullable: true
                       type: object
                     entrypoint:
                       description: Entrypoint represents the external entrypoint configuration
@@ -68,7 +71,7 @@ spec:
                         protocol:
                           type: string
                       type: object
-                    implementationMode:
+                    implementation:
                       description: Implementation is the implementation of the middleware.
                         If the middleware has multiple implementation modes, you can
                         specify which mode to use by setting this field.
@@ -77,6 +80,7 @@ spec:
                       additionalProperties:
                         type: string
                       description: Labels are the labels to be added to the middleware.
+                      nullable: true
                       type: object
                     name:
                       description: Name is the name of the deployed middleware. It
@@ -123,7 +127,94 @@ spec:
                       description: Type is the type of the middleware.
                       type: string
                   required:
-                  - labels
+                  - name
+                  - type
+                  type: object
+                nullable: true
+                type: array
+              databases:
+                description: DataBases is a list of database middlewares.
+                items:
+                  description: Middleware defines the middleware to be deployed.
+                  properties:
+                    commonMiddlewareInfo:
+                      additionalProperties:
+                        type: string
+                      description: CommonMiddlewareInfo represents the deployment
+                        information for middleware of common types. For more information,
+                        please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
+                      nullable: true
+                      type: object
+                    entrypoint:
+                      description: Entrypoint represents the external entrypoint configuration
+                        for the middleware.
+                      nullable: true
+                      properties:
+                        domain:
+                          type: string
+                        path:
+                          type: string
+                        port:
+                          type: integer
+                        protocol:
+                          type: string
+                      type: object
+                    implementation:
+                      description: Implementation is the implementation of the middleware.
+                        If the middleware has multiple implementation modes, you can
+                        specify which mode to use by setting this field.
+                      type: string
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Labels are the labels to be added to the middleware.
+                      nullable: true
+                      type: object
+                    name:
+                      description: Name is the name of the deployed middleware. It
+                        is used to differentiate it from other middleware and must
+                        be unique within the runtime.
+                      type: string
+                    redis:
+                      description: Redis represents the deployment information for
+                        middleware of type "redis".
+                      nullable: true
+                      properties:
+                        deployType:
+                          description: DeployType specifies the type of deployment
+                            for the middleware.
+                          type: string
+                        nodeNumber:
+                          description: NodeNumber specifies the number of nodes for
+                            the middleware deployment.
+                          type: string
+                        otherSettings:
+                          additionalProperties:
+                            type: string
+                          description: OtherSettings contains additional settings
+                            for the middleware deployment.
+                          type: object
+                        storage:
+                          description: Storage specifies the storage configuration
+                            for the middleware.
+                          properties:
+                            size:
+                              description: Size represents the size of the storage.
+                              type: string
+                          type: object
+                        version:
+                          description: Version specifies the version of the middleware.
+                          type: string
+                      type: object
+                    space:
+                      description: Space is the deployment location of the middleware.
+                        If this value is empty, the middleware will be deployed in
+                        the default location.
+                      type: string
+                    type:
+                      description: Type is the type of the middleware.
+                      type: string
+                  required:
                   - name
                   - type
                   type: object
@@ -145,267 +236,6 @@ spec:
                 required:
                 - environment
                 type: object
-              monitors:
-                description: Monitors is a list of middleware of type "Monitors".
-                items:
-                  description: Middleware defines the middleware to be deployed.
-                  properties:
-                    commonMiddlewareInfo:
-                      additionalProperties:
-                        type: string
-                      description: CommonMiddlewareInfo represents the deployment
-                        information for middleware of common types. For more information,
-                        please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
-                      type: object
-                    entrypoint:
-                      description: Entrypoint represents the external entrypoint configuration
-                        for the middleware.
-                      nullable: true
-                      properties:
-                        domain:
-                          type: string
-                        path:
-                          type: string
-                        port:
-                          type: integer
-                        protocol:
-                          type: string
-                      type: object
-                    implementationMode:
-                      description: Implementation is the implementation of the middleware.
-                        If the middleware has multiple implementation modes, you can
-                        specify which mode to use by setting this field.
-                      type: string
-                    labels:
-                      additionalProperties:
-                        type: string
-                      description: Labels are the labels to be added to the middleware.
-                      type: object
-                    name:
-                      description: Name is the name of the deployed middleware. It
-                        is used to differentiate it from other middleware and must
-                        be unique within the runtime.
-                      type: string
-                    redis:
-                      description: Redis represents the deployment information for
-                        middleware of type "redis".
-                      nullable: true
-                      properties:
-                        deployType:
-                          description: DeployType specifies the type of deployment
-                            for the middleware.
-                          type: string
-                        nodeNumber:
-                          description: NodeNumber specifies the number of nodes for
-                            the middleware deployment.
-                          type: string
-                        otherSettings:
-                          additionalProperties:
-                            type: string
-                          description: OtherSettings contains additional settings
-                            for the middleware deployment.
-                          type: object
-                        storage:
-                          description: Storage specifies the storage configuration
-                            for the middleware.
-                          properties:
-                            size:
-                              description: Size represents the size of the storage.
-                              type: string
-                          type: object
-                        version:
-                          description: Version specifies the version of the middleware.
-                          type: string
-                      type: object
-                    space:
-                      description: Space is the deployment location of the middleware.
-                        If this value is empty, the middleware will be deployed in
-                        the default location.
-                      type: string
-                    type:
-                      description: Type is the type of the middleware.
-                      type: string
-                  required:
-                  - labels
-                  - name
-                  - type
-                  type: object
-                nullable: true
-                type: array
-              secureStores:
-                description: SecureStores is a list of middleware of type "SecureStores".
-                items:
-                  description: Middleware defines the middleware to be deployed.
-                  properties:
-                    commonMiddlewareInfo:
-                      additionalProperties:
-                        type: string
-                      description: CommonMiddlewareInfo represents the deployment
-                        information for middleware of common types. For more information,
-                        please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
-                      type: object
-                    entrypoint:
-                      description: Entrypoint represents the external entrypoint configuration
-                        for the middleware.
-                      nullable: true
-                      properties:
-                        domain:
-                          type: string
-                        path:
-                          type: string
-                        port:
-                          type: integer
-                        protocol:
-                          type: string
-                      type: object
-                    implementationMode:
-                      description: Implementation is the implementation of the middleware.
-                        If the middleware has multiple implementation modes, you can
-                        specify which mode to use by setting this field.
-                      type: string
-                    labels:
-                      additionalProperties:
-                        type: string
-                      description: Labels are the labels to be added to the middleware.
-                      type: object
-                    name:
-                      description: Name is the name of the deployed middleware. It
-                        is used to differentiate it from other middleware and must
-                        be unique within the runtime.
-                      type: string
-                    redis:
-                      description: Redis represents the deployment information for
-                        middleware of type "redis".
-                      nullable: true
-                      properties:
-                        deployType:
-                          description: DeployType specifies the type of deployment
-                            for the middleware.
-                          type: string
-                        nodeNumber:
-                          description: NodeNumber specifies the number of nodes for
-                            the middleware deployment.
-                          type: string
-                        otherSettings:
-                          additionalProperties:
-                            type: string
-                          description: OtherSettings contains additional settings
-                            for the middleware deployment.
-                          type: object
-                        storage:
-                          description: Storage specifies the storage configuration
-                            for the middleware.
-                          properties:
-                            size:
-                              description: Size represents the size of the storage.
-                              type: string
-                          type: object
-                        version:
-                          description: Version specifies the version of the middleware.
-                          type: string
-                      type: object
-                    space:
-                      description: Space is the deployment location of the middleware.
-                        If this value is empty, the middleware will be deployed in
-                        the default location.
-                      type: string
-                    type:
-                      description: Type is the type of the middleware.
-                      type: string
-                  required:
-                  - labels
-                  - name
-                  - type
-                  type: object
-                nullable: true
-                type: array
-              storages:
-                description: Storages is a list of middleware of type "Storages".
-                items:
-                  description: Middleware defines the middleware to be deployed.
-                  properties:
-                    commonMiddlewareInfo:
-                      additionalProperties:
-                        type: string
-                      description: CommonMiddlewareInfo represents the deployment
-                        information for middleware of common types. For more information,
-                        please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
-                      type: object
-                    entrypoint:
-                      description: Entrypoint represents the external entrypoint configuration
-                        for the middleware.
-                      nullable: true
-                      properties:
-                        domain:
-                          type: string
-                        path:
-                          type: string
-                        port:
-                          type: integer
-                        protocol:
-                          type: string
-                      type: object
-                    implementationMode:
-                      description: Implementation is the implementation of the middleware.
-                        If the middleware has multiple implementation modes, you can
-                        specify which mode to use by setting this field.
-                      type: string
-                    labels:
-                      additionalProperties:
-                        type: string
-                      description: Labels are the labels to be added to the middleware.
-                      type: object
-                    name:
-                      description: Name is the name of the deployed middleware. It
-                        is used to differentiate it from other middleware and must
-                        be unique within the runtime.
-                      type: string
-                    redis:
-                      description: Redis represents the deployment information for
-                        middleware of type "redis".
-                      nullable: true
-                      properties:
-                        deployType:
-                          description: DeployType specifies the type of deployment
-                            for the middleware.
-                          type: string
-                        nodeNumber:
-                          description: NodeNumber specifies the number of nodes for
-                            the middleware deployment.
-                          type: string
-                        otherSettings:
-                          additionalProperties:
-                            type: string
-                          description: OtherSettings contains additional settings
-                            for the middleware deployment.
-                          type: object
-                        storage:
-                          description: Storage specifies the storage configuration
-                            for the middleware.
-                          properties:
-                            size:
-                              description: Size represents the size of the storage.
-                              type: string
-                          type: object
-                        version:
-                          description: Version specifies the version of the middleware.
-                          type: string
-                      type: object
-                    space:
-                      description: Space is the deployment location of the middleware.
-                        If this value is empty, the middleware will be deployed in
-                        the default location.
-                      type: string
-                    type:
-                      description: Type is the type of the middleware.
-                      type: string
-                  required:
-                  - labels
-                  - name
-                  - type
-                  type: object
-                nullable: true
-                type: array
             required:
             - destination
             type: object
@@ -892,6 +722,35 @@ spec:
                         description: ProductIDMap records the corresponding relationship
                           between product name and product in kubernetes.
                         type: object
+                      resourceUsage:
+                        description: ResourceUsage records the usage of preemptive
+                          resources in the cluster.
+                        nullable: true
+                        properties:
+                          runtimeUsage:
+                            additionalProperties:
+                              items:
+                                properties:
+                                  account:
+                                    type: string
+                                  name:
+                                    type: string
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    nullable: true
+                                    type: array
+                                required:
+                                - account
+                                - name
+                                type: object
+                              type: array
+                            description: RuntimeUsage records the usage of the runtime.
+                              The key is the product name, and the value is the list
+                              of runtime usage.
+                            nullable: true
+                            type: object
+                        type: object
                       sync2ArgoStatus:
                         properties:
                           lastSuccessSpec:
@@ -1056,9 +915,9 @@ spec:
                 items:
                   description: MiddlewareStatus defines the status of a middleware.
                   properties:
-                    resource:
-                      description: Resource represents the declaration information
-                        of the middleware.
+                    middleware:
+                      description: Middleware stores the declaration of the middleware
+                        used in the last deployment.
                       properties:
                         commonMiddlewareInfo:
                           additionalProperties:
@@ -1066,6 +925,7 @@ spec:
                           description: CommonMiddlewareInfo represents the deployment
                             information for middleware of common types. For more information,
                             please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
+                          nullable: true
                           type: object
                         entrypoint:
                           description: Entrypoint represents the external entrypoint
@@ -1081,7 +941,7 @@ spec:
                             protocol:
                               type: string
                           type: object
-                        implementationMode:
+                        implementation:
                           description: Implementation is the implementation of the
                             middleware. If the middleware has multiple implementation
                             modes, you can specify which mode to use by setting this
@@ -1091,6 +951,7 @@ spec:
                           additionalProperties:
                             type: string
                           description: Labels are the labels to be added to the middleware.
+                          nullable: true
                           type: object
                         name:
                           description: Name is the name of the deployed middleware.
@@ -1137,7 +998,6 @@ spec:
                           description: Type is the type of the middleware.
                           type: string
                       required:
-                      - labels
                       - name
                       - type
                       type: object
@@ -1149,7 +1009,7 @@ spec:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   required:
-                  - resource
+                  - middleware
                   type: object
                 nullable: true
                 type: array

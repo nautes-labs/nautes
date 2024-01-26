@@ -19,18 +19,16 @@ import (
 	"fmt"
 )
 
-var CallerFactory = callerFactory{}
-
 // ProviderInfo stores detailed information about the middleware service provider. This information is used to interact with the provider's API.
 type ProviderInfo struct {
-	// Name is the name of the middleware service provider.
-	Name string
+	// Type is the name of the middleware service provider.
+	Type string
 	// URL is the base URL of the middleware service provider's API. All API requests will be sent to this address.
 	URL string
 	// TLS stores the TLS configuration information used for secure communication with the middleware provider.
-	TLS TLSInfo
+	TLS *TLSInfo
 	// Auth stores the authentication information used to access the middleware provider's API. This may include API keys, OAuth tokens, etc.
-	Auth ProviderAuthInfo
+	Auth *ProviderAuthInfo
 }
 
 type TLSInfo struct {
@@ -72,11 +70,10 @@ func NewAuthInfo(authInfo interface{}) (*ProviderAuthInfo, error) {
 
 // AuthInfoKeypair represents a key pair used for authentication.
 type AuthInfoKeypair struct {
-	// PrivateKey is the private key of the key pair.
-	PrivateKey string
-
-	// PublicKey is the public key of the key pair.
-	PublicKey string
+	// Key is the private key of the key pair.
+	Key []byte
+	// Cert is the public key of the key pair.
+	Cert []byte
 }
 
 // AuthInfoToken represents authentication information token.
@@ -90,18 +87,38 @@ type AuthInfoUserPassword struct {
 	Password string // The password of the user.
 }
 
+// CallerImplementationType represents the type of caller implementation.
+type CallerImplementationType string
+
+const (
+	// CallerImplBasic represents the basic caller implementation type.
+	CallerImplBasic CallerImplementationType = "Basic"
+	// CallerImplAdvanced represents the advanced caller implementation type.
+	CallerImplAdvanced CallerImplementationType = "Advanced"
+)
+
 // CallerMeta is the metadata information of Caller.
 type CallerMeta struct {
-	// Name is the name of the Caller.
-	Name string
-	// Type is the type of the Caller, whether it is BasicCaller or AdvancedCaller.
+	// Type is the type of the Caller.
 	Type string
+	// ImplementationType is the level of the Caller, whether it is BasicCaller or AdvancedCaller.
+	ImplementationType CallerImplementationType
+}
+
+// GetType returns the type of the caller.
+func (cm CallerMeta) GetType() string {
+	return cm.Type
+}
+
+// GetImplementationType returns the implementation type of the caller.
+func (cm CallerMeta) GetImplementationType() CallerImplementationType {
+	return cm.ImplementationType
 }
 
 // Caller is a caller that can send messages to a remote endpoint and receive messages from it.
 type Caller interface {
-	// GetMetaData returns the metadata information of the Caller.
-	GetMetaData() CallerMeta
+	GetType() string
+	GetImplementationType() CallerImplementationType
 }
 
 // BasicCaller is a type of primitive Caller. It is responsible for sending messages to the remote endpoint.
@@ -115,7 +132,7 @@ type BasicCaller interface {
 	// Returns:
 	// - result: The response from the remote endpoint after sending the message.
 	// - err: An error message if the sending fails.
-	Post(ctx context.Context, request interface{}) (result string, err error)
+	Post(ctx context.Context, request interface{}) (result []byte, err error)
 }
 
 // AdvancedCaller is an advanced type of Caller. It can recognize resource types on its own and requires complete
@@ -136,24 +153,40 @@ type AdvancedCaller interface {
 	Delete(ctx context.Context, state interface{}) error
 }
 
+const (
+	CallerTypeHTTP = "http"
+)
+
+// callerFactory is a factoryCaller struct that holds a menu of NewCaller functions.
+var callerFactory = factoryCaller{
+	// menu is a map of NewCaller functions. The key is the name of the caller type.
+	menu: map[string]NewCaller{},
+}
+
 // NewCaller is a function type that takes a ProviderInfo parameter and returns a Caller and an error.
 type NewCaller func(providerInfo ProviderInfo) (Caller, error)
 
 // callerFactory represents a factory for creating callers.
-type callerFactory struct {
+type factoryCaller struct {
 	menu map[string]NewCaller
 }
 
-// AddNewFunction adds a new function to the CallerFactory menu.
+// AddFunctionNewCaller adds a new function to the CallerFactory menu.
 // The function is identified by the given name and is associated with the provided NewCaller function.
-func (cf *callerFactory) AddNewFunction(name string, fn NewCaller) {
-	cf.menu[name] = fn
+func AddFunctionNewCaller(name string, fn NewCaller) {
+	callerFactory.menu[name] = fn
 }
 
-func (cf *callerFactory) GetCaller(name string, providerInfo ProviderInfo) (Caller, error) {
-	fn, ok := cf.menu[name]
+// GetCaller retrieves an instance of the caller based on the name and provider information.
+// If the corresponding caller is not found, an error is returned.
+func GetCaller(name string, providerInfo ProviderInfo) (Caller, error) {
+	fn, ok := callerFactory.menu[name]
 	if !ok {
 		return nil, fmt.Errorf("caller %s not found", name)
 	}
 	return fn(providerInfo)
+}
+
+func ClearCallerFactory() {
+	callerFactory.menu = map[string]NewCaller{}
 }

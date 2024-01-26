@@ -225,6 +225,10 @@ func (md *mockDB) ListUsedURLs(opts ...database.ListOption) ([]string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
+func (md *mockDB) GetEnvironment(name string) (*v1alpha1.Environment, error) {
+	panic("not implemented") // TODO: Implement
+}
+
 // mmt *mockMultiTenant MultiTenant
 type mockMultiTenant struct{}
 

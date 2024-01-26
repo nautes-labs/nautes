@@ -153,7 +153,7 @@ type SpaceKubernetes struct {
 
 // SpaceServer records the resource usage of space on the host.
 type SpaceServer struct {
-	// Home 是 space 在主机中的绝对路径。
+	// Home is the home directory of the space on the host.
 	Home string
 }
 

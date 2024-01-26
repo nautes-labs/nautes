@@ -1,4 +1,4 @@
-// Copyright 2023 Nautes Authors
+// Copyright 2024 Nautes Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nautesconst
+package utils
 
-const EnvNautesHome = "NAUTES_HOME"
-const EnvNautesLogLevel = "NAUTES_LOG_LEVEL"
-
-const LogLevelDebug = "debug"
-
-const ConfigMapNameHooksMetadata = "nautes-hooks-metadata"
+func MergeStringArray(a, b []string) []string {
+	m := make(map[string]struct{})
+	for _, v := range a {
+		m[v] = struct{}{}
+	}
+	for _, v := range b {
+		m[v] = struct{}{}
+	}
+	var res []string
+	for k := range m {
+		res = append(res, k)
+	}
+	return res
+}

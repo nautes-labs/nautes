@@ -15,6 +15,7 @@ resources:
 - bases/nautes.resource.nautes.io_artifactrepoes.yaml
 - bases/nautes.resource.nautes.io_artifactrepoproviders.yaml
 - bases/nautes.resource.nautes.io_coderepobindings.yaml
+- bases/nautes.resource.nautes.io_middlewareruntimes.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

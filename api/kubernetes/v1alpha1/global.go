@@ -44,6 +44,11 @@ func GetConditions(conditions []metav1.Condition, conditionTypes map[string]bool
 	return result
 }
 
+// GetNewConditions returns a new slice of metav1.Condition based on the given source slice and conditions.
+// It filters out conditions that have already been evaluated based on the evaluatedTypes map.
+// For conditions that already exist in the source slice, it updates the LastTransitionTime if any changes are detected.
+// For new incoming conditions, it sets the LastTransitionTime to the current time.
+// The returned slice is sorted based on the condition type, message, and last transition time.
 func GetNewConditions(src, conditions []metav1.Condition, evaluatedTypes map[string]bool) []metav1.Condition {
 	appConditions := make([]metav1.Condition, 0)
 	for i := 0; i < len(src); i++ {
@@ -91,6 +96,7 @@ type RuntimeType string
 const (
 	RuntimeTypeDeploymentRuntime = "deploymentRuntime"
 	RuntimeTypePipelineRuntime   = "pipelineRuntime"
+	RuntimeTypeMiddlewareRuntime = "middlewareRuntime"
 )
 
 // +kubebuilder:object:generate=false

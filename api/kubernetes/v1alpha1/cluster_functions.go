@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func (c ComponentsList) GetNamespaces() []string {
@@ -111,4 +112,144 @@ func GetClusterFromString(name, namespace string, specStr string) (*Cluster, err
 		},
 		Spec: spec,
 	}, nil
+}
+
+// +kubebuilder:object:generate=false
+type getOptionForResourcesUsage struct {
+	productName string
+}
+
+// +kubebuilder:object:generate=false
+type GetOptionForResourcesUsage func(*getOptionForResourcesUsage)
+
+func WithProductNameForResourceUsage(productName string) GetOptionForResourcesUsage {
+	return func(o *getOptionForResourcesUsage) {
+		o.productName = productName
+	}
+}
+
+func (ru *ResourceUsage) GetAccounts(opts ...GetOptionForResourcesUsage) []string {
+	options := &getOptionForResourcesUsage{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	accountSet := sets.Set[string]{}
+	for product, runtimes := range ru.RuntimeUsage {
+		if options.productName != "" && product != options.productName {
+			continue
+		}
+
+		for _, runtime := range runtimes {
+			accountSet.Insert(runtime.AccountName)
+		}
+	}
+
+	accounts := accountSet.UnsortedList()
+	sort.Strings(accounts)
+
+	return accounts
+}
+
+func (ru *ResourceUsage) GetNamespaces(opts ...GetOptionForResourcesUsage) []string {
+	options := &getOptionForResourcesUsage{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	namespaceSet := sets.Set[string]{}
+	for product, runtimes := range ru.RuntimeUsage {
+		if options.productName != "" && product != options.productName {
+			continue
+		}
+
+		for _, runtime := range runtimes {
+			namespaceSet.Insert(runtime.Namespaces...)
+		}
+	}
+
+	namespaces := namespaceSet.UnsortedList()
+	sort.Strings(namespaces)
+
+	return namespaces
+}
+
+func (ru *ResourceUsage) AddOrUpdateRuntimeUsage(productName string, runtimeUsage RuntimeUsage) (changed bool) {
+	if ru.RuntimeUsage == nil {
+		ru.RuntimeUsage = map[string][]RuntimeUsage{}
+	}
+
+	if _, ok := ru.RuntimeUsage[productName]; !ok {
+		ru.RuntimeUsage[productName] = []RuntimeUsage{}
+	}
+
+	runtimeUsages := ru.RuntimeUsage[productName]
+	runtimeExist := false
+	for i, usage := range runtimeUsages {
+		if usage.Name != runtimeUsage.Name {
+			continue
+		}
+
+		if usage.Equal(&runtimeUsage) {
+			return false
+		}
+
+		ru.RuntimeUsage[productName][i] = runtimeUsage
+		return true
+	}
+
+	if !runtimeExist {
+		ru.RuntimeUsage[productName] = append(runtimeUsages, runtimeUsage)
+		return true
+	}
+
+	return false
+}
+
+func (ru *ResourceUsage) RemoveRuntimeUsage(productName string, runtimeName string) (changed bool) {
+	if ru.RuntimeUsage == nil {
+		return false
+	}
+
+	if _, ok := ru.RuntimeUsage[productName]; !ok {
+		return false
+	}
+
+	runtimeUsages := ru.RuntimeUsage[productName]
+	for i, usage := range runtimeUsages {
+		if usage.Name != runtimeName {
+			continue
+		}
+
+		ru.RuntimeUsage[productName] = append(runtimeUsages[:i], runtimeUsages[i+1:]...)
+		return true
+	}
+
+	return false
+}
+
+func (ru RuntimeUsage) Equal(usage *RuntimeUsage) bool {
+	if usage == nil {
+		return false
+	}
+
+	if ru.Name != usage.Name {
+		return false
+	}
+
+	if ru.AccountName != usage.AccountName {
+		return false
+	}
+
+	if len(ru.Namespaces) != len(usage.Namespaces) {
+		return false
+	}
+
+	for i, namespace := range ru.Namespaces {
+		if namespace != usage.Namespaces[i] {
+			return false
+		}
+	}
+
+	return true
 }

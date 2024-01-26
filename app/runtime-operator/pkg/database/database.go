@@ -489,6 +489,14 @@ func (db *RuntimeDataBase) listDeploymentRuntimeUsedCodeRepos(options ListOption
 	return repos, nil
 }
 
+func (db *RuntimeDataBase) GetEnvironment(name string) (*v1alpha1.Environment, error) {
+	env, ok := db.Environments[name]
+	if !ok {
+		return nil, fmt.Errorf("get env %s failed", name)
+	}
+	return env.DeepCopy(), nil
+}
+
 func (db *RuntimeDataBase) listPipelineRuntimeUsedCodeRepos(options ListOptions) ([]v1alpha1.CodeRepo, error) {
 	repoNameSet := sets.New[string]()
 	var repos []v1alpha1.CodeRepo

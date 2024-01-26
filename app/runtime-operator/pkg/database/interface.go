@@ -40,6 +40,7 @@ type Snapshot interface {
 	GetCodeRepoByURL(url string) (*v1alpha1.CodeRepo, error)
 	GetCluster(name string) (*v1alpha1.Cluster, error)
 	GetClusterByRuntime(runtime v1alpha1.Runtime) (*v1alpha1.Cluster, error)
+	GetEnvironment(name string) (*v1alpha1.Environment, error)
 	ListPipelineRuntimes() ([]v1alpha1.ProjectPipelineRuntime, error)
 	GetRuntime(name string, runtimeType v1alpha1.RuntimeType) (v1alpha1.Runtime, error)
 	// ListUsedNamespces should return all namespaces used by product

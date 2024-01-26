@@ -1,4 +1,4 @@
-// Copyright 2023 Nautes Authors
+// Copyright 2024 Nautes Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nautesconst
+package http_test
 
-const EnvNautesHome = "NAUTES_HOME"
-const EnvNautesLogLevel = "NAUTES_LOG_LEVEL"
+import (
+	"testing"
 
-const LogLevelDebug = "debug"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-const ConfigMapNameHooksMetadata = "nautes-hooks-metadata"
+func TestHttp(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Http Suite")
+}
