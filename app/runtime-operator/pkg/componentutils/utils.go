@@ -23,20 +23,25 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// CreateOrUpdateProduct creates or updates a product with the given name and namespaces.
+// CreateOrUpdateProduct creates or updates a product with the given name and namespaces and returns the deleted namespaces.
 // If the product already exists, it will be updated to match the given namespaces.
 // If the product does not exist, it will be created with the given namespaces.
 // If the product exists but the namespaces are empty, the product will be deleted.
 // If the product exists but the namespaces are not empty, the product will be updated to match the given namespaces.
-func CreateOrUpdateProduct(ctx context.Context, multiTenant component.MultiTenant, productName string, productNamespaces []string) error {
-	err := multiTenant.CreateProduct(ctx, productName)
+func CreateOrUpdateProduct(
+	ctx context.Context,
+	multiTenant component.MultiTenant,
+	productName string,
+	productNamespaces []string,
+) (deletedNamespaces []string, err error) {
+	err = multiTenant.CreateProduct(ctx, productName)
 	if err != nil {
-		return fmt.Errorf("failed to create product %s: %w", productName, err)
+		return nil, fmt.Errorf("failed to create product %s: %w", productName, err)
 	}
 
 	oldNamespaceStatuses, err := multiTenant.ListSpaces(ctx, productName)
 	if err != nil {
-		return fmt.Errorf("failed to list namespace %s: %w", productName, err)
+		return nil, fmt.Errorf("failed to list namespace %s: %w", productName, err)
 	}
 
 	newNamespaceSet := sets.New(productNamespaces...)
@@ -48,11 +53,14 @@ func CreateOrUpdateProduct(ctx context.Context, multiTenant component.MultiTenan
 	for _, namespace := range newNamespaceSet.Difference(oldNamespaceSet).UnsortedList() {
 		err := multiTenant.CreateSpace(ctx, productName, namespace)
 		if err != nil {
-			return fmt.Errorf("failed to create namespace %s: %w", namespace, err)
+			return nil, fmt.Errorf("failed to create namespace %s: %w", namespace, err)
 		}
 	}
 
-	return nil
+	oldNamespaceSet.Delete(productName)
+	deletedNamespaces = oldNamespaceSet.Difference(newNamespaceSet).UnsortedList()
+
+	return deletedNamespaces, nil
 }
 
 // DeleteNamespaces deletes the given namespaces from the given product.
@@ -243,19 +251,4 @@ func DeleteSecretManagementAccount(ctx context.Context, multiTenant component.Mu
 		return fmt.Errorf("failed to delete account %s: %w", account, err)
 	}
 	return nil
-}
-
-// CompareStrings compares two slices of strings and returns three slices:
-// - onlyInA: strings that are present in slice a but not in slice b
-// - onlyInB: strings that are present in slice b but not in slice a
-// - inBoth: strings that are present in both slice a and slice b
-func CompareStrings(a, b []string) ([]string, []string, []string) {
-	setA := sets.New(a...)
-	setB := sets.New(b...)
-
-	onlyInA := setA.Difference(setB).UnsortedList()
-	onlyInB := setB.Difference(setA).UnsortedList()
-	inBoth := setA.Intersection(setB).UnsortedList()
-
-	return onlyInA, onlyInB, inBoth
 }

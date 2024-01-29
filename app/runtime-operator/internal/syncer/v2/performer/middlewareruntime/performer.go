@@ -146,41 +146,31 @@ func (m *MiddlewareRuntimePerformer) deploy(ctx context.Context) error {
 
 	// 1. If the environment points to Cluster resources, it updates the cluster resource usage and creates or updates the product namespaces.
 	if m.environment.Spec.EnvType == v1alpha1.EnvironmentTypeCluster {
-		var usageChanged bool
-		var currentClusterResourceUsage *v1alpha1.ResourceUsage
-		var oldProductNamespaces []string
-
-		getOption := v1alpha1.WithProductNameForResourceUsage(m.product.Name)
+		var err error
 
 		// If the cluster resource usage is nil, it creates a new one.
 		if m.cluster.Status.ResourceUsage != nil {
-			currentClusterResourceUsage = m.cluster.Status.ResourceUsage.DeepCopy()
-			newClusterResourceUsage = currentClusterResourceUsage.DeepCopy()
-
-			oldProductNamespaces = currentClusterResourceUsage.GetNamespaces(getOption)
+			newClusterResourceUsage = m.cluster.Status.ResourceUsage.DeepCopy()
 		} else {
 			newClusterResourceUsage = &v1alpha1.ResourceUsage{}
 		}
 
-		// It adds or updates the runtime usage in the cluster resource usage.
-		usageChanged = newClusterResourceUsage.AddOrUpdateRuntimeUsage(m.product.Name, v1alpha1.RuntimeUsage{
+		// Adds or updates the runtime usage in the cluster resource usage.
+		_ = newClusterResourceUsage.AddOrUpdateRuntimeUsage(m.product.Name, v1alpha1.RuntimeUsage{
 			Name:        m.runtime.Name,
 			AccountName: m.runtime.Spec.Account,
 			Namespaces:  m.runtime.GetNamespaces(),
 		})
 
-		newProductNameSpaces := newClusterResourceUsage.GetNamespaces(getOption)
+		newProductNameSpaces := newClusterResourceUsage.GetNamespaces(
+			v1alpha1.WithProductNameForResourceUsage(m.product.Name),
+		)
 
-		// It creates or updates the product namespaces if the usage has changed.
-		if usageChanged {
-			err := componentutils.CreateOrUpdateProduct(ctx, m.components.MultiTenant, m.product.Name, newProductNameSpaces)
-			if err != nil {
-				return fmt.Errorf("create or update product %s failed: %w", m.product.Name, err)
-			}
+		// Creates or updates the product and namespaces in cluster.
+		expiredNamespaces, err = componentutils.CreateOrUpdateProduct(ctx, m.components.MultiTenant, m.product.Name, newProductNameSpaces)
+		if err != nil {
+			return fmt.Errorf("create or update product %s failed: %w", m.product.Name, err)
 		}
-
-		// Get the expired namespaces.
-		_, _, expiredNamespaces = componentutils.CompareStrings(oldProductNamespaces, newProductNameSpaces)
 
 		// Create network entry points for the services based on the entrypoint information.
 		// TODO
