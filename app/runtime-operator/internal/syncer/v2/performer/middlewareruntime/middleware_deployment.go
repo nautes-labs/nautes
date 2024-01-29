@@ -521,6 +521,10 @@ func compareResourceWithPeer(ctx context.Context,
 	caller component.BasicCaller) (compareResult, error) {
 	status, err := getResource(ctx, res, resTransformer, caller)
 	if err != nil {
+		if runtimeerr.IsResourceNotFoundError(err) {
+			logger.Info("Resource not found", "resource", res.GetUniqueID())
+			return compareResultNotFound, nil
+		}
 		return compareResultError, fmt.Errorf("failed to get resource: %w", err)
 	}
 
@@ -535,12 +539,12 @@ func getResource(ctx context.Context, resource resources.Resource, resTransforme
 	logger.V(1).Info("Get resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Get.GenerateRequest(resource)
 	if err != nil {
-		return nil, fmt.Errorf("unable to generate request: %s", err.Error())
+		return nil, fmt.Errorf("unable to generate request: %w", err)
 	}
 
 	response, err := caller.Post(ctx, request)
 	if err != nil {
-		return nil, fmt.Errorf("unable to post request: %s", err.Error())
+		return nil, fmt.Errorf("unable to post request: %w", err)
 	}
 
 	return resTransformer.Get.ParseResponse(response)
@@ -551,12 +555,12 @@ func createResource(ctx context.Context, resource resources.Resource, resTransfo
 	logger.V(1).Info("Create resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Create.GenerateRequest(resource)
 	if err != nil {
-		return nil, fmt.Errorf("unable to generate request: %s", err.Error())
+		return nil, fmt.Errorf("unable to generate request: %w", err)
 	}
 
 	response, err := caller.Post(ctx, request)
 	if err != nil {
-		return nil, fmt.Errorf("unable to post request: %s", err.Error())
+		return nil, fmt.Errorf("unable to post request: %w", err)
 	}
 
 	return resTransformer.Create.ParseResponse(response)
@@ -567,12 +571,12 @@ func updateResource(ctx context.Context, resource resources.Resource, resTransfo
 	logger.V(1).Info("Update resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Update.GenerateRequest(resource)
 	if err != nil {
-		return nil, fmt.Errorf("unable to generate request: %s", err.Error())
+		return nil, fmt.Errorf("unable to generate request: %w", err)
 	}
 
 	response, err := caller.Post(ctx, request)
 	if err != nil {
-		return nil, fmt.Errorf("unable to post request: %s", err.Error())
+		return nil, fmt.Errorf("unable to post request: %w", err)
 	}
 
 	return resTransformer.Update.ParseResponse(response)
