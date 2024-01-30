@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/resources"
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"github.com/nautes-labs/nautes/pkg/nautesconst"
 	"gopkg.in/yaml.v3"
 )
@@ -58,32 +58,10 @@ func WithPathForLoadMiddlewareTransformRules(rootPath string) LoadMiddlewareTran
 	}
 }
 
-// parseFilePathMiddlewareTransformRule parses the given rule file path and extracts the provider type, middleware type, and implementation.
-// It expects the rule file path to be in the format "/providerType/middlewareType/implementation.ext".
-// The rootPathSegmentNum parameter specifies the number of root path segments before the provider type.
-// It returns the provider type, middleware type, implementation, and an error if the path format is invalid.
-func parseFilePathMiddlewareTransformRule(ruleFilePath string, rootPathSegmentNum int) (
-	providerType string,
-	middlewareType string,
-	implementation string,
-	err error) {
-	segments := strings.Split(ruleFilePath, "/")
-	if len(segments)-rootPathSegmentNum != 3 {
-		return "", "", "", fmt.Errorf("invalid path format: %s", ruleFilePath)
-	}
-
-	providerType = segments[len(segments)-3]
-	middlewareType = segments[len(segments)-2]
-	implementation = strings.TrimSuffix(segments[len(segments)-1], filepath.Ext(segments[len(segments)-1]))
-
-	return providerType, middlewareType, implementation, nil
-}
-
 // LoadMiddlewareTransformRules loads the middleware transform rules from the specified root path.
 // It accepts optional LoadMiddlewareTransformRulesOption to customize the loading behavior.
 // If the root path does not exist, it returns nil without any error.
 // The middleware transform rules are loaded from files under the root path in the following format:
-// ".path -> providerName -> middlewareType -> implementation".
 // Each file's content is loaded into a MiddlewareTransformRule and added to the collection of middleware transform rules.
 // If any error occurs during the loading process, it returns the corresponding error.
 func LoadMiddlewareTransformRules(opts ...LoadMiddlewareTransformRulesOption) error {
@@ -98,42 +76,18 @@ func LoadMiddlewareTransformRules(opts ...LoadMiddlewareTransformRulesOption) er
 		return nil
 	}
 
-	rootPathSegmentNum := len(strings.Split(options.TransformRulesRootPath, "/"))
-
-	// Load all the files under middlewareTransformRulesDir, path style ".path -> providerName -> middlewareType -> implementation".
-	err := filepath.Walk(options.TransformRulesRootPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	return utils.LoadFilesInPath(options.TransformRulesRootPath, func(data []byte) error {
+		rule := &MiddlewareTransformRule{}
+		if err := yaml.Unmarshal(data, rule); err != nil {
+			return fmt.Errorf("failed to unmarshal middleware transform rule: %w", err)
 		}
 
-		if info.IsDir() {
-			return nil
-		}
-
-		providerName, middlewareType, implementation, err := parseFilePathMiddlewareTransformRule(path, rootPathSegmentNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse file path: %w", err)
-		}
-
-		// For each file, load the content into middlewareTransformRules.
-		ruleByte, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read file: %w", err)
-		}
-
-		rule, err := NewMiddlewareTransformRule(providerName, middlewareType, implementation, ruleByte)
-		if err != nil {
-			return fmt.Errorf("failed to create middleware transform rule: %w", err)
-		}
-
-		if err = AddMiddlewareTransformRule(*rule); err != nil {
+		if err := AddMiddlewareTransformRule(*rule); err != nil {
 			return fmt.Errorf("failed to add middleware transform rule: %w", err)
 		}
 
 		return nil
 	})
-
-	return err
 }
 
 // ClearMiddlewareTransformRule clears the middleware transform rules.
@@ -210,37 +164,64 @@ func RemoveMiddlewareTransformRule(providerName, middlewareType, implementation 
 // MiddlewareTransformRule is a set of transformation rules for converting middleware to custom resources.
 type MiddlewareTransformRule struct {
 	// ProviderType is the provider type associated with the rule.
-	ProviderType string
+	ProviderType string `yaml:"providerType"`
 	// MiddlewareType is the middleware type associated with the rule.
-	MiddlewareType string
+	MiddlewareType string `yaml:"middlewareType"`
 	// Implementation is the implementation method of the middleware.
-	Implementation string
+	Implementation string `yaml:"implementation"`
 	// Resources is the custom resource templates corresponding to the middleware, using the format of the text/template package in golang.
-	Resources []string
+	Resources []string `yaml:"resources"`
 }
 
-// NewMiddlewareTransformRule creates a new instance of MiddlewareTransformRule.
-// It takes the providerType, middlewareType, implementation, and ruleByte as input parameters.
-// The ruleByte is split into multiple resource byte arrays using the delimiter "\n---\n".
-// Each resource string is then converted into a byte array.
-// The function returns a pointer to the newly created MiddlewareTransformRule and an error, if any.
-func NewMiddlewareTransformRule(providerType, middlewareType, implementation string, ruleByte []byte) (*MiddlewareTransformRule, error) {
-	// Split ruleByte into many resource byte arrays using a delimiter.
-	resourceBytes := bytes.Split(ruleByte, []byte("\n---\n"))
+func (mtr *MiddlewareTransformRule) UnmarshalYAML(value *yaml.Node) error {
+	for i := 0; i < len(value.Content); i += 2 {
+		switch value.Content[i].Value {
+		case "providerType":
+			mtr.ProviderType = value.Content[i+1].Value
+		case "middlewareType":
+			mtr.MiddlewareType = value.Content[i+1].Value
+		case "implementation":
+			mtr.Implementation = value.Content[i+1].Value
+		case "resources":
+			if len(value.Content[i+1].Value) == 0 {
+				return fmt.Errorf("resources is empty")
+			}
 
-	// Convert each resource string into a byte array.
-	var resArray []string
-	for _, resourceByte := range resourceBytes {
-		resArray = append(resArray, strings.TrimSpace(string(resourceByte)))
+			mtr.Resources = []string{}
+			resTemplates := strings.Split(value.Content[i+1].Value, "\n---\n")
+			for _, res := range resTemplates {
+				tmpl := strings.TrimSpace(res)
+				if len(tmpl) == 0 {
+					continue
+				}
+				mtr.Resources = append(mtr.Resources, tmpl)
+			}
+		}
 	}
 
-	// Create MiddlewareTransformRule and return.
-	return &MiddlewareTransformRule{
-		ProviderType:   providerType,
-		MiddlewareType: middlewareType,
-		Implementation: implementation,
-		Resources:      resArray,
-	}, nil
+	if mtr.Implementation == "" {
+		return fmt.Errorf("implementation is empty")
+	}
+
+	if mtr.MiddlewareType == "" {
+		return fmt.Errorf("middleware type is empty")
+	}
+
+	if mtr.ProviderType == "" {
+		return fmt.Errorf("provider type is empty")
+	}
+
+	if len(mtr.Resources) == 0 {
+		return fmt.Errorf("resources is empty")
+	}
+
+	for i, resource := range mtr.Resources {
+		if resource == "" {
+			return fmt.Errorf("resource %d is empty", i)
+		}
+	}
+
+	return nil
 }
 
 // ConvertMiddlewareToResources converts middleware to custom resource declarations.
@@ -259,6 +240,11 @@ func ConvertMiddlewareToResources(providerName string, middleware v1alpha1.Middl
 		rendered, err := renderResource(resource, middleware)
 		if err != nil {
 			return nil, err
+		}
+
+		// Skip the empty content.
+		if strings.TrimSpace(string(rendered)) == "" {
+			continue
 		}
 
 		// Translate the rendered content into CommonResource objects.

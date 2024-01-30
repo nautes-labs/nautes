@@ -22,7 +22,6 @@ import (
 	"html/template"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/caller/http"
@@ -58,30 +57,9 @@ const (
 	DefaultTransformRulesRootPath = "./resource-transform-rules"
 )
 
-// parseFilePathResourceTransformRule parses the given rule file path and extracts
-// the provider type, caller type, and resource type. It also validates the path format.
-// It returns the extracted values or an error if the path format is invalid.
-func parseFilePathResourceTransformRule(ruleFilePath string, rootPathSegmentNum int) (
-	providerType string,
-	callerType string,
-	resourceType string,
-	err error) {
-	segments := strings.Split(ruleFilePath, "/")
-	if len(segments)-rootPathSegmentNum != 3 {
-		return "", "", "", fmt.Errorf("invalid path format: %s", ruleFilePath)
-	}
-
-	providerType = segments[len(segments)-3]
-	callerType = segments[len(segments)-2]
-	resourceType = strings.TrimSuffix(segments[len(segments)-1], filepath.Ext(segments[len(segments)-1]))
-
-	return providerType, callerType, resourceType, nil
-}
-
 // LoadResourceTransformers loads and applies resource transformers based on the provided options.
 // It walks through the transform rules directory, reads each transform rule file, and adds the corresponding transformer.
 // If the directory does not exist, the function returns nil without any error.
-// Each transform rule file should follow the path style ".path -> providerName -> callerType -> resourceType".
 // The function returns an error if there is any issue with parsing, reading, unmarshaling, or adding the transform rules.
 func LoadResourceTransformers(opt ...LoadResourceTransformOption) error {
 	options := &loadResourceTransformsOptions{
@@ -95,55 +73,18 @@ func LoadResourceTransformers(opt ...LoadResourceTransformOption) error {
 		return nil
 	}
 
-	rootPathSegmentNum := len(strings.Split(options.TransformRulesRootPath, "/"))
-
-	// Look for transform rules in the transform rules directory.
-	// path style ".path -> providerName -> callerType -> resourceType".
-	err := filepath.Walk(options.TransformRulesRootPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		provider, caller, resource, err := parseFilePathResourceTransformRule(path, rootPathSegmentNum)
-		if err != nil {
-			return fmt.Errorf("failed to parse transform rule file path: %v", err)
-		}
-
-		// Read the file
-		ruleByte, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read transform rule file: %v", err)
-		}
-
-		// Create a ResourceTransformer from the file
+	return utils.LoadFilesInPath(options.TransformRulesRootPath, func(data []byte) error {
 		transformer := ResourceTransformer{}
-		if err = yaml.Unmarshal(ruleByte, &transformer); err != nil {
-			return fmt.Errorf("failed to unmarshal transform rules: %v", err)
+		if err := yaml.Unmarshal(data, &transformer); err != nil {
+			return fmt.Errorf("failed to unmarshal transform rules: %w", err)
 		}
-
-		if caller != transformer.CallerType {
-			return fmt.Errorf("caller type %s in transform rules does not match the caller type %s in the file path", transformer.CallerType, caller)
-		}
-
-		transformer.ProviderType = provider
-		transformer.ResourceType = resource
 
 		if err := AddResourceTransformer(transformer); err != nil {
-			return fmt.Errorf("failed to add transform: %v", err)
+			return fmt.Errorf("failed to add transform: %w", err)
 		}
 
 		return nil
 	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // ClearResourceTransformer clears the resource transformers map.
@@ -216,19 +157,19 @@ func RemoveResourceTransformer(providerName, callerType, resourceType string) er
 // ResourceTransformer is a collection of RequestTransformer that converts CRUD operations of custom resources
 type ResourceTransformer struct {
 	// ProviderType is the provider type that implements RequestTransformer.
-	ProviderType string
+	ProviderType string `yaml:"providerType"`
 	// ResourceType is the resource type that implements RequestTransformer.
-	ResourceType string
+	ResourceType string `yaml:"resourceType"`
 	// CallerType is the caller type that implements RequestTransformer.
-	CallerType string `json:"callerType" yaml:"callerType"`
+	CallerType string `yaml:"callerType"`
 	// Create is the transformer for creating a resource.
-	Create RequestTransformerInterface `json:"create" yaml:"create"`
+	Create RequestTransformerInterface `yaml:"create"`
 	// Get is the transformer for getting a resource.
-	Get RequestTransformerInterface `json:"get" yaml:"get"`
+	Get RequestTransformerInterface `yaml:"get"`
 	// Update is the transformer for updating a resource.
-	Update RequestTransformerInterface `json:"update" yaml:"update"`
+	Update RequestTransformerInterface `yaml:"update"`
 	// Delete is the transformer for deleting a resource.
-	Delete RequestTransformerInterface `json:"delete" yaml:"delete"`
+	Delete RequestTransformerInterface `yaml:"delete"`
 }
 
 func (r *ResourceTransformer) UnmarshalYAML(value *yaml.Node) error {
@@ -236,6 +177,27 @@ func (r *ResourceTransformer) UnmarshalYAML(value *yaml.Node) error {
 		switch value.Content[i].Value {
 		case "callerType":
 			r.CallerType = value.Content[i+1].Value
+		case "providerType":
+			r.ProviderType = value.Content[i+1].Value
+		case "resourceType":
+			r.ResourceType = value.Content[i+1].Value
+		}
+	}
+
+	if r.ProviderType == "" {
+		return fmt.Errorf("providerType is empty")
+	}
+
+	if r.CallerType == "" {
+		return fmt.Errorf("callerType is empty")
+	}
+
+	if r.ResourceType == "" {
+		return fmt.Errorf("resourceType is empty")
+	}
+
+	for i := 0; i < len(value.Content); i += 2 {
+		switch value.Content[i].Value {
 		case "create":
 			transformRule, err := yaml.Marshal(value.Content[i+1])
 			if err != nil {
@@ -279,9 +241,19 @@ func (r *ResourceTransformer) UnmarshalYAML(value *yaml.Node) error {
 		}
 	}
 
-	if r.CallerType == "" {
-		return fmt.Errorf("callerType is empty")
+	if r.Create == nil {
+		return fmt.Errorf("create is empty")
 	}
+	if r.Get == nil {
+		return fmt.Errorf("get is empty")
+	}
+	if r.Update == nil {
+		return fmt.Errorf("update is empty")
+	}
+	if r.Delete == nil {
+		return fmt.Errorf("delete is empty")
+	}
+
 	return nil
 }
 
@@ -321,7 +293,7 @@ func NewRequestTransformer(callerType string, transformRule []byte) (rt *Request
 	case component.CallerTypeHTTP:
 		transformer, err := NewRequestTransformerHTTP(transformRule)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create http transformer: %v", err)
+			return nil, fmt.Errorf("failed to create http transformer: %w", err)
 		}
 		rt.HTTP = *transformer
 	default:

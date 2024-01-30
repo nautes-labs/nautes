@@ -15,6 +15,7 @@
 package transformer_test
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
@@ -22,6 +23,7 @@ import (
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("MiddlewareTransformRule", func() {
@@ -41,10 +43,16 @@ var _ = Describe("MiddlewareTransformRule", func() {
 			providerType = "test-provider"
 			middlewareType = "test-middlewareType"
 			implementation = "test-implementation"
-			rule = []byte(`
-				- path: spec.replicas
-				  value: 1
-			`)
+			ruleTmpl := `
+providerType: %s
+middlewareType: %s
+implementation: %s
+resources: |
+  - path: spec.replicas
+    value: 1
+`
+			rule = []byte(fmt.Sprintf(ruleTmpl, providerType, middlewareType, implementation))
+
 		})
 
 		It("should return a new MiddlewareTransformRule", func() {
@@ -54,9 +62,10 @@ var _ = Describe("MiddlewareTransformRule", func() {
 				ProviderType:   providerType,
 				MiddlewareType: middlewareType,
 				Implementation: implementation,
-				Resources:      []string{ruleString},
+				Resources:      []string{"- path: spec.replicas\n  value: 1"},
 			}
-			tr, err := NewMiddlewareTransformRule(providerType, middlewareType, implementation, rule)
+			tr := &MiddlewareTransformRule{}
+			err := yaml.Unmarshal(rule, tr)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*tr).To(Equal(wanted))
 		})

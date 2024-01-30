@@ -33,10 +33,10 @@ import (
 func init() {
 	component.AddFunctionNewCaller(component.CallerTypeHTTP, callerhttp.NewCaller)
 	if err := transformer.LoadMiddlewareTransformRules(); err != nil {
-		panic(fmt.Errorf("failed to load middleware transform rules: %s", err.Error()))
+		panic(fmt.Errorf("failed to load middleware transform rules: %w", err))
 	}
 	if err := transformer.LoadResourceTransformers(); err != nil {
-		panic(fmt.Errorf("failed to load resource transformers: %s", err.Error()))
+		panic(fmt.Errorf("failed to load resource transformers: %w", err))
 	}
 }
 
@@ -63,14 +63,14 @@ func (cms *CommonMiddlewareStatus) UnmarshalJSON(data []byte) error {
 	}
 
 	if err := json.Unmarshal(data, &tmp); err != nil {
-		return fmt.Errorf("failed to unmarshal common middleware status: %s", err.Error())
+		return fmt.Errorf("failed to unmarshal common middleware status: %w", err)
 	}
 
 	resArray := make([]resources.Resource, len(tmp.ResourceStatus))
 	for i, resourceByte := range tmp.ResourceStatus {
 		resource := resources.CommonResource{}
 		if err := json.Unmarshal(resourceByte, &resource); err != nil {
-			return fmt.Errorf("failed to unmarshal resource: %s", err.Error())
+			return fmt.Errorf("failed to unmarshal resource: %w", err)
 		}
 		resArray[i] = &resource
 	}
@@ -94,7 +94,7 @@ func NewMiddlewareDeploymentInfo(providerInfo component.ProviderInfo, middleware
 
 	cfg, err := runtimeconfig.NewConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config: %s", err.Error())
+		return nil, fmt.Errorf("failed to get config: %w", err)
 	}
 	callerType, ok := cfg.ProviderCallerMapping[providerInfo.Type]
 	if !ok {
@@ -119,13 +119,13 @@ func DeployMiddleware(ctx context.Context, middleware v1alpha1.Middleware, state
 	// Get the resources from the middleware.
 	res, err := transformer.ConvertMiddlewareToResources(deploymentInfo.providerInfo.Type, middleware)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert middleware to resources: %s", err.Error())
+		return nil, fmt.Errorf("failed to convert middleware to resources: %w", err)
 	}
 
 	// Create a caller based on the caller type and provider information.
 	caller, err := component.GetCaller(deploymentInfo.callerType, deploymentInfo.providerInfo)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create caller: %s", err.Error())
+		return nil, fmt.Errorf("unable to create caller: %w", err)
 	}
 
 	var newDeployState interface{}
@@ -143,7 +143,7 @@ func DeployMiddleware(ctx context.Context, middleware v1alpha1.Middleware, state
 		}
 		newDeployState, err = deployMiddlewareByBasicCaller(ctx, caller, res, previousDeployState, deploymentInfo.providerInfo)
 		if err != nil {
-			return nil, fmt.Errorf("failed to deploy by basic caller: %s", err.Error())
+			return nil, fmt.Errorf("failed to deploy by basic caller: %w", err)
 		}
 	case component.CallerImplAdvanced:
 		caller, ok := caller.(component.AdvancedCaller)
@@ -152,7 +152,7 @@ func DeployMiddleware(ctx context.Context, middleware v1alpha1.Middleware, state
 		}
 		newDeployState, err = deployMiddlewareByAdvancedCaller(ctx, middleware.Type, caller, res, previousDeployState)
 		if err != nil {
-			return nil, fmt.Errorf("failed to deploy by advanced caller: %s", err.Error())
+			return nil, fmt.Errorf("failed to deploy by advanced caller: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("caller type %s not supported", caller.GetImplementationType())
@@ -167,7 +167,7 @@ func DeployMiddleware(ctx context.Context, middleware v1alpha1.Middleware, state
 	if newDeployState != nil {
 		jsonState, err := json.Marshal(newDeployState)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal state: %s", err.Error())
+			return nil, fmt.Errorf("failed to marshal state: %w", err)
 		}
 		newState.Status = &runtime.RawExtension{Raw: jsonState}
 	}
@@ -199,7 +199,7 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 	// Convert json state to resources.
 	lastState, err := ConvertResourcesJsonToResources(state)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert resources json to resources: %s", err.Error())
+		return nil, fmt.Errorf("failed to convert resources json to resources: %w", err)
 	}
 
 	// compare resources with last state.
@@ -208,7 +208,7 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 	// compare resources with peer.
 	compareResultRemote, err := compareResourcesWithPeer(ctx, lastState, providerInfo.Type, caller)
 	if err != nil {
-		return nil, fmt.Errorf("compare resources with peer failed: %s", err.Error())
+		return nil, fmt.Errorf("compare resources with peer failed: %w", err)
 	}
 
 	// merge compare results.
@@ -222,7 +222,7 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 		var state interface{}
 		resTransformer, err := transformer.GetResourceTransformer(providerInfo.Type, caller.GetType(), action.Resource.GetType())
 		if err != nil {
-			return nil, fmt.Errorf("failed to get resource transformer: %s", err.Error())
+			return nil, fmt.Errorf("failed to get resource transformer: %w", err)
 		}
 
 		if action.Action == ResourceActionCreate {
@@ -231,11 +231,11 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 			state, err = updateResource(ctx, action.Resource, *resTransformer, caller)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to create or update resource: %s", err.Error())
+			return nil, fmt.Errorf("failed to create or update resource: %w", err)
 		}
 		newRes := action.Resource
 		if err = newRes.SetStatus(state); err != nil {
-			return nil, fmt.Errorf("failed to set status: %s", err.Error())
+			return nil, fmt.Errorf("failed to set status: %w", err)
 		}
 		newState.ResourceStatus = append(newState.ResourceStatus, newRes)
 	}
@@ -243,11 +243,11 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 	for _, action := range deleteList {
 		resTransformer, err := transformer.GetResourceTransformer(providerInfo.Type, caller.GetType(), action.Resource.GetType())
 		if err != nil {
-			return nil, fmt.Errorf("failed to get resource transformer: %s", err.Error())
+			return nil, fmt.Errorf("failed to get resource transformer: %w", err)
 		}
 
 		if err := deleteResource(ctx, action.Resource, *resTransformer, caller); err != nil {
-			return nil, fmt.Errorf("failed to delete resource: %s", err.Error())
+			return nil, fmt.Errorf("failed to delete resource: %w", err)
 		}
 	}
 
@@ -345,7 +345,7 @@ func DeleteMiddleware(ctx context.Context, state *v1alpha1.MiddlewareStatus, tas
 
 	caller, err := component.GetCaller(taskInfo.callerType, taskInfo.providerInfo)
 	if err != nil {
-		return fmt.Errorf("unable to create caller: %s", err.Error())
+		return fmt.Errorf("unable to create caller: %w", err)
 	}
 
 	switch caller.GetImplementationType() {
@@ -375,7 +375,7 @@ func deleteMiddlewareByBasicCaller(ctx context.Context, caller component.BasicCa
 
 	resArray, err := ConvertResourcesJsonToResources(state)
 	if err != nil {
-		return fmt.Errorf("failed to convert resources json to resources: %s", err.Error())
+		return fmt.Errorf("failed to convert resources json to resources: %w", err)
 	}
 
 	resMap := map[string]resources.Resource{}
@@ -387,13 +387,13 @@ func deleteMiddlewareByBasicCaller(ctx context.Context, caller component.BasicCa
 	for _, action := range deleteList {
 		resourceTransformer, err := transformer.GetResourceTransformer(taskInfo.providerInfo.Type, caller.GetType(), action.Resource.GetType())
 		if err != nil {
-			return fmt.Errorf("failed to get resource transformer: %s", err.Error())
+			return fmt.Errorf("failed to get resource transformer: %w", err)
 		}
 		if err := deleteResource(ctx, action.Resource, *resourceTransformer, caller); err != nil {
 			if runtimeerr.IsResourceNotFoundError(err) {
 				return nil
 			}
-			return fmt.Errorf("failed to delete resource: %s", err.Error())
+			return fmt.Errorf("failed to delete resource: %w", err)
 		}
 	}
 	return nil

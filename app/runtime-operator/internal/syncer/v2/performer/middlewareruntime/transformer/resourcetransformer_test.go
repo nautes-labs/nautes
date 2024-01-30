@@ -45,15 +45,6 @@ var _ = Describe("LoadResourceTransformers", func() {
 
 		tempDir, err = os.MkdirTemp("", "transformers")
 		Expect(err).NotTo(HaveOccurred())
-
-		// Create a directory for transformers
-		dirPath := fmt.Sprintf("%s/%s", tempDir, providerName)
-		err = os.MkdirAll(dirPath, os.ModePerm)
-		Expect(err).NotTo(HaveOccurred())
-
-		dirPath = fmt.Sprintf("%s/%s/%s", tempDir, providerName, component.CallerTypeHTTP)
-		err = os.MkdirAll(dirPath, os.ModePerm)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -61,7 +52,10 @@ var _ = Describe("LoadResourceTransformers", func() {
 	})
 
 	It("should load resource transformers correctly", func() {
-		rule := `callerType: http
+		rule := `
+providerType: %s
+callerType: %s
+resourceType: %s
 create:
   generation:
     request: POST
@@ -98,9 +92,12 @@ delete:
     header:
       Content-Type: application/json
 `
+		rule = fmt.Sprintf(rule, providerName, component.CallerTypeHTTP, resourceType)
+
 		createBody := `{"key": "value"}`
 		updateBody := `{"key": "new_value"}`
 		wanted := &ResourceTransformer{
+			ProviderType: providerName,
 			ResourceType: resourceType,
 			CallerType:   component.CallerTypeHTTP,
 			Create: &RequestTransformer{
@@ -181,14 +178,21 @@ delete:
 			},
 		}
 
-		err := os.WriteFile(tempDir+fmt.Sprintf("/%s/%s/%s", providerName, component.CallerTypeHTTP, resourceType), []byte(rule), 0644)
+		err := os.WriteFile(tempDir+fmt.Sprintf("/%s-%s-%s", providerName, component.CallerTypeHTTP, resourceType), []byte(rule), 0644)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = LoadResourceTransformers(WithTransformRulesFilePath(tempDir))
 		Expect(err).NotTo(HaveOccurred())
 		tf, err := GetResourceTransformer(providerName, component.CallerTypeHTTP, resourceType)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(tf).NotTo(Equal(wanted))
+		Expect(tf.ProviderType).Should(Equal(wanted.ProviderType))
+		Expect(tf.ResourceType).Should(Equal(wanted.ResourceType))
+		Expect(tf.CallerType).Should(Equal(wanted.CallerType))
+		Expect(tf.Create).Should(Equal(wanted.Create))
+		Expect(tf.Get).Should(Equal(wanted.Get))
+		Expect(tf.Update).Should(Equal(wanted.Update))
+		Expect(tf.Delete).Should(Equal(wanted.Delete))
+
 	})
 
 	It("should return an error if the rule file cannot be parsed", func() {
@@ -197,16 +201,11 @@ delete:
 		Expect(err).NotTo(HaveOccurred())
 		defer os.RemoveAll(tempDir)
 
-		// Create a provider, caller, and resource directories
-		providerDir := filepath.Join(tempDir, "provider")
-		callerDir := filepath.Join(providerDir, "caller")
-		resourceFile := filepath.Join(callerDir, "resource.yaml")
-
-		err = os.MkdirAll(callerDir, os.ModePerm)
-		Expect(err).NotTo(HaveOccurred())
+		resourceFile := fmt.Sprintf("%s-%s-%s", providerName, component.CallerTypeHTTP, resourceType)
+		path := filepath.Join(tempDir, resourceFile)
 
 		// Write a rule file with invalid content
-		err = os.WriteFile(resourceFile, []byte("invalid content"), 0644)
+		err = os.WriteFile(path, []byte("invalid content"), 0644)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Load the resource transformers
@@ -261,7 +260,7 @@ var _ = Describe("RequestTransformer", func() {
 				Expect(*reqHttp.Body).To(Equal(body))
 				Expect(reqHttp.Path).To(Equal("/create"))
 				Expect(reqHttp.Header).To(Equal(map[string][]string{
-					"Content-Type": []string{"application/json"},
+					"Content-Type": {"application/json"},
 				}))
 			})
 
