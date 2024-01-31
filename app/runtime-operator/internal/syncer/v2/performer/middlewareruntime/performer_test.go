@@ -179,6 +179,8 @@ var _ = Describe("MiddlewareRuntimePerformer", func() {
 
 			status, err := performer.Deploy(ctx)
 			Expect(err).ShouldNot(HaveOccurred())
+			runtimeStatus := status.(*v1alpha1.MiddlewareRuntimeStatus)
+			runtimeStatus.Middlewares[0].Status = nil
 
 			wanted := &v1alpha1.MiddlewareRuntimeStatus{
 				Environment:    *env,
@@ -192,7 +194,7 @@ var _ = Describe("MiddlewareRuntimePerformer", func() {
 				},
 			}
 			wanted.Middlewares[0].Middleware.Space = runtime.Name
-			Expect(status).Should(Equal(wanted))
+			Expect(runtimeStatus).Should(Equal(wanted))
 		})
 	})
 

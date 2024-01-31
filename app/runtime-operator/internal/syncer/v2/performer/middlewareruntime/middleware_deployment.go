@@ -190,7 +190,7 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 	caller component.BasicCaller,
 	res []resources.Resource,
 	state []byte,
-	providerInfo component.ProviderInfo) (interface{}, error) {
+	providerInfo component.ProviderInfo) (*CommonMiddlewareStatus, error) {
 	var err error
 	newState := &CommonMiddlewareStatus{
 		ResourceStatus: []resources.Resource{},
@@ -219,7 +219,7 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 	deleteList := NewActionListDelete(compareResult.Expire)
 
 	for _, action := range createOrUpdateList {
-		var state interface{}
+		var state *resources.Status
 		resTransformer, err := transformer.GetResourceTransformer(providerInfo.Type, caller.GetType(), action.Resource.GetType())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get resource transformer: %w", err)
@@ -234,9 +234,7 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 			return nil, fmt.Errorf("failed to create or update resource: %w", err)
 		}
 		newRes := action.Resource
-		if err = newRes.SetStatus(state); err != nil {
-			return nil, fmt.Errorf("failed to set status: %w", err)
-		}
+		newRes.SetStatus(*state)
 		newState.ResourceStatus = append(newState.ResourceStatus, newRes)
 	}
 
@@ -462,7 +460,7 @@ func compareResourcesWithPeer(ctx context.Context, lastResources []resources.Res
 		}
 
 		// Compare the resource with its peer using the obtained transformer.
-		compareResult, err := compareResourceWithPeer(ctx, resource, *resourceTransformer, caller)
+		compareResult, currentStatus, err := compareResourceWithPeer(ctx, resource, *resourceTransformer, caller)
 		if err != nil {
 			return rst, err
 		}
@@ -472,6 +470,7 @@ func compareResourcesWithPeer(ctx context.Context, lastResources []resources.Res
 		case compareResultEqual:
 			rst.Unchanged[resource.GetUniqueID()] = resource
 		case compareResultDiff:
+			resource.SetStatus(*currentStatus)
 			rst.Diff[resource.GetUniqueID()] = resource
 		case compareResultNotFound:
 			rst.New[resource.GetUniqueID()] = resource
@@ -515,27 +514,43 @@ const (
 )
 
 // compareResourceWithPeer compares the given resource with its peer resource and returns the comparison result.
+// If compareResult is diff, it also returns the current status of the resource.
 func compareResourceWithPeer(ctx context.Context,
 	res resources.Resource,
 	resTransformer transformer.ResourceTransformer,
-	caller component.BasicCaller) (compareResult, error) {
+	caller component.BasicCaller) (compareResult, *resources.Status, error) {
 	status, err := getResource(ctx, res, resTransformer, caller)
 	if err != nil {
 		if runtimeerr.IsResourceNotFoundError(err) {
 			logger.Info("Resource not found", "resource", res.GetUniqueID())
-			return compareResultNotFound, nil
+			return compareResultNotFound, nil, nil
 		}
-		return compareResultError, fmt.Errorf("failed to get resource: %w", err)
+		return compareResultError, nil, fmt.Errorf("failed to get resource: %w", err)
+	}
+	oldStatus := res.GetStatus()
+
+	if status == nil && oldStatus == nil {
+		return compareResultEqual, nil, nil
+	}
+	if status == nil && oldStatus != nil {
+		return compareResultDiff, status, nil
+	}
+	if status != nil && oldStatus == nil {
+		return compareResultDiff, status, nil
 	}
 
-	if reflect.DeepEqual(status, res.GetStatus()) {
-		return compareResultEqual, nil
+	if reflect.DeepEqual(status.Properties, oldStatus.Properties) {
+		return compareResultEqual, nil, nil
 	}
-	return compareResultDiff, nil
+	return compareResultDiff, status, nil
 }
 
 // getResource gets the resource from the remote environment.
-func getResource(ctx context.Context, resource resources.Resource, resTransformer transformer.ResourceTransformer, caller component.BasicCaller) (state interface{}, err error) {
+func getResource(ctx context.Context,
+	resource resources.Resource,
+	resTransformer transformer.ResourceTransformer,
+	caller component.BasicCaller,
+) (state *resources.Status, err error) {
 	logger.V(1).Info("Get resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Get.GenerateRequest(resource)
 	if err != nil {
@@ -551,7 +566,11 @@ func getResource(ctx context.Context, resource resources.Resource, resTransforme
 }
 
 // createResource creates the resource in the remote environment.
-func createResource(ctx context.Context, resource resources.Resource, resTransformer transformer.ResourceTransformer, caller component.BasicCaller) (state interface{}, err error) {
+func createResource(ctx context.Context,
+	resource resources.Resource,
+	resTransformer transformer.ResourceTransformer,
+	caller component.BasicCaller,
+) (state *resources.Status, err error) {
 	logger.V(1).Info("Create resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Create.GenerateRequest(resource)
 	if err != nil {
@@ -567,7 +586,11 @@ func createResource(ctx context.Context, resource resources.Resource, resTransfo
 }
 
 // updateResource updates the resource in the remote environment.
-func updateResource(ctx context.Context, resource resources.Resource, resTransformer transformer.ResourceTransformer, caller component.BasicCaller) (state interface{}, err error) {
+func updateResource(ctx context.Context,
+	resource resources.Resource,
+	resTransformer transformer.ResourceTransformer,
+	caller component.BasicCaller,
+) (state *resources.Status, err error) {
 	logger.V(1).Info("Update resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Update.GenerateRequest(resource)
 	if err != nil {
@@ -701,8 +724,8 @@ func ConvertResourcesJsonToResources(resourcesJson []byte) ([]resources.Resource
 
 	resourcesData := &CommonMiddlewareStatus{}
 
-	if err := json.Unmarshal(resourcesJson, &resourcesData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal resources: %s", err.Error())
+	if err := json.Unmarshal(resourcesJson, resourcesData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal resources: %w", err)
 	}
 
 	return resourcesData.ResourceStatus, nil

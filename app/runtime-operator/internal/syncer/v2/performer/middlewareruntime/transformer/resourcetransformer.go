@@ -30,11 +30,14 @@ import (
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"gopkg.in/yaml.v3"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func init() {
 	resourceTransformers = make(map[string]ResourceTransformer)
 }
+
+var logger = logf.Log.WithName("resource-transformer")
 
 // resourceTransformers stores the transformers that convert CRUD operations of custom resources
 // into transformers recognized by basic callers.
@@ -272,7 +275,7 @@ type RequestTransformerInterface interface {
 	// Output:
 	// - state: the state of the resource.
 	// - err: error if any
-	ParseResponse(response []byte) (state map[string]string, err error)
+	ParseResponse(response []byte) (state *resources.Status, err error)
 }
 
 // RequestTransformer provides message body transformation for a single resource of a single type of request and response parsing.
@@ -312,7 +315,7 @@ func (rt *RequestTransformer) GenerateRequest(resource resources.Resource) (req 
 	return
 }
 
-func (rt *RequestTransformer) ParseResponse(response []byte) (state map[string]string, err error) {
+func (rt *RequestTransformer) ParseResponse(response []byte) (state *resources.Status, err error) {
 	switch rt.CallerType {
 	case component.CallerTypeHTTP:
 		return rt.HTTP.ParseResponse(response)
@@ -333,6 +336,15 @@ func NewRequestTransformerHTTP(rule []byte) (*RequestTransformerHTTP, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if transformRule.RequestGenerationRule.URI == "" {
+		return nil, fmt.Errorf("uri is empty")
+	}
+
+	if transformRule.RequestGenerationRule.Request == "" {
+		return nil, fmt.Errorf("request is empty")
+	}
+
 	return &RequestTransformerHTTP{
 		TransformRule: *transformRule,
 	}, nil
@@ -416,7 +428,15 @@ func (rt *RequestTransformerHTTP) generateHeaderOrQuery(templates map[string]uti
 
 // ParseResponse parses the response from the provider and returns the state of the resource.
 // It uses the DSL in the transform rule to parse the response.
-func (rt *RequestTransformerHTTP) ParseResponse(response []byte) (state map[string]string, err error) {
+func (rt *RequestTransformerHTTP) ParseResponse(response []byte) (state *resources.Status, err error) {
+	if len(response) == 0 {
+		return nil, nil
+	}
+
+	state = &resources.Status{
+		Raw: response,
+	}
+
 	// Unmarshal the response into a map
 	var responseMap map[string]interface{}
 	if err := json.Unmarshal(response, &responseMap); err != nil {
@@ -424,12 +444,26 @@ func (rt *RequestTransformerHTTP) ParseResponse(response []byte) (state map[stri
 	}
 
 	// Parse the response using the DSL
-	state = make(map[string]string)
+	properties := make(map[string]string)
 	for _, rule := range rt.TransformRule.ResponseParseRule {
-		value, ok := getNestedValue(responseMap, rule.KeyPath)
+		value, ok := getNestedValue(responseMap, rule.Path)
 		if ok {
-			state[rule.KeyName] = value
+			properties[rule.KeyName] = value
 		}
+	}
+	if len(properties) != 0 {
+		state.Properties = properties
+	}
+
+	peerStatus := make(map[string]string)
+	for _, rule := range rt.TransformRule.ResponseParseRulePeer {
+		value, ok := getNestedValue(responseMap, rule.Path)
+		if ok {
+			peerStatus[rule.KeyName] = value
+		}
+	}
+	if len(peerStatus) != 0 {
+		state.Peer = peerStatus
 	}
 
 	return state, nil
@@ -438,19 +472,36 @@ func (rt *RequestTransformerHTTP) ParseResponse(response []byte) (state map[stri
 // getNestedValue gets the value of the nested key in the map.
 func getNestedValue(m map[string]interface{}, valueIndex string) (string, bool) {
 	keys := strings.Split(valueIndex, ".")
-	for _, key := range keys {
-		value, ok := m[key]
+	var ok bool
+	var value interface{}
+	for i, key := range keys {
+		value, ok = m[key]
 		if !ok {
 			return "", false
 		}
-		if strValue, ok := value.(string); ok {
-			return strValue, true
+
+		// If the value is the last key, return it
+		if i == len(keys)-1 {
+			break
 		}
+
+		// If the value is not the last key, it must be a map
 		if nextMap, ok := value.(map[string]interface{}); ok {
 			m = nextMap
 		} else {
 			return "", false
 		}
 	}
+
+	if strValue, ok := value.(string); ok {
+		return strValue, true
+	}
+
+	if strValue, err := json.Marshal(value); err == nil {
+		return string(strValue), true
+	} else {
+		logger.Error(err, "get value from map failed", "index", valueIndex)
+	}
+
 	return "", false
 }

@@ -115,7 +115,7 @@ delete:
 						ResponseParseRule: []http.ResponseParseRule{
 							{
 								KeyName: "id",
-								KeyPath: "/data/id",
+								Path:    "/data/id",
 							},
 						},
 					},
@@ -135,7 +135,7 @@ delete:
 						ResponseParseRule: []http.ResponseParseRule{
 							{
 								KeyName: "data",
-								KeyPath: "/data",
+								Path:    "/data",
 							},
 						},
 					},
@@ -156,7 +156,7 @@ delete:
 						ResponseParseRule: []http.ResponseParseRule{
 							{
 								KeyName: "result",
-								KeyPath: "/data/result",
+								Path:    "/data/result",
 							},
 						},
 					},
@@ -245,7 +245,9 @@ var _ = Describe("RequestTransformer", func() {
 					},
 					Dependencies: []resources.ResourceMetadata{},
 					Spec:         map[string]string{},
-					Status:       map[string]string{},
+					Status: &resources.Status{
+						Properties: map[string]string{},
+					},
 				}
 
 				ruleByte, err := yaml.Marshal(rule)
@@ -302,7 +304,7 @@ var _ = Describe("RequestTransformer", func() {
 						ResponseParseRule: []http.ResponseParseRule{
 							{
 								KeyName: "id",
-								KeyPath: "data.id",
+								Path:    "data.id",
 							},
 						},
 					},
@@ -314,17 +316,17 @@ var _ = Describe("RequestTransformer", func() {
 
 				state, err := rt.ParseResponse(response)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(state).To(Equal(map[string]string{
+				Expect(state.Properties).To(Equal(map[string]string{
 					"id": "123",
 				}))
 			})
 
 			It("when key path has many levels, should parse the response correctly", func() {
-				rt.TransformRule.ResponseParseRule[0].KeyPath = "data.id.value"
+				rt.TransformRule.ResponseParseRule[0].Path = "data.id.value"
 				response := []byte(`{"data": {"id": {"value": "123"}}}`)
 				state, err := rt.ParseResponse(response)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(state).To(Equal(map[string]string{
+				Expect(state.Properties).To(Equal(map[string]string{
 					"id": "123",
 				}))
 			})
@@ -342,7 +344,11 @@ var _ = Describe("RequestTransformer", func() {
 
 				state, err := rt.ParseResponse(response)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(state).To(BeEmpty())
+
+				wanted := resources.Status{
+					Raw: response,
+				}
+				Expect(*state).Should(Equal(wanted))
 			})
 		})
 	})

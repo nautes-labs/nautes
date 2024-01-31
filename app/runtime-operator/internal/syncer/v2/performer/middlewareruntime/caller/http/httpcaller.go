@@ -29,7 +29,10 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var logger = logf.Log.WithName("http-caller")
 
 // HTTPCaller is a caller that sends HTTP requests to the middleware service provider.
 type HTTPCaller struct {
@@ -160,19 +163,32 @@ func (hc *HTTPCaller) Post(ctx context.Context, request interface{}) (result []b
 	}
 	defer httpResponse.Body.Close()
 
-	if httpResponse.StatusCode >= 400 {
-		switch httpResponse.StatusCode {
-		case 404:
-			return nil, runtimeerr.ErrorResourceNotFound(errors.New(httpResponse.Status))
-		case 409:
-			return nil, runtimeerr.ErrorResourceExists(errors.New(httpResponse.Status))
-		}
-		return nil, fmt.Errorf("http request failed: %s", httpResponse.Status)
-	}
-
 	bodyBytes, err := io.ReadAll(httpResponse.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read http response body: %w", err)
+	}
+
+	if httpResponse.StatusCode >= 400 {
+		var err error
+		switch httpResponse.StatusCode {
+		case 404:
+			err = runtimeerr.ErrorResourceNotFound(errors.New(httpResponse.Status))
+		case 409:
+			err = runtimeerr.ErrorResourceExists(errors.New(httpResponse.Status))
+		default:
+			err = fmt.Errorf("http request failed: %s", httpResponse.Status)
+		}
+		if req.Body != nil {
+			logger.Error(err, "http request failed",
+				"status", httpResponse.StatusCode,
+				"request body", *req.Body,
+				"response body", string(bodyBytes))
+		} else {
+			logger.Error(err, "http request failed",
+				"status", httpResponse.StatusCode,
+				"response body", string(bodyBytes))
+		}
+		return nil, err
 	}
 
 	return bodyBytes, nil
@@ -195,6 +211,7 @@ type RequestHTTP struct {
 type RequestTransformerRule struct {
 	RequestGenerationRule RequestGenerationRule `json:"generation" yaml:"generation"`
 	ResponseParseRule     []ResponseParseRule   `json:"parse,omitempty" yaml:"parse,omitempty"`
+	ResponseParseRulePeer []ResponseParseRule   `json:"parsePeer,omitempty" yaml:"parsePeer,omitempty"`
 }
 
 func NewRequestTransformerRule(input []byte) (*RequestTransformerRule, error) {
@@ -219,6 +236,6 @@ type RequestGenerationRule struct {
 type ResponseParseRule struct {
 	// KeyName is the key name to store the parsed variable.
 	KeyName string `json:"name" yaml:"name"`
-	// KeyPath is the path of the key to parse.
-	KeyPath string `json:"path" yaml:"path"`
+	// Path is the path of the key to parse.
+	Path string `json:"path" yaml:"path"`
 }

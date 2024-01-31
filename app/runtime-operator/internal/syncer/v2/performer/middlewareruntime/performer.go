@@ -177,7 +177,7 @@ func (m *MiddlewareRuntimePerformer) deploy(ctx context.Context) error {
 	}
 
 	// 2. It loops through the middleware and deploys each middleware.
-	middlewares, err := FillMissingFieldsInMiddleware(m.runtime.GetMiddlewares(), m.runtime)
+	middlewares, err := FillMissingFieldsInMiddleware(m.runtime.GetMiddlewares(), m.GetDefaultVars())
 	if err != nil {
 		return fmt.Errorf("fill runtime middlewares failed: %w", err)
 	}
@@ -436,22 +436,40 @@ func (m *MiddlewareRuntimePerformer) SyncMiddlewares(ctx context.Context, middle
 	return nil
 }
 
-const defaultImplementation = "default"
-
-// FillMissingFieldsInMiddleware fills the missing key in the middleware.
-func FillMissingFieldsInMiddleware(middlewares []v1alpha1.Middleware, defaultVars v1alpha1.MiddlewareRuntime) ([]v1alpha1.Middleware, error) {
-	defaultSpace := defaultVars.Name
-	if defaultVars.Spec.Destination.Space != "" {
-		defaultSpace = defaultVars.Spec.Destination.Space
+func (m *MiddlewareRuntimePerformer) GetDefaultVars() map[string]string {
+	defaultVars := make(map[string]string)
+	defaultVars[defaultVarKeySpace] = m.runtime.GetName()
+	if m.runtime.Spec.Destination.Space != "" {
+		defaultVars[defaultVarKeySpace] = m.runtime.Spec.Destination.Space
 	}
 
+	defaultVars[defaultVarKeyDomain] = m.cluster.Spec.PrimaryDomain
+
+	return defaultVars
+}
+
+const defaultImplementation = "default"
+const (
+	defaultVarKeySpace  = "space"
+	defaultVarKeyDomain = "domain"
+	defaultVarKeyPort   = "port"
+)
+
+// FillMissingFieldsInMiddleware fills the missing key in the middleware.
+func FillMissingFieldsInMiddleware(middlewares []v1alpha1.Middleware, defaultVars map[string]string) ([]v1alpha1.Middleware, error) {
 	for i, middleware := range middlewares {
 		if middleware.Space == "" {
-			middlewares[i].Space = defaultSpace
+			middlewares[i].Space = defaultVars[defaultVarKeySpace]
 		}
 
 		if middleware.Implementation == "" {
 			middlewares[i].Implementation = defaultImplementation
+		}
+
+		if middleware.Entrypoint != nil {
+			if middleware.Entrypoint.Domain == "" {
+				middlewares[i].Entrypoint.Domain = defaultVars[defaultVarKeyDomain]
+			}
 		}
 	}
 

@@ -123,11 +123,14 @@ func (m *mockRequestTransformer) GenerateRequest(resource resources.Resource) (r
 	}, nil
 }
 
-func (m *mockRequestTransformer) ParseResponse(response []byte) (state map[string]string, err error) {
+func (m *mockRequestTransformer) ParseResponse(response []byte) (state *resources.Status, err error) {
 	if m.ParseResp == nil {
 		return nil, nil
 	}
-	return *m.ParseResp, nil
+	state = &resources.Status{
+		Properties: *m.ParseResp,
+	}
+	return
 }
 
 // mkc *mockKubernetesClient client.Client

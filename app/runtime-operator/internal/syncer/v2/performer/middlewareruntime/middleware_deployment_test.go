@@ -142,7 +142,7 @@ metadata:
 			err := transformer.UpdateResourceTransformer(mockResourceTransformer)
 			Expect(err).To(BeNil())
 
-			res.Status = newResourceStatus
+			res.Status = &resources.Status{Properties: newResourceStatus}
 			commonMiddlewareStatus := CommonMiddlewareStatus{
 				ResourceStatus: []resources.Resource{&res},
 			}
@@ -182,7 +182,7 @@ metadata:
 			err = transformer.UpdateResourceTransformer(mockResourceTransformer)
 			Expect(err).To(BeNil())
 
-			res.Status = newResourceStatus
+			res.Status = &resources.Status{Properties: newResourceStatus}
 			commentMiddlewareStatus := CommonMiddlewareStatus{
 				ResourceStatus: []resources.Resource{&res},
 			}
@@ -215,6 +215,7 @@ metadata:
 					Type: resourceTypeA,
 					Name: fmt.Sprintf("resource-%s", middleware.Name),
 				},
+				Status: &resources.Status{},
 			}
 			commentMiddlewareStatus := CommonMiddlewareStatus{
 				ResourceStatus: []resources.Resource{&res2},

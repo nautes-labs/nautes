@@ -17,8 +17,10 @@ package resources
 import "fmt"
 
 type ResourceMetadata struct {
-	Type string `json:"type" yaml:"type"`
-	Name string `json:"name" yaml:"name"`
+	Type   string            `json:"type" yaml:"type"`
+	Name   string            `json:"name" yaml:"name"`
+	Space  string            `json:"space,omitempty" yaml:"space,omitempty"`
+	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 func (r ResourceMetadata) GetType() string {
@@ -39,6 +41,19 @@ func (d Dependencies) GetDependencies() []ResourceMetadata {
 	return d
 }
 
+type Status struct {
+	// Properties is a collection of properties of the resource.
+	// It used to validate the resource is changed or not.
+	Properties map[string]string `json:"properties,omitempty" yaml:"properties,omitempty"`
+	// Raw is the status of the resource in raw format.
+	Raw []byte `json:"raw,omitempty" yaml:"raw,omitempty"`
+	// Peer is the status of the resource in the peer environment.
+	// Current use cases:
+	//   When updating a resource, additional parameters may be required, such as the resource's version number.
+	//   Set this value using the Get method, and then retrieve it during the update.
+	Peer map[string]string `json:"peer,omitempty" yaml:"peer,omitempty"`
+}
+
 // Resource is an abstraction of a resource, such as a Deployment, a Service, and so on.
 // Resource represents a generic resource in the system.
 type Resource interface {
@@ -52,8 +67,8 @@ type Resource interface {
 	GetDependencies() []ResourceMetadata
 	// GetResourceAttributes returns the collection of attributes of the resource.
 	GetResourceAttributes() interface{}
-	GetStatus() interface{}
-	SetStatus(status interface{}) error
+	GetStatus() *Status
+	SetStatus(status Status)
 }
 
 // CommonResource is a common resource that can be used to represent any resource type. It is mainly used for user-defined resource types.
@@ -61,27 +76,17 @@ type CommonResource struct {
 	ResourceMetadata `json:"metadata" yaml:"metadata"`
 	Dependencies     `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 	Spec             map[string]string `json:"spec,omitempty" yaml:"spec,omitempty"`
-	Status           map[string]string `json:"status,omitempty" yaml:"status,omitempty"`
+	Status           *Status           `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 func (cr *CommonResource) GetResourceAttributes() interface{} {
 	return cr.Spec
 }
 
-func (cr *CommonResource) GetStatus() interface{} {
+func (cr *CommonResource) GetStatus() *Status {
 	return cr.Status
 }
 
-func (cr *CommonResource) SetStatus(status interface{}) error {
-	if status == nil {
-		return nil
-	}
-
-	newStatus, ok := status.(map[string]string)
-	if !ok {
-		return fmt.Errorf("invalid status type: %T", status)
-	}
-
-	cr.Status = newStatus
-	return nil
+func (cr *CommonResource) SetStatus(status Status) {
+	cr.Status = &status
 }

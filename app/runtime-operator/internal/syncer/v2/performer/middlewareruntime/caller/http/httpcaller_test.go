@@ -308,6 +308,6 @@ var _ = Describe("NewRequestTransformerRule", func() {
 		Expect(rule).ToNot(BeNil())
 		Expect(rule.ResponseParseRule).To(HaveLen(1))
 		Expect(rule.ResponseParseRule[0].KeyName).To(Equal("testName"))
-		Expect(rule.ResponseParseRule[0].KeyPath).To(Equal("testPath"))
+		Expect(rule.ResponseParseRule[0].Path).To(Equal("testPath"))
 	})
 })

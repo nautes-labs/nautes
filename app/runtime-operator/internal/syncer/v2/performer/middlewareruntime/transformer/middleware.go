@@ -254,6 +254,9 @@ func ConvertMiddlewareToResources(providerName string, middleware v1alpha1.Middl
 			return nil, err
 		}
 
+		commonResource.Space = middleware.Space
+		commonResource.Labels = middleware.Labels
+
 		// Append the CommonResource to the resources slice.
 		resArray = append(resArray, &commonResource)
 	}
