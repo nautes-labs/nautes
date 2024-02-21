@@ -28,7 +28,9 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/resources"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/templatefunctions"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
+	"github.com/nautes-labs/nautes/pkg/nautesenv"
 	"gopkg.in/yaml.v3"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -66,7 +68,7 @@ const (
 // The function returns an error if there is any issue with parsing, reading, unmarshaling, or adding the transform rules.
 func LoadResourceTransformers(opt ...LoadResourceTransformOption) error {
 	options := &loadResourceTransformsOptions{
-		TransformRulesRootPath: path.Join(nautesHome, DefaultTransformRulesRootPath),
+		TransformRulesRootPath: path.Join(nautesenv.GetNautesHome(), DefaultTransformRulesRootPath),
 	}
 	for _, o := range opt {
 		o(options)
@@ -275,7 +277,7 @@ type RequestTransformerInterface interface {
 	// Output:
 	// - state: the state of the resource.
 	// - err: error if any
-	ParseResponse(response []byte) (state *resources.Status, err error)
+	ParseResponse(response []byte) (state *resources.ResourceStatus, err error)
 }
 
 // RequestTransformer provides message body transformation for a single resource of a single type of request and response parsing.
@@ -315,7 +317,7 @@ func (rt *RequestTransformer) GenerateRequest(resource resources.Resource) (req 
 	return
 }
 
-func (rt *RequestTransformer) ParseResponse(response []byte) (state *resources.Status, err error) {
+func (rt *RequestTransformer) ParseResponse(response []byte) (state *resources.ResourceStatus, err error) {
 	switch rt.CallerType {
 	case component.CallerTypeHTTP:
 		return rt.HTTP.ParseResponse(response)
@@ -359,7 +361,7 @@ func (rt *RequestTransformerHTTP) GenerateRequest(res resources.Resource) (req *
 	// Render the request body using templates and resource definition
 	var body *string
 	if rt.TransformRule.RequestGenerationRule.Body != nil {
-		bodyTemplate, err := template.New("body").Parse(*rt.TransformRule.RequestGenerationRule.Body)
+		bodyTemplate, err := template.New("body").Funcs(templatefunctions.TemplateFunctionMap).Parse(*rt.TransformRule.RequestGenerationRule.Body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse request body template: %w", err)
 		}
@@ -372,7 +374,7 @@ func (rt *RequestTransformerHTTP) GenerateRequest(res resources.Resource) (req *
 	}
 
 	// Render the request path using path templates and resource definition
-	pathTemplate, err := template.New("path").Parse(rt.TransformRule.RequestGenerationRule.URI)
+	pathTemplate, err := template.New("path").Funcs(templatefunctions.TemplateFunctionMap).Parse(rt.TransformRule.RequestGenerationRule.URI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse request path template: %w", err)
 	}
@@ -410,7 +412,7 @@ func (rt *RequestTransformerHTTP) generateHeaderOrQuery(templates map[string]uti
 	result := make(map[string][]string)
 	for key, tmplStrs := range templates {
 		for _, tmplStr := range tmplStrs {
-			tmpl, err := template.New(key).Parse(tmplStr)
+			tmpl, err := template.New(key).Funcs(templatefunctions.TemplateFunctionMap).Parse(tmplStr)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse %s template: %w", key, err)
 			}
@@ -428,12 +430,12 @@ func (rt *RequestTransformerHTTP) generateHeaderOrQuery(templates map[string]uti
 
 // ParseResponse parses the response from the provider and returns the state of the resource.
 // It uses the DSL in the transform rule to parse the response.
-func (rt *RequestTransformerHTTP) ParseResponse(response []byte) (state *resources.Status, err error) {
+func (rt *RequestTransformerHTTP) ParseResponse(response []byte) (state *resources.ResourceStatus, err error) {
 	if len(response) == 0 {
 		return nil, nil
 	}
 
-	state = &resources.Status{
+	state = &resources.ResourceStatus{
 		Raw: response,
 	}
 
@@ -472,9 +474,14 @@ func (rt *RequestTransformerHTTP) ParseResponse(response []byte) (state *resourc
 // getNestedValue gets the value of the nested key in the map.
 func getNestedValue(m map[string]interface{}, valueIndex string) (string, bool) {
 	keys := strings.Split(valueIndex, ".")
-	var ok bool
+	if len(keys) == 0 {
+		return "", false
+	}
+
+	keys = keys[1:]
 	var value interface{}
 	for i, key := range keys {
+		var ok bool
 		value, ok = m[key]
 		if !ok {
 			return "", false

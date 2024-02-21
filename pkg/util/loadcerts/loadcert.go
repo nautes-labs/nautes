@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
+	"github.com/nautes-labs/nautes/pkg/nautesenv"
 )
 
 const (
@@ -30,8 +30,7 @@ const (
 )
 
 func GetCertPath() string {
-	homePath := os.Getenv(nautesconst.EnvNautesHome)
-	return filepath.Join(homePath, DefaultCertsPath)
+	return filepath.Join(nautesenv.GetNautesHome(), DefaultCertsPath)
 }
 
 type LoadOptions struct {

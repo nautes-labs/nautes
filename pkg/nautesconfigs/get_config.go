@@ -20,7 +20,7 @@ import (
 	"path"
 
 	"github.com/nautes-labs/nautes/pkg/kubeconvert"
-	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
+	"github.com/nautes-labs/nautes/pkg/nautesenv"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -157,8 +157,7 @@ func NewNautesConfigFromFile(opts ...configFunction) (*Config, error) {
 	} else if envExist {
 		filePath = filePathFromEnv
 	} else {
-		homePath := os.Getenv(nautesconst.EnvNautesHome)
-		filePath = path.Join(homePath, DefaultNautesConfigPath)
+		filePath = path.Join(nautesenv.GetNautesHome(), DefaultNautesConfigPath)
 	}
 
 	configsByte, err := os.ReadFile(filePath)

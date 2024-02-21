@@ -243,9 +243,9 @@ var _ = Describe("RequestTransformer", func() {
 						Type: "mock",
 						Name: fmt.Sprintf("mock-%s", seed),
 					},
-					Dependencies: []resources.ResourceMetadata{},
-					Spec:         map[string]string{},
-					Status: &resources.Status{
+					ResourceDependencies: []resources.ResourceMetadata{},
+					Spec:                 map[string]string{},
+					Status: resources.ResourceStatus{
 						Properties: map[string]string{},
 					},
 				}
@@ -304,7 +304,7 @@ var _ = Describe("RequestTransformer", func() {
 						ResponseParseRule: []http.ResponseParseRule{
 							{
 								KeyName: "id",
-								Path:    "data.id",
+								Path:    ".data.id",
 							},
 						},
 					},
@@ -322,7 +322,7 @@ var _ = Describe("RequestTransformer", func() {
 			})
 
 			It("when key path has many levels, should parse the response correctly", func() {
-				rt.TransformRule.ResponseParseRule[0].Path = "data.id.value"
+				rt.TransformRule.ResponseParseRule[0].Path = ".data.id.value"
 				response := []byte(`{"data": {"id": {"value": "123"}}}`)
 				state, err := rt.ParseResponse(response)
 				Expect(err).NotTo(HaveOccurred())
@@ -345,7 +345,7 @@ var _ = Describe("RequestTransformer", func() {
 				state, err := rt.ParseResponse(response)
 				Expect(err).NotTo(HaveOccurred())
 
-				wanted := resources.Status{
+				wanted := resources.ResourceStatus{
 					Raw: response,
 				}
 				Expect(*state).Should(Equal(wanted))

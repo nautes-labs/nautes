@@ -20,7 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nautes-labs/nautes/pkg/nautesconst"
+	"github.com/nautes-labs/nautes/pkg/nautesenv"
 )
 
 const certPath = "./cert"
@@ -38,8 +38,6 @@ func GetCABundle(serviceURL string) ([]byte, error) {
 		fileName = fmt.Sprintf("%s.crt", u.Hostname())
 	}
 
-	nautesHome := os.Getenv(nautesconst.EnvNautesHome)
-
-	fileFullPath := filepath.Join(nautesHome, certPath, fileName)
+	fileFullPath := filepath.Join(nautesenv.GetNautesHome(), certPath, fileName)
 	return os.ReadFile(fileFullPath)
 }

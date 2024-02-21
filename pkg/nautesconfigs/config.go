@@ -55,16 +55,18 @@ type Nautes struct {
 	TenantName string `yaml:"tenantName"`
 	Namespace  string `yaml:"namespace"`
 	// The git repo where store runtime template
-	RuntimeTemplateSource string            `yaml:"runtimeTemplateSource"`
-	ServiceAccount        map[string]string `yaml:"serviceAccount"`
+	RuntimeTemplateSource              string            `yaml:"runtimeTemplateSource"`
+	ServiceAccount                     map[string]string `yaml:"serviceAccount"`
+	ConfigMapNameMiddlewareSecretIndex string            `yaml:"configMapNameMiddlewareSecretIndex"`
 }
 
 func NewConfig(cfgString string) (*Config, error) {
 	cfg := &Config{
 		Nautes: Nautes{
-			TenantName:            "",
-			Namespace:             "nautes",
-			RuntimeTemplateSource: "",
+			TenantName:                         "",
+			Namespace:                          "nautes",
+			RuntimeTemplateSource:              "",
+			ConfigMapNameMiddlewareSecretIndex: "middleware-secret-index",
 			ServiceAccount: map[string]string{
 				"Api":     "api-server",
 				"Argo":    "argo-controller-server",

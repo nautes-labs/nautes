@@ -123,11 +123,11 @@ func (m *mockRequestTransformer) GenerateRequest(resource resources.Resource) (r
 	}, nil
 }
 
-func (m *mockRequestTransformer) ParseResponse(response []byte) (state *resources.Status, err error) {
+func (m *mockRequestTransformer) ParseResponse(response []byte) (state *resources.ResourceStatus, err error) {
 	if m.ParseResp == nil {
 		return nil, nil
 	}
-	state = &resources.Status{
+	state = &resources.ResourceStatus{
 		Properties: *m.ParseResp,
 	}
 	return
@@ -142,7 +142,7 @@ type mockKubernetesClient struct {
 // obj must be a struct pointer so that obj can be updated with the response
 // returned by the Server.
 func (mkc *mockKubernetesClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-	panic("not implemented") // TODO: Implement
+	return nil
 }
 
 // List retrieves list of objects for a given namespace and list options. On a
@@ -155,7 +155,7 @@ func (mkc *mockKubernetesClient) List(ctx context.Context, list client.ObjectLis
 // Create saves the object obj in the Kubernetes cluster. obj must be a
 // struct pointer so that obj can be updated with the content returned by the Server.
 func (mkc *mockKubernetesClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
-	panic("not implemented") // TODO: Implement
+	return nil
 }
 
 // Delete deletes the given obj from Kubernetes cluster.
@@ -242,7 +242,7 @@ type mockKubernetesSubResourceClient struct{}
 // Create saves the subResource object in the Kubernetes cluster. obj must be a
 // struct pointer so that obj can be updated with the content returned by the Server.
 func (mksc *mockKubernetesSubResourceClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
-	panic("not implemented") // TODO: Implement
+	return nil
 }
 
 // Update updates the fields corresponding to the status subresource for the

@@ -105,3 +105,11 @@ func (m Middleware) GetDeployment() interface{} {
 func (m Middleware) GetUniqueID() string {
 	return fmt.Sprintf("%s-%s-%s", m.Type, m.Name, m.Space)
 }
+
+func (m *MiddlewareInitAccessInfo) GetType() string {
+	if m.UserPassword != nil {
+		return MiddlewareAccessInfoTypeUserPassword
+	}
+
+	return MiddlewareAccessInfoTypeNotSpecified
+}

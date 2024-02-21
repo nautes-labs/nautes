@@ -16,12 +16,18 @@ package middlewareruntime
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/componentutils"
 	"github.com/nautes-labs/nautes/pkg/kubeconvert"
+	"github.com/nautes-labs/nautes/pkg/middlewareinfo"
+	"github.com/nautes-labs/nautes/pkg/middlewaresecret"
+	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	performer "github.com/nautes-labs/nautes/app/runtime-operator/pkg/performer"
@@ -51,6 +57,7 @@ type MiddlewareRuntimePerformer struct {
 	tenantK8sClient client.Client
 	// providerInfo is the information about the service provider.
 	providerInfo component.ProviderInfo
+	nautesConfig configs.Config
 }
 
 // NewPerformer creates a new instance of the MiddlewareRuntimePerformer struct,
@@ -68,6 +75,7 @@ func NewPerformer(initInfo performer.PerformerInitInfos) (performer.TaskPerforme
 	runtimePerformer := &MiddlewareRuntimePerformer{
 		components:      initInfo.Components,
 		tenantK8sClient: initInfo.TenantK8sClient,
+		nautesConfig:    initInfo.NautesConfig,
 	}
 
 	// Get the runtime from the initInfo.
@@ -102,6 +110,7 @@ func NewPerformer(initInfo performer.PerformerInitInfos) (performer.TaskPerforme
 
 	var cluster *v1alpha1.Cluster
 	if env.Spec.EnvType == v1alpha1.EnvironmentTypeCluster {
+		logger.V(1).Info("Get cluster", "cluster", env.Spec.Cluster)
 		cluster, err = initInfo.ComponentInitInfo.NautesResourceSnapshot.GetCluster(env.Spec.Cluster)
 		if err != nil {
 			return nil, fmt.Errorf("get cluster %s failed: %w", env.Spec.Cluster, err)
@@ -120,8 +129,31 @@ func NewPerformer(initInfo performer.PerformerInitInfos) (performer.TaskPerforme
 	currentStatus.AccessInfoName = runtime.Spec.AccessInfoName
 
 	runtimePerformer.currentStatus = currentStatus
+	if SecretIndexDirectory == nil {
+		indexes, err := middlewaresecret.NewSecretIndexDirectory(context.TODO(), types.NamespacedName{
+			Name:      initInfo.NautesConfig.Nautes.ConfigMapNameMiddlewareSecretIndex,
+			Namespace: initInfo.NautesConfig.Nautes.Namespace,
+		},
+			initInfo.TenantK8sClient)
+		if err != nil {
+			return nil, fmt.Errorf("new secret indexes failed: %w", err)
+		}
+
+		SecretIndexDirectory = indexes
+	}
+
+	printTaskInfo(runtimePerformer)
 
 	return runtimePerformer, nil
+}
+
+func printTaskInfo(m *MiddlewareRuntimePerformer) {
+	logger := logger.WithValues("product", m.product.Name, "runtime", m.runtime.Name, "environment", m.environment.Name)
+	clusterName := ""
+	if m.cluster != nil {
+		clusterName = m.cluster.Name
+	}
+	logger.V(1).Info("TaskInfo", "environment", m.environment.Name, "cluster", clusterName)
 }
 
 func (m *MiddlewareRuntimePerformer) Deploy(ctx context.Context) (interface{}, error) {
@@ -378,8 +410,10 @@ func (m *MiddlewareRuntimePerformer) SyncMiddlewares(ctx context.Context, middle
 			errs = append(errs, fmt.Errorf("create middleware %s deployment info failed: %w", uniqueID, err))
 			continue
 		}
+		runtimeInfo := m.GetRuntimeInfo()
+
 		logger.V(1).Info("Deploy middleware", "uniqueID", uniqueID)
-		status, err := DeployMiddleware(ctx, middleware, nil, *deploymentInfo)
+		status, err := DeployMiddleware(ctx, middleware, nil, *deploymentInfo, runtimeInfo)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("deploy middleware %s failed: %w", uniqueID, err))
 			continue
@@ -394,9 +428,11 @@ func (m *MiddlewareRuntimePerformer) SyncMiddlewares(ctx context.Context, middle
 			errs = append(errs, fmt.Errorf("create middleware %s deployment info failed: %w", uniqueID, err))
 			continue
 		}
+		runtimeInfo := m.GetRuntimeInfo()
+
 		lastStatus := statusMap[middleware.GetUniqueID()]
 		logger.V(1).Info("Update middleware", "uniqueID", uniqueID)
-		status, err := DeployMiddleware(ctx, middleware, &lastStatus, *deploymentInfo)
+		status, err := DeployMiddleware(ctx, middleware, &lastStatus, *deploymentInfo, runtimeInfo)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("update middleware %s failed: %w", uniqueID, err))
 			continue
@@ -427,13 +463,27 @@ func (m *MiddlewareRuntimePerformer) SyncMiddlewares(ctx context.Context, middle
 		newStatuses = append(newStatuses, status)
 	}
 
-	m.currentStatus.Middlewares = newStatuses
+	m.currentStatus.Middlewares = removeSensitiveDataInMiddleware(newStatuses)
 
 	if len(errs) != 0 {
 		return fmt.Errorf("sync middlewares failed: %v", errs)
 	}
 
 	return nil
+}
+
+func (m *MiddlewareRuntimePerformer) GetRuntimeInfo() RuntimeInfo {
+	var clusterName string
+	if m.cluster != nil {
+		clusterName = m.cluster.Name
+	}
+	return RuntimeInfo{
+		Name:            m.runtime.GetName(),
+		Product:         m.product.Name,
+		Environment:     m.environment.Name,
+		Cluster:         clusterName,
+		NautesNamespace: m.nautesConfig.Nautes.Namespace,
+	}
 }
 
 func (m *MiddlewareRuntimePerformer) GetDefaultVars() map[string]string {
@@ -443,7 +493,9 @@ func (m *MiddlewareRuntimePerformer) GetDefaultVars() map[string]string {
 		defaultVars[defaultVarKeySpace] = m.runtime.Spec.Destination.Space
 	}
 
-	defaultVars[defaultVarKeyDomain] = m.cluster.Spec.PrimaryDomain
+	if m.cluster != nil {
+		defaultVars[defaultVarKeyDomain] = m.cluster.Spec.PrimaryDomain
+	}
 
 	return defaultVars
 }
@@ -471,7 +523,127 @@ func FillMissingFieldsInMiddleware(middlewares []v1alpha1.Middleware, defaultVar
 				middlewares[i].Entrypoint.Domain = defaultVars[defaultVarKeyDomain]
 			}
 		}
+
+		needAuthInfo, authType, err := checkMiddlewareNeedNewAuthInfo(middleware)
+		if err != nil {
+			return nil, fmt.Errorf("check middleware %s need new auth info failed: %w", middleware.Type, err)
+		}
+
+		if needAuthInfo {
+			accessInfo, err := createNewSecret(middleware, authType)
+			if err != nil {
+				return nil, fmt.Errorf("create new secret for middleware %s failed: %w", middleware.Type, err)
+			}
+			middlewares[i].InitAccessInfo = accessInfo
+		}
 	}
 
 	return middlewares, nil
+}
+
+func init() {
+	metaData, err := middlewareinfo.NewMiddlewares()
+	if err != nil {
+		panic(fmt.Errorf("failed to load middleware metadata: %w", err))
+	}
+	MiddlewareMetaData = *metaData
+}
+
+var MiddlewareMetaData middlewareinfo.Middlewares
+
+func checkMiddlewareNeedNewAuthInfo(middleware v1alpha1.Middleware) (needAuthInfo bool, authType string, err error) {
+	metadata, ok := MiddlewareMetaData[middleware.Type]
+	if !ok {
+		return false, "", fmt.Errorf("middleware %s not found", middleware.Type)
+	}
+
+	if middleware.InitAccessInfo == nil {
+		if metadata.DefaultAuthType == "" {
+			return false, "", nil
+		}
+		return true, metadata.DefaultAuthType, nil
+	}
+
+	switch middleware.InitAccessInfo.GetType() {
+	case v1alpha1.MiddlewareAccessInfoTypeNotSpecified:
+		return true, metadata.DefaultAuthType, nil
+	case v1alpha1.MiddlewareAccessInfoTypeUserPassword:
+		if middleware.InitAccessInfo.UserPassword.Username == "" ||
+			middleware.InitAccessInfo.UserPassword.Password == "" {
+			return true, v1alpha1.MiddlewareAccessInfoTypeUserPassword, nil
+		}
+	default:
+		return false, "", fmt.Errorf("unknown access info type %s", middleware.InitAccessInfo.GetType())
+	}
+	return
+}
+
+func createNewSecret(middleware v1alpha1.Middleware, authType string) (*v1alpha1.MiddlewareInitAccessInfo, error) {
+	accessInfo := &v1alpha1.MiddlewareInitAccessInfo{}
+	switch authType {
+	case v1alpha1.MiddlewareAccessInfoTypeUserPassword:
+		password, err := generatePassword(8)
+		if err != nil {
+			return nil, fmt.Errorf("generate password failed: %w", err)
+		}
+		userName := ""
+		if middleware.InitAccessInfo != nil && middleware.InitAccessInfo.UserPassword != nil {
+			userName = middleware.InitAccessInfo.UserPassword.Username
+		}
+		accessInfo.UserPassword = &v1alpha1.MiddlewareInitAccessInfoUserPassword{
+			Username: userName,
+			Password: password,
+		}
+	}
+
+	return accessInfo, nil
+}
+
+func generatePassword(length int) (string, error) {
+	const (
+		lowerLetters = "abcdefghijklmnopqrstuvwxyz"
+		upperLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		digits       = "0123456789"
+		specials     = "!@#$%^&*()-_=+,.?/:;{}[]`~"
+		allChars     = lowerLetters + upperLetters + digits + specials
+	)
+
+	if length < 4 {
+		return "", fmt.Errorf("password length must be at least 4")
+	}
+
+	charGroups := []string{lowerLetters, upperLetters, digits, specials}
+	result := make([]byte, length)
+
+	// Ensure the password contains at least one character from each group
+	for i, group := range charGroups {
+		val, err := rand.Int(rand.Reader, big.NewInt(int64(len(group))))
+		if err != nil {
+			return "", err
+		}
+		result[i] = group[val.Int64()]
+	}
+
+	// Fill the rest of the password with random characters from all groups
+	for i := len(charGroups); i < length; i++ {
+		val, err := rand.Int(rand.Reader, big.NewInt(int64(len(allChars))))
+		if err != nil {
+			return "", err
+		}
+		result[i] = allChars[val.Int64()]
+	}
+
+	return string(result), nil
+}
+
+func removeSensitiveDataInMiddleware(status []v1alpha1.MiddlewareStatus) []v1alpha1.MiddlewareStatus {
+	if status == nil {
+		return nil
+	}
+
+	for i := range status {
+		status[i].Middleware.InitAccessInfo = nil
+	}
+
+	return status
 }

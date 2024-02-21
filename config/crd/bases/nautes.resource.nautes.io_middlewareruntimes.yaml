@@ -76,6 +76,27 @@ spec:
                         If the middleware has multiple implementation modes, you can
                         specify which mode to use by setting this field.
                       type: string
+                    initAccessInfo:
+                      description: InitAccessInfo represents the access information
+                        for the middleware. If it is not empty, the middleware will
+                        be deployed with the access information. If it is empty, the
+                        runtime operator will generate the access information for
+                        the middleware. User should change the access information
+                        after the middleware is deployed.
+                      nullable: true
+                      properties:
+                        userPassword:
+                          nullable: true
+                          properties:
+                            password:
+                              type: string
+                            username:
+                              type: string
+                          required:
+                          - password
+                          - username
+                          type: object
+                      type: object
                     labels:
                       additionalProperties:
                         type: string
@@ -164,6 +185,27 @@ spec:
                         If the middleware has multiple implementation modes, you can
                         specify which mode to use by setting this field.
                       type: string
+                    initAccessInfo:
+                      description: InitAccessInfo represents the access information
+                        for the middleware. If it is not empty, the middleware will
+                        be deployed with the access information. If it is empty, the
+                        runtime operator will generate the access information for
+                        the middleware. User should change the access information
+                        after the middleware is deployed.
+                      nullable: true
+                      properties:
+                        userPassword:
+                          nullable: true
+                          properties:
+                            password:
+                              type: string
+                            username:
+                              type: string
+                          required:
+                          - password
+                          - username
+                          type: object
+                      type: object
                     labels:
                       additionalProperties:
                         type: string
@@ -947,6 +989,27 @@ spec:
                             modes, you can specify which mode to use by setting this
                             field.
                           type: string
+                        initAccessInfo:
+                          description: InitAccessInfo represents the access information
+                            for the middleware. If it is not empty, the middleware
+                            will be deployed with the access information. If it is
+                            empty, the runtime operator will generate the access information
+                            for the middleware. User should change the access information
+                            after the middleware is deployed.
+                          nullable: true
+                          properties:
+                            userPassword:
+                              nullable: true
+                              properties:
+                                password:
+                                  type: string
+                                username:
+                                  type: string
+                              required:
+                              - password
+                              - username
+                              type: object
+                          type: object
                         labels:
                           additionalProperties:
                             type: string
@@ -1001,6 +1064,10 @@ spec:
                       - name
                       - type
                       type: object
+                    secretID:
+                      description: SecretID records the ID for retrieving middleware
+                        secret information.
+                      type: string
                     status:
                       description: Status represents the deployment status of the
                         middleware. Its format is determined by the caller implementing

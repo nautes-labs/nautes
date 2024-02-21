@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
+	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/resources"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/transformer"
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
 	. "github.com/onsi/ginkgo/v2"
@@ -105,10 +106,10 @@ spec:
 			resource := res[0]
 			Expect(resource.GetName()).To(Equal("test-config"))
 			Expect(resource.GetType()).To(Equal("ConfigMap"))
-			Expect(resource.GetResourceAttributes()).To(Equal(map[string]string{
+			Expect(resource.GetAttributes()).To(Equal(map[string]string{
 				"key": "value",
 			}))
-			Expect(resource.GetStatus()).To(BeNil())
+			Expect(resource.GetStatus()).To(Equal(resources.ResourceStatus{}))
 		})
 
 		It("should return error when no rule found", func() {

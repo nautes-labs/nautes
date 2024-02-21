@@ -16,6 +16,8 @@ package middlewareruntime_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	. "github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime"
@@ -23,6 +25,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/componentmock"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
+	"github.com/nautes-labs/nautes/pkg/middlewareinfo"
 	configs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,9 +50,11 @@ var _ = Describe("MiddlewareRuntimePerformer", func() {
 		middlewareType  = "redis"
 		implementation  = "redis-operator"
 		tenantK8sClient client.Client
+		tempDir         string
 	)
 
 	BeforeEach(func() {
+		var err error
 		ctx = context.Background()
 		seed = testutils.RandNum()
 
@@ -165,11 +170,32 @@ var _ = Describe("MiddlewareRuntimePerformer", func() {
 			Implementation: implementation,
 			Resources:      []string{},
 		})
+
+		tempDir, err = os.MkdirTemp("", "nautes")
+		Expect(err).ShouldNot(HaveOccurred())
+		middlewaremetadata := `
+redis:
+  providers:
+    redis-operator:
+      defaultImplementation: redis-operator
+      implementations:
+        redis-operator:
+          name: redis-operator
+`
+
+		filePath := filepath.Join(tempDir, "middlewares.yaml")
+		err = os.WriteFile(filePath, []byte(middlewaremetadata), 0644)
+		Expect(err).ShouldNot(HaveOccurred())
+		infos, err := middlewareinfo.NewMiddlewares(middlewareinfo.WithLoadPath(filePath))
+		Expect(err).ShouldNot(HaveOccurred())
+		MiddlewareMetaData = *infos
 	})
 
 	AfterEach(func() {
 		transformer.ClearResourceTransformer()
 		transformer.ClearMiddlewareTransformRule()
+		err := os.RemoveAll(tempDir)
+		Expect(err).ShouldNot(HaveOccurred())
 	})
 
 	Describe("deploy", func() {

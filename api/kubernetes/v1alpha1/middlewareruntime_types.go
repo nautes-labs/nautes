@@ -85,6 +85,30 @@ type Middleware struct {
 	// CommonMiddlewareInfo represents the deployment information for middleware of common types.
 	// For more information, please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
 	CommonMiddlewareInfo map[string]string `json:"commonMiddlewareInfo,omitempty"`
+	// +optional
+	// +nullable
+	// InitAccessInfo represents the access information for the middleware.
+	// If it is not empty, the middleware will be deployed with the access information.
+	// If it is empty, the runtime operator will generate the access information for the middleware.
+	// User should change the access information after the middleware is deployed.
+	InitAccessInfo *MiddlewareInitAccessInfo `json:"initAccessInfo,omitempty"`
+}
+
+const (
+	MiddlewareAccessInfoTypeNotSpecified = "NotSpecified"
+	MiddlewareAccessInfoTypeUserPassword = "UserPassword"
+)
+
+// MiddlewareInitAccessInfo represents the access information for the middleware.
+type MiddlewareInitAccessInfo struct {
+	// +optional
+	// +nullable
+	UserPassword *MiddlewareInitAccessInfoUserPassword `json:"userPassword,omitempty"`
+}
+
+type MiddlewareInitAccessInfoUserPassword struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // MiddlewareEntrypoint represents the configuration for a middleware entrypoint.
@@ -146,6 +170,8 @@ type MiddlewareRuntimeStatus struct {
 type MiddlewareStatus struct {
 	// Middleware stores the declaration of the middleware used in the last deployment.
 	Middleware Middleware `json:"middleware"`
+	// SecretID records the ID for retrieving middleware secret information.
+	SecretID string `json:"secretID,omitempty"`
 	// +optional
 	// +nullable
 	// Status represents the deployment status of the middleware. Its format is determined by the caller implementing the deployment.

@@ -25,6 +25,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/resources"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/transformer"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
+	"github.com/nautes-labs/nautes/pkg/middlewaresecret"
 
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/testutils"
 	. "github.com/onsi/ginkgo/v2"
@@ -46,6 +47,7 @@ var _ = Describe("Middleware deployment", func() {
 		mockResourceTransformer transformer.ResourceTransformer
 		res                     resources.CommonResource
 		resourceStatus          map[string]string
+		runtimeInfo             RuntimeInfo
 	)
 
 	BeforeEach(func() {
@@ -119,6 +121,16 @@ metadata:
 		Expect(err).To(BeNil())
 
 		middlewareStatus = nil
+
+		runtimeInfo = RuntimeInfo{
+			Name:            "",
+			Product:         "",
+			Environment:     "",
+			Cluster:         "",
+			NautesNamespace: "nautes",
+		}
+		Expect(err).To(BeNil())
+		SecretIndexDirectory = &middlewaresecret.Mock{}
 	},
 	)
 	AfterEach(func() {
@@ -142,14 +154,14 @@ metadata:
 			err := transformer.UpdateResourceTransformer(mockResourceTransformer)
 			Expect(err).To(BeNil())
 
-			res.Status = &resources.Status{Properties: newResourceStatus}
+			res.Status = resources.ResourceStatus{Properties: newResourceStatus}
 			commonMiddlewareStatus := CommonMiddlewareStatus{
 				ResourceStatus: []resources.Resource{&res},
 			}
 			resByte, err := json.Marshal(commonMiddlewareStatus)
 			Expect(err).To(BeNil())
 
-			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo)
+			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo, runtimeInfo)
 			Expect(err).To(BeNil())
 
 			wanted := &v1alpha1.MiddlewareStatus{
@@ -165,7 +177,7 @@ metadata:
 			resourceStatus["name"] = res.Name
 			resourceStatus["action"] = "create"
 
-			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo)
+			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo, runtimeInfo)
 			Expect(err).To(BeNil())
 
 			delete(resourceStatus, "action")
@@ -182,14 +194,14 @@ metadata:
 			err = transformer.UpdateResourceTransformer(mockResourceTransformer)
 			Expect(err).To(BeNil())
 
-			res.Status = &resources.Status{Properties: newResourceStatus}
+			res.Status = resources.ResourceStatus{Properties: newResourceStatus}
 			commentMiddlewareStatus := CommonMiddlewareStatus{
 				ResourceStatus: []resources.Resource{&res},
 			}
 			resByte, err := json.Marshal(commentMiddlewareStatus)
 			Expect(err).To(BeNil())
 
-			status, err = DeployMiddleware(ctx, middleware, status, *deploymentInfo)
+			status, err = DeployMiddleware(ctx, middleware, status, *deploymentInfo, runtimeInfo)
 			Expect(err).To(BeNil())
 
 			wanted := &v1alpha1.MiddlewareStatus{
@@ -202,12 +214,12 @@ metadata:
 		})
 
 		It("if middleware is changed, should update resources", func() {
-			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo)
+			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo, runtimeInfo)
 			Expect(err).To(BeNil())
 
 			middleware.Name = fmt.Sprintf("%s-2", middleware.Name)
 
-			status, err = DeployMiddleware(ctx, middleware, status, *deploymentInfo)
+			status, err = DeployMiddleware(ctx, middleware, status, *deploymentInfo, runtimeInfo)
 			Expect(err).To(BeNil())
 
 			res2 := resources.CommonResource{
@@ -215,7 +227,7 @@ metadata:
 					Type: resourceTypeA,
 					Name: fmt.Sprintf("resource-%s", middleware.Name),
 				},
-				Status: &resources.Status{},
+				Status: resources.ResourceStatus{},
 			}
 			commentMiddlewareStatus := CommonMiddlewareStatus{
 				ResourceStatus: []resources.Resource{&res2},
@@ -240,7 +252,7 @@ metadata:
 		})
 
 		It("should delete middleware success", func() {
-			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo)
+			status, err := DeployMiddleware(ctx, middleware, middlewareStatus, *deploymentInfo, runtimeInfo)
 			Expect(err).To(BeNil())
 
 			err = DeleteMiddleware(ctx, status, *deploymentInfo)
@@ -255,7 +267,7 @@ var _ = Describe("Sort dependencies", func() {
 			Type: "unknown",
 			Name: "a",
 		},
-		Dependencies: []resources.ResourceMetadata{
+		ResourceDependencies: []resources.ResourceMetadata{
 			{
 				Type: "unknown",
 				Name: "b",
@@ -267,14 +279,14 @@ var _ = Describe("Sort dependencies", func() {
 			Type: "unknown",
 			Name: "b",
 		},
-		Dependencies: []resources.ResourceMetadata{},
+		ResourceDependencies: []resources.ResourceMetadata{},
 	}
 	resC := &resources.CommonResource{
 		ResourceMetadata: resources.ResourceMetadata{
 			Type: "unknown",
 			Name: "c",
 		},
-		Dependencies: []resources.ResourceMetadata{
+		ResourceDependencies: []resources.ResourceMetadata{
 			{
 				Type: "unknown",
 				Name: "a",
@@ -290,7 +302,7 @@ var _ = Describe("Sort dependencies", func() {
 			Type: "unknown",
 			Name: "d",
 		},
-		Dependencies: []resources.ResourceMetadata{
+		ResourceDependencies: []resources.ResourceMetadata{
 			{
 				Type: "unknown",
 				Name: "c",
@@ -302,7 +314,7 @@ var _ = Describe("Sort dependencies", func() {
 			Type: "unknown-02",
 			Name: "d",
 		},
-		Dependencies: []resources.ResourceMetadata{
+		ResourceDependencies: []resources.ResourceMetadata{
 			{
 				Type: "unknown",
 				Name: "b",

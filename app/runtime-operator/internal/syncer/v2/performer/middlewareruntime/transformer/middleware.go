@@ -26,8 +26,9 @@ import (
 	"github.com/nautes-labs/nautes/api/kubernetes/v1alpha1"
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/performer/middlewareruntime/resources"
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/templatefunctions"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
-	"github.com/nautes-labs/nautes/pkg/nautesconst"
+	"github.com/nautes-labs/nautes/pkg/nautesenv"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,15 +36,10 @@ const (
 	defaultMiddlewareTransformRulesDir = "./middleware-transform-rules"
 )
 
-func init() {
-	nautesHome = os.Getenv(nautesconst.EnvNautesHome)
-}
-
 var (
 	// middlewareTransformRules is a map of MiddlewareTransformRule.
 	// The key is "providerName/middlewareType/implementation".
 	middlewareTransformRules = map[string]MiddlewareTransformRule{}
-	nautesHome               string
 )
 
 type loadMiddlewareTransformRulesOptions struct {
@@ -66,7 +62,7 @@ func WithPathForLoadMiddlewareTransformRules(rootPath string) LoadMiddlewareTran
 // If any error occurs during the loading process, it returns the corresponding error.
 func LoadMiddlewareTransformRules(opts ...LoadMiddlewareTransformRulesOption) error {
 	options := &loadMiddlewareTransformRulesOptions{
-		TransformRulesRootPath: path.Join(nautesHome, defaultMiddlewareTransformRulesDir),
+		TransformRulesRootPath: path.Join(nautesenv.GetNautesHome(), defaultMiddlewareTransformRulesDir),
 	}
 	for _, opt := range opts {
 		opt(options)
@@ -270,7 +266,7 @@ func ConvertMiddlewareToResources(providerName string, middleware v1alpha1.Middl
 // If there is an error during parsing or execution, it returns an error.
 func renderResource(resource string, middleware v1alpha1.Middleware) ([]byte, error) {
 	// Parse the resource template.
-	tmpl, err := template.New("resource").Parse(resource)
+	tmpl, err := template.New("resource").Funcs(templatefunctions.TemplateFunctionMap).Parse(resource)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse resource template: %w", err)
 	}

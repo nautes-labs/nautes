@@ -27,6 +27,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	runtimeconfig "github.com/nautes-labs/nautes/app/runtime-operator/pkg/config"
 	runtimeerr "github.com/nautes-labs/nautes/app/runtime-operator/pkg/error"
+	"github.com/nautes-labs/nautes/pkg/middlewaresecret"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -40,6 +41,10 @@ func init() {
 	}
 }
 
+var (
+	SecretIndexDirectory middlewaresecret.SecretIndexDirectoryInterface
+)
+
 // MiddlewareDeploymentInfo contains the information needed to deploy middleware.
 type MiddlewareDeploymentInfo struct {
 	providerInfo   component.ProviderInfo
@@ -47,9 +52,27 @@ type MiddlewareDeploymentInfo struct {
 	implementation string
 }
 
+type RuntimeInfo struct {
+	Name            string
+	Product         string
+	Environment     string
+	Cluster         string
+	NautesNamespace string
+}
+
 // CommonMiddlewareStatus represents the status of a middleware deployment.
 type CommonMiddlewareStatus struct {
 	ResourceStatus []resources.Resource `json:"resourceStatus" yaml:"resourceStatus"`
+}
+
+func (cms *CommonMiddlewareStatus) RemoveSensitiveData() {
+	for i, resource := range cms.ResourceStatus {
+		resource.ClearSensitiveAttributes()
+		if resource.IsSensitiveResource() {
+			resource.ClearSensitiveStatus()
+		}
+		cms.ResourceStatus[i] = resource
+	}
 }
 
 // unmarshalTmpCommonMiddlewareStatus is a struct used for unmarshaling the temporary common middleware status.
@@ -115,7 +138,12 @@ func NewMiddlewareDeploymentInfo(providerInfo component.ProviderInfo, middleware
 // It then creates a caller based on the deploymentInfo.callerType and deploymentInfo.providerInfo using the component.GetCaller function.
 // The function deploys the middleware based on the caller's implementation type using different deployment methods.
 // Finally, it updates the middleware status with the new deployment state and returns the updated status.
-func DeployMiddleware(ctx context.Context, middleware v1alpha1.Middleware, state *v1alpha1.MiddlewareStatus, deploymentInfo MiddlewareDeploymentInfo) (newState *v1alpha1.MiddlewareStatus, err error) {
+func DeployMiddleware(ctx context.Context,
+	middleware v1alpha1.Middleware,
+	state *v1alpha1.MiddlewareStatus,
+	deploymentInfo MiddlewareDeploymentInfo,
+	runtimeInfo RuntimeInfo,
+) (newState *v1alpha1.MiddlewareStatus, err error) {
 	// Get the resources from the middleware.
 	res, err := transformer.ConvertMiddlewareToResources(deploymentInfo.providerInfo.Type, middleware)
 	if err != nil {
@@ -164,6 +192,23 @@ func DeployMiddleware(ctx context.Context, middleware v1alpha1.Middleware, state
 		Status:     nil,
 	}
 
+	if middleware.InitAccessInfo != nil && needNewSecret(middleware, state) {
+		metadata := middlewaresecret.MiddlewareMetadata{
+			ProductName:     runtimeInfo.Product,
+			EnvironmentName: runtimeInfo.Environment,
+			ClusterName:     runtimeInfo.Cluster,
+			RuntimeName:     runtimeInfo.Name,
+			MiddlewareName:  middleware.Name,
+		}
+		secretID, err := SecretIndexDirectory.AddSecret(ctx, metadata, *middleware.InitAccessInfo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add secret: %w", err)
+		}
+		newState.SecretID = secretID
+	} else if state != nil {
+		newState.SecretID = state.SecretID
+	}
+
 	if newDeployState != nil {
 		jsonState, err := json.Marshal(newDeployState)
 		if err != nil {
@@ -173,6 +218,10 @@ func DeployMiddleware(ctx context.Context, middleware v1alpha1.Middleware, state
 	}
 
 	return newState, nil
+}
+
+func needNewSecret(middleware v1alpha1.Middleware, status *v1alpha1.MiddlewareStatus) bool {
+	return !(middleware.InitAccessInfo != nil && status != nil && status.SecretID != "")
 }
 
 // deployMiddlewareByBasicCaller deploys middleware based on the basic caller.
@@ -192,34 +241,34 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 	state []byte,
 	providerInfo component.ProviderInfo) (*CommonMiddlewareStatus, error) {
 	var err error
-	newState := &CommonMiddlewareStatus{
+	newStatus := &CommonMiddlewareStatus{
 		ResourceStatus: []resources.Resource{},
 	}
 
 	// Convert json state to resources.
-	lastState, err := ConvertResourcesJsonToResources(state)
+	lastStatus, err := ConvertResourcesJsonToResources(state)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert resources json to resources: %w", err)
 	}
 
 	// compare resources with last state.
-	compareResultLocal := compareResources(res, lastState)
+	comparisonResultWithDeclaration := compareResources(res, lastStatus)
 
 	// compare resources with peer.
-	compareResultRemote, err := compareResourcesWithPeer(ctx, lastState, providerInfo.Type, caller)
+	comparisonResultWithPeer, err := compareResourcesWithPeer(ctx, lastStatus, providerInfo.Type, caller)
 	if err != nil {
 		return nil, fmt.Errorf("compare resources with peer failed: %w", err)
 	}
 
 	// merge compare results.
-	compareResult := mergeCompareResults(compareResultLocal, compareResultRemote)
+	compareResult := mergeCompareResults(comparisonResultWithDeclaration, comparisonResultWithPeer)
 
 	// build action list.
 	createOrUpdateList := NewActionListCreateOrUpdate(compareResult.New, compareResult.Diff)
 	deleteList := NewActionListDelete(compareResult.Expire)
 
 	for _, action := range createOrUpdateList {
-		var state *resources.Status
+		var state *resources.ResourceStatus
 		resTransformer, err := transformer.GetResourceTransformer(providerInfo.Type, caller.GetType(), action.Resource.GetType())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get resource transformer: %w", err)
@@ -231,11 +280,11 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 			state, err = updateResource(ctx, action.Resource, *resTransformer, caller)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to create or update resource: %w", err)
+			return nil, fmt.Errorf("failed to create or update resource %s: %w", action.Resource.GetUniqueID(), err)
 		}
 		newRes := action.Resource
 		newRes.SetStatus(*state)
-		newState.ResourceStatus = append(newState.ResourceStatus, newRes)
+		newStatus.ResourceStatus = append(newStatus.ResourceStatus, newRes)
 	}
 
 	for _, action := range deleteList {
@@ -245,73 +294,77 @@ func deployMiddlewareByBasicCaller(ctx context.Context,
 		}
 
 		if err := deleteResource(ctx, action.Resource, *resTransformer, caller); err != nil {
-			return nil, fmt.Errorf("failed to delete resource: %w", err)
+			if !runtimeerr.IsResourceNotFoundError(err) {
+				return nil, fmt.Errorf("failed to delete resource %s: %w", action.Resource.GetUniqueID(), err)
+			}
 		}
 	}
 
 	// combine new resources, updated resource statuses, and unchanged resource statuses into a new state.
 	for _, resource := range compareResult.Unchanged {
-		newState.ResourceStatus = append(newState.ResourceStatus, resource)
+		newStatus.ResourceStatus = append(newStatus.ResourceStatus, resource)
 	}
 
-	if len(newState.ResourceStatus) == 0 {
+	if len(newStatus.ResourceStatus) == 0 {
 		return nil, nil
 	}
-	return newState, nil
+
+	newStatus.RemoveSensitiveData()
+	return newStatus, nil
 }
 
-// mergeCompareResults merges the results of two DiffResult structs and returns a new DiffResult.
-// It combines the New, Diff, Expire, and Unchanged maps from rstA and rstB into a new DiffResult.
-// The resulting DiffResult contains the combined resources from rstA and rstB, with duplicate resources removed.
-func mergeCompareResults(rstA, rstB DiffResult) (newResult DiffResult) {
-	newResult = DiffResult{
+// mergeCompareResults merges the results of the cache and remote comparison to generate a list of resources to create, update, or delete.
+func mergeCompareResults(rstLocal, rstPeer resourceComparisonResult) (newResult resourceComparisonResult) {
+	newResult = resourceComparisonResult{
 		New:       make(map[string]resources.Resource),
 		Diff:      make(map[string]resources.Resource),
 		Expire:    make(map[string]resources.Resource),
 		Unchanged: make(map[string]resources.Resource),
 	}
 
-	for id, r := range rstA.New {
+	for id, r := range rstLocal.New {
 		newResult.New[id] = r
 	}
 
-	for id, r := range rstA.Diff {
+	for id, r := range rstLocal.Diff {
 		newResult.Diff[id] = r
 	}
 
-	for id, r := range rstA.Expire {
+	for id, r := range rstLocal.Expire {
 		newResult.Expire[id] = r
 	}
 
-	for id, r := range rstA.Unchanged {
+	// If a resource is missing on the remote side, it needs to be regenerated with a new definition.
+	for id := range rstPeer.New {
+		res, ok := rstLocal.Unchanged[id]
+		if ok {
+			newResult.New[id] = res
+			delete(rstLocal.Unchanged, id)
+		}
+	}
+
+	for id := range rstPeer.Diff {
+		res, ok := rstLocal.Unchanged[id]
+		if ok {
+			newResult.Diff[id] = res
+			delete(rstLocal.Unchanged, id)
+		}
+	}
+
+	for id := range rstPeer.Expire {
+		res, ok := rstLocal.Unchanged[id]
+		if ok {
+			newResult.Expire[id] = res
+			delete(rstLocal.Unchanged, id)
+		}
+	}
+
+	for id, r := range rstLocal.Unchanged {
 		newResult.Unchanged[id] = r
 	}
 
-	for id, r := range rstB.New {
-		if _, ok := newResult.Unchanged[id]; !ok {
-			continue
-		}
-		delete(newResult.Unchanged, id)
-		newResult.New[id] = r
-	}
-
-	for id, r := range rstB.Diff {
-		if _, ok := newResult.Unchanged[id]; !ok {
-			continue
-		}
-		delete(newResult.Unchanged, id)
-		newResult.Diff[id] = r
-	}
-
-	for id, r := range rstB.Expire {
-		if _, ok := newResult.Unchanged[id]; !ok {
-			continue
-		}
-		delete(newResult.Unchanged, id)
-		newResult.Expire[id] = r
-	}
-
-	for id, r := range rstB.Unchanged {
+	// If the resource declaration and the remote state have not changed, the resource is considered unchanged.
+	for id, r := range rstPeer.Unchanged {
 		if _, ok := newResult.New[id]; ok {
 			continue
 		}
@@ -331,6 +384,11 @@ func mergeCompareResults(rstA, rstB DiffResult) (newResult DiffResult) {
 func deployMiddlewareByAdvancedCaller(ctx context.Context, middlewareType string, caller component.AdvancedCaller, res []resources.Resource, state []byte,
 ) (newState interface{}, err error) {
 	// TODO not implemented
+	_ = ctx
+	_ = middlewareType
+	_ = caller
+	_ = res
+	_ = state
 	panic("not implemented")
 }
 
@@ -388,10 +446,9 @@ func deleteMiddlewareByBasicCaller(ctx context.Context, caller component.BasicCa
 			return fmt.Errorf("failed to get resource transformer: %w", err)
 		}
 		if err := deleteResource(ctx, action.Resource, *resourceTransformer, caller); err != nil {
-			if runtimeerr.IsResourceNotFoundError(err) {
-				return nil
+			if !runtimeerr.IsResourceNotFoundError(err) {
+				return fmt.Errorf("failed to delete resource %s: %w", action.Resource.GetUniqueID(), err)
 			}
-			return fmt.Errorf("failed to delete resource: %w", err)
 		}
 	}
 	return nil
@@ -399,6 +456,9 @@ func deleteMiddlewareByBasicCaller(ctx context.Context, caller component.BasicCa
 
 func deleteMiddlewareByAdvancedCaller(ctx context.Context, caller component.AdvancedCaller, state interface{}) error {
 	// TODO not implemented
+	_ = ctx
+	_ = caller
+	_ = state
 	panic("not implemented")
 }
 
@@ -406,8 +466,8 @@ func deleteMiddlewareByAdvancedCaller(ctx context.Context, caller component.Adva
 // It takes in the current resources (res) and the last resources (lastRes) as input parameters.
 // The function returns a DiffResult struct that contains the new resources, different resources,
 // expired resources, and unchanged resources.
-func compareResources(res []resources.Resource, lastRes []resources.Resource) (rst DiffResult) {
-	rst = DiffResult{
+func compareResources(res []resources.Resource, lastRes []resources.Resource) (rst resourceComparisonResult) {
+	rst = resourceComparisonResult{
 		New:       make(map[string]resources.Resource),
 		Diff:      make(map[string]resources.Resource),
 		Expire:    make(map[string]resources.Resource),
@@ -440,11 +500,9 @@ func compareResources(res []resources.Resource, lastRes []resources.Resource) (r
 }
 
 // compareResourcesWithPeer compares the given lastResources with its peer resources and returns the differences.
-// It takes the context, lastResources, providerType, and caller as input parameters.
-// The function returns a DiffResult and an error.
-func compareResourcesWithPeer(ctx context.Context, lastResources []resources.Resource, providerType string, caller component.BasicCaller) (rst DiffResult, err error) {
+func compareResourcesWithPeer(ctx context.Context, lastResources []resources.Resource, providerType string, caller component.BasicCaller) (rst resourceComparisonResult, err error) {
 	// Initialize the DiffResult struct with empty maps for New, Diff, Expire, and Unchanged.
-	rst = DiffResult{
+	rst = resourceComparisonResult{
 		New:       make(map[string]resources.Resource),
 		Diff:      make(map[string]resources.Resource),
 		Expire:    make(map[string]resources.Resource),
@@ -459,29 +517,29 @@ func compareResourcesWithPeer(ctx context.Context, lastResources []resources.Res
 			return rst, err
 		}
 
-		// Compare the resource with its peer using the obtained transformer.
-		compareResult, currentStatus, err := compareResourceWithPeer(ctx, resource, *resourceTransformer, caller)
+		currentStatus, err := getResource(ctx, resource, *resourceTransformer, caller)
 		if err != nil {
-			return rst, err
+			// If the resource is not found, resource need to recreate.
+			if runtimeerr.IsResourceNotFoundError(err) {
+				rst.New[resource.GetUniqueID()] = resource
+				continue
+			}
+			return rst, fmt.Errorf("failed to get resource: %w", err)
 		}
 
-		// Based on the compareResult, add the resource to the corresponding map in the DiffResult struct.
-		switch compareResult {
-		case compareResultEqual:
+		statusCache := resource.GetStatus()
+		if reflect.DeepEqual(currentStatus.Properties, statusCache.Properties) {
 			rst.Unchanged[resource.GetUniqueID()] = resource
-		case compareResultDiff:
-			resource.SetStatus(*currentStatus)
+		} else {
 			rst.Diff[resource.GetUniqueID()] = resource
-		case compareResultNotFound:
-			rst.New[resource.GetUniqueID()] = resource
 		}
 	}
 
 	return rst, nil
 }
 
-// DiffResult represents the comparison result between the resource declaration and the cache or the actual remote environment.
-type DiffResult struct {
+// resourceComparisonResult represents the comparison result between the resource declaration and the cache or the actual remote environment.
+type resourceComparisonResult struct {
 	// New represents the resources that need to be added.
 	// The key is the unique identifier of the resource.
 	New map[string]resources.Resource
@@ -500,49 +558,7 @@ type DiffResult struct {
 func isResourceEqual(resourceA, resourceB resources.Resource) bool {
 	return resourceA.GetName() == resourceB.GetName() &&
 		resourceA.GetType() == resourceB.GetType() &&
-		reflect.DeepEqual(resourceA.GetResourceAttributes(), resourceB.GetResourceAttributes())
-}
-
-// compareResult represents the comparison result between two resources.
-type compareResult string
-
-const (
-	compareResultEqual    compareResult = "equal"
-	compareResultDiff     compareResult = "diff"
-	compareResultNotFound compareResult = "not found"
-	compareResultError    compareResult = "error"
-)
-
-// compareResourceWithPeer compares the given resource with its peer resource and returns the comparison result.
-// If compareResult is diff, it also returns the current status of the resource.
-func compareResourceWithPeer(ctx context.Context,
-	res resources.Resource,
-	resTransformer transformer.ResourceTransformer,
-	caller component.BasicCaller) (compareResult, *resources.Status, error) {
-	status, err := getResource(ctx, res, resTransformer, caller)
-	if err != nil {
-		if runtimeerr.IsResourceNotFoundError(err) {
-			logger.Info("Resource not found", "resource", res.GetUniqueID())
-			return compareResultNotFound, nil, nil
-		}
-		return compareResultError, nil, fmt.Errorf("failed to get resource: %w", err)
-	}
-	oldStatus := res.GetStatus()
-
-	if status == nil && oldStatus == nil {
-		return compareResultEqual, nil, nil
-	}
-	if status == nil && oldStatus != nil {
-		return compareResultDiff, status, nil
-	}
-	if status != nil && oldStatus == nil {
-		return compareResultDiff, status, nil
-	}
-
-	if reflect.DeepEqual(status.Properties, oldStatus.Properties) {
-		return compareResultEqual, nil, nil
-	}
-	return compareResultDiff, status, nil
+		reflect.DeepEqual(resourceA.GetAttributes(), resourceB.GetAttributes())
 }
 
 // getResource gets the resource from the remote environment.
@@ -550,7 +566,7 @@ func getResource(ctx context.Context,
 	resource resources.Resource,
 	resTransformer transformer.ResourceTransformer,
 	caller component.BasicCaller,
-) (state *resources.Status, err error) {
+) (*resources.ResourceStatus, error) {
 	logger.V(1).Info("Get resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Get.GenerateRequest(resource)
 	if err != nil {
@@ -570,7 +586,7 @@ func createResource(ctx context.Context,
 	resource resources.Resource,
 	resTransformer transformer.ResourceTransformer,
 	caller component.BasicCaller,
-) (state *resources.Status, err error) {
+) (*resources.ResourceStatus, error) {
 	logger.V(1).Info("Create resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Create.GenerateRequest(resource)
 	if err != nil {
@@ -590,7 +606,16 @@ func updateResource(ctx context.Context,
 	resource resources.Resource,
 	resTransformer transformer.ResourceTransformer,
 	caller component.BasicCaller,
-) (state *resources.Status, err error) {
+) (*resources.ResourceStatus, error) {
+	// Get resource status to update resource.
+	// e.g. update k8s deployment, need resource's resourceVersion.
+	currentStatus, err := getResource(ctx, resource, resTransformer, caller)
+	if err != nil {
+		return nil, err
+	}
+
+	resource.SetStatus(*currentStatus)
+
 	logger.V(1).Info("Update resource", "resource", resource.GetUniqueID())
 	request, err := resTransformer.Update.GenerateRequest(resource)
 	if err != nil {
@@ -619,11 +644,7 @@ func deleteResource(ctx context.Context, resource resources.Resource, resTransfo
 	}
 
 	_, err = resTransformer.Delete.ParseResponse(response)
-	if err != nil {
-		return fmt.Errorf("unable to parse response: %w", err)
-	}
-
-	return nil
+	return err
 }
 
 // ResourceActionType represents the action to be performed on the resource.
@@ -635,13 +656,13 @@ const (
 	ResourceActionDelete ResourceActionType = "delete"
 )
 
-// ResouceAction represents the resource and the action to be performed on it.
-type ResouceAction struct {
+// ResourceAction represents the resource and the action to be performed on it.
+type ResourceAction struct {
 	Resource resources.Resource
 	Action   ResourceActionType
 }
 
-type ResourceActions []ResouceAction
+type ResourceActions []ResourceAction
 
 // NewActionListCreateOrUpdate creates a new ActionList for creating or updating resources.
 func NewActionListCreateOrUpdate(newResources, updateResources map[string]resources.Resource) ResourceActions {
@@ -659,9 +680,9 @@ func NewActionListCreateOrUpdate(newResources, updateResources map[string]resour
 
 	for _, res := range sortedResources {
 		if _, ok := newResources[res.GetUniqueID()]; ok {
-			actionList = append(actionList, ResouceAction{Resource: res, Action: ResourceActionCreate})
+			actionList = append(actionList, ResourceAction{Resource: res, Action: ResourceActionCreate})
 		} else {
-			actionList = append(actionList, ResouceAction{Resource: res, Action: ResourceActionUpdate})
+			actionList = append(actionList, ResourceAction{Resource: res, Action: ResourceActionUpdate})
 		}
 	}
 
@@ -679,7 +700,7 @@ func NewActionListDelete(expireResource map[string]resources.Resource) ResourceA
 	sortedResources := SortResources(expireResource)
 
 	for _, res := range sortedResources {
-		actionList = append(actionList, ResouceAction{Resource: res, Action: ResourceActionDelete})
+		actionList = append(actionList, ResourceAction{Resource: res, Action: ResourceActionDelete})
 	}
 
 	return actionList

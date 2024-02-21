@@ -16,7 +16,6 @@ package requestvar
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/hyperjumptech/grule-rule-engine/ast"
@@ -24,7 +23,7 @@ import (
 	"github.com/hyperjumptech/grule-rule-engine/engine"
 	"github.com/hyperjumptech/grule-rule-engine/pkg"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
-	"github.com/nautes-labs/nautes/pkg/nautesconst"
+	"github.com/nautes-labs/nautes/pkg/nautesenv"
 )
 
 const RuleFilePath = "./rules/event_source_path.grl"
@@ -43,7 +42,7 @@ type RequestVarSearchEngine struct {
 }
 
 func NewSearchEngine(_ *component.ComponentInitInfo) (component.EventSourceSearchEngine, error) {
-	ruleFilePath := filepath.Join(os.Getenv(nautesconst.EnvNautesHome), RuleFilePath)
+	ruleFilePath := filepath.Join(nautesenv.GetNautesHome(), RuleFilePath)
 
 	knowledgeLibrary := ast.NewKnowledgeLibrary()
 	ruleBuilder := builder.NewRuleBuilder(knowledgeLibrary)
