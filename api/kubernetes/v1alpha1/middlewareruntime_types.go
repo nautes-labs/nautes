@@ -48,6 +48,7 @@ type MiddlewareRuntimeSpec struct {
 
 // MiddlewareRuntimeDestination represents the target environment where the middleware runtime should be deployed.
 type MiddlewareRuntimeDestination struct {
+	// +kubebuilder:validation:MinLength=1
 	// Environment is the name of the environment where the runtime should be deployed.
 	Environment string `json:"environment"`
 	// +optional
@@ -57,11 +58,13 @@ type MiddlewareRuntimeDestination struct {
 
 // Middleware defines the middleware to be deployed.
 type Middleware struct {
+	// +kubebuilder:validation:MinLength=1
 	// Name is the name of the deployed middleware. It is used to differentiate it from other middleware and must be unique within the runtime.
 	Name string `json:"name"`
 	// +optional
 	// Space is the deployment location of the middleware. If this value is empty, the middleware will be deployed in the default location.
 	Space string `json:"space,omitempty"`
+	// +kubebuilder:validation:MinLength=1
 	// Type is the type of the middleware.
 	Type string `json:"type"`
 	// Implementation is the implementation of the middleware.
@@ -129,7 +132,7 @@ type MiddlewareDeploymentRedis struct {
 	// DeployType specifies the type of deployment for the middleware.
 	DeployType string `json:"deployType,omitempty"`
 	// NodeNumber specifies the number of nodes for the middleware deployment.
-	NodeNumber string `json:"nodeNumber,omitempty"`
+	NodeNumber int `json:"nodeNumber,omitempty"`
 	// Version specifies the version of the middleware.
 	Version string `json:"version,omitempty"`
 	// Storage specifies the storage configuration for the middleware.

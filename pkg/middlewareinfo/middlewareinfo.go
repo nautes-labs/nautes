@@ -23,11 +23,22 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+func init() {
+	metadatas, err := NewMiddlewares()
+	if err != nil {
+		panic(err)
+	}
+	MiddlewareMetadata = *metadatas
+}
+
+var MiddlewareMetadata Middlewares
+
 type Middleware struct {
-	Name               string              `json:"name" yaml:"name"`
-	DefaultAuthType    string              `json:"defaultAuthType" yaml:"defaultAuthType"`
-	AvailableAuthTypes map[string]AuthType `json:"authTypes" yaml:"authTypes"`
-	Providers          map[string]Provider `json:"providers" yaml:"providers"`
+	Name                    string              `json:"name" yaml:"name"`
+	HasAuthenticationSystem bool                `json:"hasAuthenticationSystem" yaml:"hasAuthenticationSystem"`
+	DefaultAuthType         string              `json:"defaultAuthType" yaml:"defaultAuthType"`
+	AvailableAuthTypes      map[string]AuthType `json:"availableAuthTypes" yaml:"availableAuthTypes"`
+	Providers               map[string]Provider `json:"providers" yaml:"providers"`
 }
 
 type AuthType struct {
@@ -87,6 +98,11 @@ func NewMiddlewares(opts ...NewMiddlewaresOption) (*Middlewares, error) {
 
 	// Check required fields and fill in missing fields
 	for middlewareName, middleware := range middlewares {
+		for authTypeName, authType := range middleware.AvailableAuthTypes {
+			authType.Type = authTypeName
+			middleware.AvailableAuthTypes[authTypeName] = authType
+		}
+
 		for providerName, provider := range middleware.Providers {
 			for implementationName, implementation := range provider.Implementations {
 				implementation.Name = implementationName
@@ -110,8 +126,15 @@ func NewMiddlewares(opts ...NewMiddlewaresOption) (*Middlewares, error) {
 
 func (m *Middlewares) Verify() error {
 	for middlewareName, middleware := range *m {
-		if _, ok := middleware.AvailableAuthTypes[middleware.DefaultAuthType]; !ok && len(middleware.AvailableAuthTypes) > 0 {
-			return fmt.Errorf("default auth type %s in middleware %s does not exist", middleware.DefaultAuthType, middlewareName)
+		if middleware.HasAuthenticationSystem {
+			if len(middleware.AvailableAuthTypes) == 0 {
+				return fmt.Errorf("available auth types in middleware %s is empty", middlewareName)
+			}
+
+			_, ok := middleware.AvailableAuthTypes[middleware.DefaultAuthType]
+			if !ok {
+				return fmt.Errorf("default auth type %s in middleware %s does not exist", middleware.DefaultAuthType, middlewareName)
+			}
 		}
 
 		for providerName, provider := range middleware.Providers {

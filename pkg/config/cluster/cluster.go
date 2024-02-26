@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mitchellh/copystructure"
 )
@@ -54,6 +55,7 @@ type ClusterTypeComponentDefinition struct {
 type WorkerTypeComponentDefinition struct {
 	Deployment ComponentList
 	Pipeline   ComponentList
+	Middleware ComponentList
 }
 
 type ComponentList []string
@@ -138,11 +140,13 @@ func (c *ClusterComponentConfig) GetDefaultThirdPartComponentByType(componentTyp
 
 func (c *ClusterComponentConfig) getComponentsDefinitionMap() map[string]ComponentList {
 	componentsDefinitionMap := make(map[string]ComponentList, 0)
-	componentsDefinitionMap[CLUSTER_USAGE_HOST+"|"+CLUSTER_TYPE_PHYSICAL+"|"] = c.componentsDefinition.Host
-	componentsDefinitionMap[CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_PHYSICAL+"|"+ClusterWorkTypeDeployment] = c.componentsDefinition.Worker.Physical.Deployment
-	componentsDefinitionMap[CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL+"|"+ClusterWorkTypeDeployment] = c.componentsDefinition.Worker.Virtual.Deployment
-	componentsDefinitionMap[CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_PHYSICAL+"|"+ClusterWorkTypePipeline] = c.componentsDefinition.Worker.Physical.Pipeline
-	componentsDefinitionMap[CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL+"|"+ClusterWorkTypePipeline] = c.componentsDefinition.Worker.Virtual.Pipeline
+	componentsDefinitionMap[strings.Join([]string{CLUSTER_USAGE_HOST, CLUSTER_TYPE_PHYSICAL, ""}, "|")] = c.componentsDefinition.Host
+	componentsDefinitionMap[strings.Join([]string{CLUSTER_USAGE_WORKER, CLUSTER_TYPE_PHYSICAL, ClusterWorkTypeDeployment}, "|")] = c.componentsDefinition.Worker.Physical.Deployment
+	componentsDefinitionMap[strings.Join([]string{CLUSTER_USAGE_WORKER, CLUSTER_TYPE_VIRTUAL, ClusterWorkTypeDeployment}, "|")] = c.componentsDefinition.Worker.Virtual.Deployment
+	componentsDefinitionMap[strings.Join([]string{CLUSTER_USAGE_WORKER, CLUSTER_TYPE_PHYSICAL, ClusterWorkTypePipeline}, "|")] = c.componentsDefinition.Worker.Physical.Pipeline
+	componentsDefinitionMap[strings.Join([]string{CLUSTER_USAGE_WORKER, CLUSTER_TYPE_VIRTUAL, ClusterWorkTypePipeline}, "|")] = c.componentsDefinition.Worker.Virtual.Pipeline
+	componentsDefinitionMap[strings.Join([]string{CLUSTER_USAGE_WORKER, CLUSTER_TYPE_PHYSICAL, ClusterWorkTypeMiddleware}, "|")] = c.componentsDefinition.Worker.Physical.Middleware
+	componentsDefinitionMap[strings.Join([]string{CLUSTER_USAGE_WORKER, CLUSTER_TYPE_VIRTUAL, ClusterWorkTypeMiddleware}, "|")] = c.componentsDefinition.Worker.Virtual.Middleware
 	return componentsDefinitionMap
 }
 
@@ -172,11 +176,14 @@ func (c *ClusterComponentConfig) getClusterCommonConfigMap() map[string]CommonCo
 	copy, _ := copystructure.Copy(c.clusterCommonConfig)
 	clusterCommonConfig := copy.(*ClusterCommonConfig)
 	clusterCommonConfigMap := make(map[string]CommonConfig, 0)
-	clusterCommonConfigMap[string(ToSave)+"|"+CLUSTER_USAGE_HOST+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Save.Host
-	clusterCommonConfigMap[string(ToSave)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Save.Worker.Physical
-	clusterCommonConfigMap[string(ToSave)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL] = clusterCommonConfig.Save.Worker.Virtual
-	clusterCommonConfigMap[string(ToRemove)+"|"+CLUSTER_USAGE_HOST+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Remove.Host
-	clusterCommonConfigMap[string(ToRemove)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_PHYSICAL] = clusterCommonConfig.Remove.Worker.Physical
-	clusterCommonConfigMap[string(ToRemove)+"|"+CLUSTER_USAGE_WORKER+"|"+CLUSTER_TYPE_VIRTUAL] = clusterCommonConfig.Remove.Worker.Virtual
+	clusterCommonConfigMap[strings.Join([]string{string(ToSave), CLUSTER_USAGE_HOST, CLUSTER_TYPE_PHYSICAL}, "|")] = clusterCommonConfig.Save.Host
+	clusterCommonConfigMap[strings.Join([]string{string(ToRemove), CLUSTER_USAGE_HOST, CLUSTER_TYPE_PHYSICAL}, "|")] = clusterCommonConfig.Remove.Host
+
+	clusterCommonConfigMap[strings.Join([]string{string(ToSave), CLUSTER_USAGE_WORKER, CLUSTER_TYPE_PHYSICAL}, "|")] = clusterCommonConfig.Save.Worker.Physical
+	clusterCommonConfigMap[strings.Join([]string{string(ToRemove), CLUSTER_USAGE_WORKER, CLUSTER_TYPE_PHYSICAL}, "|")] = clusterCommonConfig.Remove.Worker.Physical
+
+	clusterCommonConfigMap[strings.Join([]string{string(ToSave), CLUSTER_USAGE_WORKER, CLUSTER_TYPE_VIRTUAL}, "|")] = clusterCommonConfig.Save.Worker.Virtual
+	clusterCommonConfigMap[strings.Join([]string{string(ToRemove), CLUSTER_USAGE_WORKER, CLUSTER_TYPE_VIRTUAL}, "|")] = clusterCommonConfig.Remove.Worker.Virtual
+
 	return clusterCommonConfigMap
 }

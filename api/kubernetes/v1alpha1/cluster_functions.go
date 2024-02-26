@@ -253,3 +253,20 @@ func (ru RuntimeUsage) Equal(usage *RuntimeUsage) bool {
 
 	return true
 }
+
+func (mp *MiddlewareProvider) GetMiddlewares() map[string][]MiddlewareDeploymentImplementation {
+	if mp == nil {
+		return map[string][]MiddlewareDeploymentImplementation{}
+	}
+
+	middlewares := map[string][]MiddlewareDeploymentImplementation{}
+	for middlewareName, implementations := range mp.Cache {
+		middlewares[middlewareName] = implementations
+	}
+
+	for middlewareName, implementations := range mp.Database {
+		middlewares[middlewareName] = implementations
+	}
+
+	return middlewares
+}

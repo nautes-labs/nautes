@@ -50,6 +50,7 @@ const (
 const (
 	ClusterWorkTypeDeployment = "deployment"
 	ClusterWorkTypePipeline   = "pipeline"
+	ClusterWorkTypeMiddleware = "middleware"
 )
 
 const (

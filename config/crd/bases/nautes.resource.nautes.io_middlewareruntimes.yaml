@@ -107,6 +107,7 @@ spec:
                       description: Name is the name of the deployed middleware. It
                         is used to differentiate it from other middleware and must
                         be unique within the runtime.
+                      minLength: 1
                       type: string
                     redis:
                       description: Redis represents the deployment information for
@@ -120,7 +121,7 @@ spec:
                         nodeNumber:
                           description: NodeNumber specifies the number of nodes for
                             the middleware deployment.
-                          type: string
+                          type: integer
                         otherSettings:
                           additionalProperties:
                             type: string
@@ -146,6 +147,7 @@ spec:
                       type: string
                     type:
                       description: Type is the type of the middleware.
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -216,6 +218,7 @@ spec:
                       description: Name is the name of the deployed middleware. It
                         is used to differentiate it from other middleware and must
                         be unique within the runtime.
+                      minLength: 1
                       type: string
                     redis:
                       description: Redis represents the deployment information for
@@ -229,7 +232,7 @@ spec:
                         nodeNumber:
                           description: NodeNumber specifies the number of nodes for
                             the middleware deployment.
-                          type: string
+                          type: integer
                         otherSettings:
                           additionalProperties:
                             type: string
@@ -255,6 +258,7 @@ spec:
                       type: string
                     type:
                       description: Type is the type of the middleware.
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -269,6 +273,7 @@ spec:
                   environment:
                     description: Environment is the name of the environment where
                       the runtime should be deployed.
+                    minLength: 1
                     type: string
                   space:
                     description: Space is the default deployment location for the
@@ -1020,6 +1025,7 @@ spec:
                           description: Name is the name of the deployed middleware.
                             It is used to differentiate it from other middleware and
                             must be unique within the runtime.
+                          minLength: 1
                           type: string
                         redis:
                           description: Redis represents the deployment information
@@ -1033,7 +1039,7 @@ spec:
                             nodeNumber:
                               description: NodeNumber specifies the number of nodes
                                 for the middleware deployment.
-                              type: string
+                              type: integer
                             otherSettings:
                               additionalProperties:
                                 type: string
@@ -1059,6 +1065,7 @@ spec:
                           type: string
                         type:
                           description: Type is the type of the middleware.
+                          minLength: 1
                           type: string
                       required:
                       - name
