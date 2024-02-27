@@ -1,0 +1,1101 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.3
+  creationTimestamp: null
+  name: middlewareruntimes.nautes.resource.nautes.io
+spec:
+  group: nautes.resource.nautes.io
+  names:
+    kind: MiddlewareRuntime
+    listKind: MiddlewareRuntimeList
+    plural: middlewareruntimes
+    shortNames:
+    - mr
+    singular: middlewareruntime
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: MiddlewareRuntime is the Schema for the middlewareruntimes API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: MiddlewareRuntimeSpec defines the desired state of MiddlewareRuntime
+            properties:
+              accessInfoName:
+                description: AccessInfoName is the account used for deploying the
+                  middleware runtime.
+                type: string
+              account:
+                description: Account is the account used for running the middleware.
+                type: string
+              caches:
+                description: Caches is a list of cache middlewares.
+                items:
+                  description: Middleware defines the middleware to be deployed.
+                  properties:
+                    commonMiddlewareInfo:
+                      additionalProperties:
+                        type: string
+                      description: CommonMiddlewareInfo represents the deployment
+                        information for middleware of common types. For more information,
+                        please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
+                      nullable: true
+                      type: object
+                    entrypoint:
+                      description: Entrypoint represents the external entrypoint configuration
+                        for the middleware.
+                      nullable: true
+                      properties:
+                        domain:
+                          type: string
+                        path:
+                          type: string
+                        port:
+                          type: integer
+                        protocol:
+                          type: string
+                      type: object
+                    implementation:
+                      description: Implementation is the implementation of the middleware.
+                        If the middleware has multiple implementation modes, you can
+                        specify which mode to use by setting this field.
+                      type: string
+                    initAccessInfo:
+                      description: InitAccessInfo represents the access information
+                        for the middleware. If it is not empty, the middleware will
+                        be deployed with the access information. If it is empty, the
+                        runtime operator will generate the access information for
+                        the middleware. User should change the access information
+                        after the middleware is deployed.
+                      nullable: true
+                      properties:
+                        userPassword:
+                          nullable: true
+                          properties:
+                            password:
+                              type: string
+                            username:
+                              type: string
+                          required:
+                          - password
+                          - username
+                          type: object
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Labels are the labels to be added to the middleware.
+                      nullable: true
+                      type: object
+                    name:
+                      description: Name is the name of the deployed middleware. It
+                        is used to differentiate it from other middleware and must
+                        be unique within the runtime.
+                      minLength: 1
+                      type: string
+                    redis:
+                      description: Redis represents the deployment information for
+                        middleware of type "redis".
+                      nullable: true
+                      properties:
+                        deployType:
+                          description: DeployType specifies the type of deployment
+                            for the middleware.
+                          type: string
+                        nodeNumber:
+                          description: NodeNumber specifies the number of nodes for
+                            the middleware deployment.
+                          type: integer
+                        otherSettings:
+                          additionalProperties:
+                            type: string
+                          description: OtherSettings contains additional settings
+                            for the middleware deployment.
+                          type: object
+                        storage:
+                          description: Storage specifies the storage configuration
+                            for the middleware.
+                          properties:
+                            size:
+                              description: Size represents the size of the storage.
+                              type: string
+                          type: object
+                        version:
+                          description: Version specifies the version of the middleware.
+                          type: string
+                      type: object
+                    space:
+                      description: Space is the deployment location of the middleware.
+                        If this value is empty, the middleware will be deployed in
+                        the default location.
+                      type: string
+                    type:
+                      description: Type is the type of the middleware.
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                nullable: true
+                type: array
+              databases:
+                description: DataBases is a list of database middlewares.
+                items:
+                  description: Middleware defines the middleware to be deployed.
+                  properties:
+                    commonMiddlewareInfo:
+                      additionalProperties:
+                        type: string
+                      description: CommonMiddlewareInfo represents the deployment
+                        information for middleware of common types. For more information,
+                        please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
+                      nullable: true
+                      type: object
+                    entrypoint:
+                      description: Entrypoint represents the external entrypoint configuration
+                        for the middleware.
+                      nullable: true
+                      properties:
+                        domain:
+                          type: string
+                        path:
+                          type: string
+                        port:
+                          type: integer
+                        protocol:
+                          type: string
+                      type: object
+                    implementation:
+                      description: Implementation is the implementation of the middleware.
+                        If the middleware has multiple implementation modes, you can
+                        specify which mode to use by setting this field.
+                      type: string
+                    initAccessInfo:
+                      description: InitAccessInfo represents the access information
+                        for the middleware. If it is not empty, the middleware will
+                        be deployed with the access information. If it is empty, the
+                        runtime operator will generate the access information for
+                        the middleware. User should change the access information
+                        after the middleware is deployed.
+                      nullable: true
+                      properties:
+                        userPassword:
+                          nullable: true
+                          properties:
+                            password:
+                              type: string
+                            username:
+                              type: string
+                          required:
+                          - password
+                          - username
+                          type: object
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Labels are the labels to be added to the middleware.
+                      nullable: true
+                      type: object
+                    name:
+                      description: Name is the name of the deployed middleware. It
+                        is used to differentiate it from other middleware and must
+                        be unique within the runtime.
+                      minLength: 1
+                      type: string
+                    redis:
+                      description: Redis represents the deployment information for
+                        middleware of type "redis".
+                      nullable: true
+                      properties:
+                        deployType:
+                          description: DeployType specifies the type of deployment
+                            for the middleware.
+                          type: string
+                        nodeNumber:
+                          description: NodeNumber specifies the number of nodes for
+                            the middleware deployment.
+                          type: integer
+                        otherSettings:
+                          additionalProperties:
+                            type: string
+                          description: OtherSettings contains additional settings
+                            for the middleware deployment.
+                          type: object
+                        storage:
+                          description: Storage specifies the storage configuration
+                            for the middleware.
+                          properties:
+                            size:
+                              description: Size represents the size of the storage.
+                              type: string
+                          type: object
+                        version:
+                          description: Version specifies the version of the middleware.
+                          type: string
+                      type: object
+                    space:
+                      description: Space is the deployment location of the middleware.
+                        If this value is empty, the middleware will be deployed in
+                        the default location.
+                      type: string
+                    type:
+                      description: Type is the type of the middleware.
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                nullable: true
+                type: array
+              destination:
+                description: Destination is the target environment where the middleware
+                  should be deployed.
+                properties:
+                  environment:
+                    description: Environment is the name of the environment where
+                      the runtime should be deployed.
+                    minLength: 1
+                    type: string
+                  space:
+                    description: Space is the default deployment location for the
+                      middleware. If this value is empty, the runtime name will be
+                      used as the value.
+                    type: string
+                required:
+                - environment
+                type: object
+            required:
+            - destination
+            type: object
+          status:
+            description: MiddlewareRuntimeStatus defines the observed state of MiddlewareRuntime
+            properties:
+              accessInfoName:
+                description: AccessInfoName is used during middleware deployment.
+                type: string
+              cluster:
+                description: Cluster represents the cluster information for deploying
+                  the runtime.
+                nullable: true
+                properties:
+                  apiVersion:
+                    description: 'APIVersion defines the versioned schema of this
+                      representation of an object. Servers should convert recognized
+                      schemas to the latest internal value, and may reject unrecognized
+                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                    type: string
+                  kind:
+                    description: 'Kind is a string value representing the REST resource
+                      this object represents. Servers may infer this from the endpoint
+                      the client submits requests to. Cannot be updated. In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    type: string
+                  metadata:
+                    type: object
+                  spec:
+                    description: ClusterSpec defines the desired state of Cluster
+                    properties:
+                      apiServer:
+                        pattern: https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)
+                        type: string
+                      clusterKind:
+                        default: kubernetes
+                        enum:
+                        - kubernetes
+                        type: string
+                      clusterType:
+                        enum:
+                        - physical
+                        - virtual
+                        type: string
+                      componentsList:
+                        description: ComponentsList declares the specific components
+                          used by the cluster.
+                        properties:
+                          certManagement:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          deployment:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          eventListener:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          gateway:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          multiTenant:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          oauthProxy:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          pipeline:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          progressiveDelivery:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          secretManagement:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          secretSync:
+                            nullable: true
+                            properties:
+                              additions:
+                                additionalProperties:
+                                  type: string
+                                nullable: true
+                                type: object
+                              name:
+                                minLength: 1
+                                type: string
+                              namespace:
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                        type: object
+                      hostCluster:
+                        type: string
+                      middlewareProvider:
+                        description: MiddlewareProvider are the middlewares that can
+                          be deployed in the cluster.
+                        nullable: true
+                        properties:
+                          cache:
+                            additionalProperties:
+                              items:
+                                description: MiddlewareDeploymentImplementation is
+                                  the implementation of middleware deployment.
+                                properties:
+                                  additions:
+                                    additionalProperties:
+                                      type: string
+                                    description: Additions contains additional configuration
+                                      options for this implementation.
+                                    nullable: true
+                                    type: object
+                                  namespace:
+                                    description: Namespace is the namespace used by
+                                      this implementation.
+                                    type: string
+                                  type:
+                                    description: Type is the name of the middleware
+                                      deployment implementation.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - namespace
+                                - type
+                                type: object
+                              type: array
+                            description: Cache is a map of cache middleware deployment
+                              solutions. The key represents the middleware type, and
+                              the value represents a list of available middleware
+                              deployment implementations.
+                            nullable: true
+                            type: object
+                          database:
+                            additionalProperties:
+                              items:
+                                description: MiddlewareDeploymentImplementation is
+                                  the implementation of middleware deployment.
+                                properties:
+                                  additions:
+                                    additionalProperties:
+                                      type: string
+                                    description: Additions contains additional configuration
+                                      options for this implementation.
+                                    nullable: true
+                                    type: object
+                                  namespace:
+                                    description: Namespace is the namespace used by
+                                      this implementation.
+                                    type: string
+                                  type:
+                                    description: Type is the name of the middleware
+                                      deployment implementation.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - namespace
+                                - type
+                                type: object
+                              type: array
+                            description: Database is a map of database middleware
+                              deployment solutions. The key represents the middleware
+                              type, and the value represents a list of available middleware
+                              deployment implementations.
+                            nullable: true
+                            type: object
+                          type:
+                            description: Type is the name of the middleware provider.
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      primaryDomain:
+                        description: PrimaryDomain is used to build the domain of
+                          components within the cluster
+                        type: string
+                      productAllowedClusterResources:
+                        additionalProperties:
+                          items:
+                            properties:
+                              group:
+                                minLength: 1
+                                type: string
+                              kind:
+                                minLength: 1
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            type: object
+                          type: array
+                        description: ReservedNamespacesAllowedProducts key is product
+                          name, value is the list of cluster resources.
+                        nullable: true
+                        type: object
+                      reservedNamespacesAllowedProducts:
+                        additionalProperties:
+                          items:
+                            type: string
+                          type: array
+                        description: ReservedNamespacesAllowedProducts key is namespace
+                          name, value is the product name list witch can use namespace.
+                        nullable: true
+                        type: object
+                      usage:
+                        description: the usage of cluster, for user use it directry
+                          or deploy vcluster on it
+                        enum:
+                        - host
+                        - worker
+                        type: string
+                      workerType:
+                        description: pipeline or deployment, when the cluster usage
+                          is 'worker', the WorkType is required.
+                        enum:
+                        - ""
+                        - pipeline
+                        - deployment
+                        - middleware
+                        type: string
+                    required:
+                    - apiServer
+                    - clusterType
+                    - componentsList
+                    - usage
+                    type: object
+                  status:
+                    description: ClusterStatus defines the observed state of Cluster
+                    properties:
+                      allocatedResources:
+                        description: AllocatedResources stores the usage of unique
+                          resources in the cluster.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      componentsStatus:
+                        additionalProperties:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        description: ComponentsStatus is the status where components
+                          are stored.
+                        type: object
+                      conditions:
+                        items:
+                          description: "Condition contains details for one aspect
+                            of the current state of this API Resource. --- This struct
+                            is intended for direct use as an array at the field path
+                            .status.conditions.  For example, \n type FooStatus struct{
+                            // Represents the observations of a foo's current state.
+                            // Known .status.conditions.type are: \"Available\", \"Progressing\",
+                            and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                            // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                            `json:\"conditions,omitempty\" patchStrategy:\"merge\"
+                            patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                            \n // other fields }"
+                          properties:
+                            lastTransitionTime:
+                              description: lastTransitionTime is the last time the
+                                condition transitioned from one status to another.
+                                This should be when the underlying condition changed.  If
+                                that is not known, then using the time when the API
+                                field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: message is a human readable message indicating
+                                details about the transition. This may be an empty
+                                string.
+                              maxLength: 32768
+                              type: string
+                            observedGeneration:
+                              description: observedGeneration represents the .metadata.generation
+                                that the condition was set based upon. For instance,
+                                if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration
+                                is 9, the condition is out of date with respect to
+                                the current state of the instance.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            reason:
+                              description: reason contains a programmatic identifier
+                                indicating the reason for the condition's last transition.
+                                Producers of specific condition types may define expected
+                                values and meanings for this field, and whether the
+                                values are considered a guaranteed API. The value
+                                should be a CamelCase string. This field may not be
+                                empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                            type:
+                              description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                                --- Many .condition.type values are consistent across
+                                resources like Available, but because arbitrary conditions
+                                can be useful (see .node.status.conditions), the ability
+                                to deconflict is important. The regex it matches is
+                                (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                              maxLength: 316
+                              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - message
+                          - reason
+                          - status
+                          - type
+                          type: object
+                        type: array
+                      entryPoints:
+                        additionalProperties:
+                          properties:
+                            httpPort:
+                              description: The port of entry point service
+                              format: int32
+                              type: integer
+                            httpsPort:
+                              format: int32
+                              type: integer
+                            type:
+                              type: string
+                          type: object
+                        type: object
+                      mgtAuthStatus:
+                        properties:
+                          lastSuccessSpec:
+                            type: string
+                          lastSuccessTime:
+                            format: date-time
+                            type: string
+                          secretID:
+                            type: string
+                        required:
+                        - lastSuccessSpec
+                        - lastSuccessTime
+                        - secretID
+                        type: object
+                      productIDMap:
+                        additionalProperties:
+                          type: string
+                        description: ProductIDMap records the corresponding relationship
+                          between product name and product in kubernetes.
+                        type: object
+                      resourceUsage:
+                        description: ResourceUsage records the usage of preemptive
+                          resources in the cluster.
+                        nullable: true
+                        properties:
+                          runtimeUsage:
+                            additionalProperties:
+                              items:
+                                properties:
+                                  account:
+                                    type: string
+                                  name:
+                                    type: string
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    nullable: true
+                                    type: array
+                                required:
+                                - account
+                                - name
+                                type: object
+                              type: array
+                            description: RuntimeUsage records the usage of the runtime.
+                              The key is the product name, and the value is the list
+                              of runtime usage.
+                            nullable: true
+                            type: object
+                        type: object
+                      sync2ArgoStatus:
+                        properties:
+                          lastSuccessSpec:
+                            type: string
+                          lastSuccessTime:
+                            format: date-time
+                            type: string
+                          secretID:
+                            type: string
+                        required:
+                        - lastSuccessSpec
+                        - lastSuccessTime
+                        - secretID
+                        type: object
+                      warnings:
+                        items:
+                          properties:
+                            from:
+                              description: From is which operator recorded this warning.
+                              type: string
+                            id:
+                              description: ID records the unique identifier of the
+                                warning.
+                              type: string
+                            message:
+                              type: string
+                            type:
+                              type: string
+                          required:
+                          - from
+                          - id
+                          - message
+                          - type
+                          type: object
+                        type: array
+                    type: object
+                type: object
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              entryPoints:
+                description: EntryPoints represents the external entrypoint configuration
+                  for the middlewares in the runtime.
+                items:
+                  description: MiddlewareEntrypoint represents the configuration for
+                    a middleware entrypoint.
+                  properties:
+                    domain:
+                      type: string
+                    path:
+                      type: string
+                    port:
+                      type: integer
+                    protocol:
+                      type: string
+                  type: object
+                nullable: true
+                type: array
+              environment:
+                description: Environment is the information of the environment where
+                  the runtime is deployed.
+                properties:
+                  apiVersion:
+                    description: 'APIVersion defines the versioned schema of this
+                      representation of an object. Servers should convert recognized
+                      schemas to the latest internal value, and may reject unrecognized
+                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                    type: string
+                  kind:
+                    description: 'Kind is a string value representing the REST resource
+                      this object represents. Servers may infer this from the endpoint
+                      the client submits requests to. Cannot be updated. In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    type: string
+                  metadata:
+                    type: object
+                  spec:
+                    description: EnvironmentSpec defines the desired state of Environment
+                    properties:
+                      cluster:
+                        type: string
+                      envType:
+                        type: string
+                      product:
+                        type: string
+                    required:
+                    - cluster
+                    - envType
+                    - product
+                    type: object
+                  status:
+                    description: EnvironmentStatus defines the observed state of Environment
+                    type: object
+                type: object
+              middlewares:
+                description: Middlewares represents the deployment status of the middleware.
+                items:
+                  description: MiddlewareStatus defines the status of a middleware.
+                  properties:
+                    middleware:
+                      description: Middleware stores the declaration of the middleware
+                        used in the last deployment.
+                      properties:
+                        commonMiddlewareInfo:
+                          additionalProperties:
+                            type: string
+                          description: CommonMiddlewareInfo represents the deployment
+                            information for middleware of common types. For more information,
+                            please refer to the documentation at https://github.com/nautes-labs/nautes/docs/How_to_add_a_custom_middleware.md
+                          nullable: true
+                          type: object
+                        entrypoint:
+                          description: Entrypoint represents the external entrypoint
+                            configuration for the middleware.
+                          nullable: true
+                          properties:
+                            domain:
+                              type: string
+                            path:
+                              type: string
+                            port:
+                              type: integer
+                            protocol:
+                              type: string
+                          type: object
+                        implementation:
+                          description: Implementation is the implementation of the
+                            middleware. If the middleware has multiple implementation
+                            modes, you can specify which mode to use by setting this
+                            field.
+                          type: string
+                        initAccessInfo:
+                          description: InitAccessInfo represents the access information
+                            for the middleware. If it is not empty, the middleware
+                            will be deployed with the access information. If it is
+                            empty, the runtime operator will generate the access information
+                            for the middleware. User should change the access information
+                            after the middleware is deployed.
+                          nullable: true
+                          properties:
+                            userPassword:
+                              nullable: true
+                              properties:
+                                password:
+                                  type: string
+                                username:
+                                  type: string
+                              required:
+                              - password
+                              - username
+                              type: object
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
+                          description: Labels are the labels to be added to the middleware.
+                          nullable: true
+                          type: object
+                        name:
+                          description: Name is the name of the deployed middleware.
+                            It is used to differentiate it from other middleware and
+                            must be unique within the runtime.
+                          minLength: 1
+                          type: string
+                        redis:
+                          description: Redis represents the deployment information
+                            for middleware of type "redis".
+                          nullable: true
+                          properties:
+                            deployType:
+                              description: DeployType specifies the type of deployment
+                                for the middleware.
+                              type: string
+                            nodeNumber:
+                              description: NodeNumber specifies the number of nodes
+                                for the middleware deployment.
+                              type: integer
+                            otherSettings:
+                              additionalProperties:
+                                type: string
+                              description: OtherSettings contains additional settings
+                                for the middleware deployment.
+                              type: object
+                            storage:
+                              description: Storage specifies the storage configuration
+                                for the middleware.
+                              properties:
+                                size:
+                                  description: Size represents the size of the storage.
+                                  type: string
+                              type: object
+                            version:
+                              description: Version specifies the version of the middleware.
+                              type: string
+                          type: object
+                        space:
+                          description: Space is the deployment location of the middleware.
+                            If this value is empty, the middleware will be deployed
+                            in the default location.
+                          type: string
+                        type:
+                          description: Type is the type of the middleware.
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      - type
+                      type: object
+                    secretID:
+                      description: SecretID records the ID for retrieving middleware
+                        secret information.
+                      type: string
+                    status:
+                      description: Status represents the deployment status of the
+                        middleware. Its format is determined by the caller implementing
+                        the deployment.
+                      nullable: true
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - middleware
+                  type: object
+                nullable: true
+                type: array
+              spaces:
+                description: Spaces represents the space usage of the middleware.
+                items:
+                  type: string
+                nullable: true
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

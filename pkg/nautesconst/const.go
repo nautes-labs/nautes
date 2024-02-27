@@ -15,5 +15,8 @@
 package nautesconst
 
 const EnvNautesHome = "NAUTES_HOME"
+const EnvNautesLogLevel = "NAUTES_LOG_LEVEL"
+
+const LogLevelDebug = "debug"
 
 const ConfigMapNameHooksMetadata = "nautes-hooks-metadata"

@@ -112,6 +112,10 @@ func (r *Cluster) ValidateCluster(ctx context.Context, old *Cluster, k8sClient c
 		return err
 	}
 
+	if err := checkClusterConflicts(ctx, k8sClient, *r); err != nil {
+		return err
+	}
+
 	if old != nil {
 		dependencies, err := r.GetDependencies(ctx, k8sClient)
 		if err != nil {
@@ -275,6 +279,25 @@ func (r *Cluster) staticCheck() error {
 	for namespace := range r.Spec.ReservedNamespacesAllowedProducts {
 		if !reservedNamespace[namespace] {
 			return fmt.Errorf("reserved namespace %s is not in component list", namespace)
+		}
+	}
+
+	return nil
+}
+
+func checkClusterConflicts(ctx context.Context, k8sClient client.Client, cluster Cluster) error {
+	clusterList := &ClusterList{}
+	if err := k8sClient.List(ctx, clusterList); err != nil {
+		return err
+	}
+
+	for _, item := range clusterList.Items {
+		if item.Name == cluster.Name {
+			continue
+		}
+
+		if cluster.Spec.ApiServer == item.Spec.ApiServer {
+			return fmt.Errorf("api server %s is already used by cluster %s", cluster.Spec.ApiServer, item.Name)
 		}
 	}
 

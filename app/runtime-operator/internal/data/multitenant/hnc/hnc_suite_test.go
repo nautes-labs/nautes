@@ -154,6 +154,10 @@ func (m *mockDB) GetRuntime(name string, runtimeType v1alpha1.RuntimeType) (v1al
 	panic("not implemented") // TODO: Implement
 }
 
+func (m *mockDB) GetEnvironment(name string) (*v1alpha1.Environment, error) {
+	panic("not implemented") // TODO: Implement
+}
+
 type mockDeployer struct{}
 
 // When the component generates cache information, implement this method to clean datas.

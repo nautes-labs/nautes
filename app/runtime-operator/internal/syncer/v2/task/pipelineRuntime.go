@@ -24,6 +24,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/internal/syncer/v2/cache"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/component"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/database"
+	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/performer"
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -107,8 +108,8 @@ type PipelineRuntimeDeployer struct {
 	reqHandler   ResourceRequestHandler
 }
 
-func newPipelineRuntimeDeployer(initInfo performerInitInfos) (taskPerformer, error) {
-	deployRuntime := initInfo.runtime.(*v1alpha1.ProjectPipelineRuntime)
+func newPipelineRuntimeDeployer(initInfo performer.PerformerInitInfos) (performer.TaskPerformer, error) {
+	deployRuntime := initInfo.Runtime.(*v1alpha1.ProjectPipelineRuntime)
 
 	productID := deployRuntime.GetProduct()
 	product, err := initInfo.NautesResourceSnapshot.GetProduct(productID)
@@ -129,16 +130,16 @@ func newPipelineRuntimeDeployer(initInfo performerInitInfos) (taskPerformer, err
 
 	history := &PipelineRuntimeSyncHistory{}
 	newHistory := &PipelineRuntimeSyncHistory{}
-	if initInfo.cache != nil {
-		if err := json.Unmarshal(initInfo.cache.Raw, history); err != nil {
+	if initInfo.Cache != nil {
+		if err := json.Unmarshal(initInfo.Cache.Raw, history); err != nil {
 			return nil, fmt.Errorf("unmarshal history failed: %w", err)
 		}
-		_ = json.Unmarshal(initInfo.cache.Raw, newHistory)
+		_ = json.Unmarshal(initInfo.Cache.Raw, newHistory)
 	}
 
 	usageController := UsageController{
 		nautesNamespace: initInfo.NautesConfig.Nautes.Namespace,
-		k8sClient:       initInfo.tenantK8sClient,
+		k8sClient:       initInfo.TenantK8sClient,
 		clusterName:     initInfo.ClusterName,
 	}
 
@@ -748,7 +749,6 @@ func getGitlabFiltersFromEventSource(eventSource v1alpha1.Gitlab) ([]component.F
 			return nil, fmt.Errorf("un support event type %s", eventSource.Events[i])
 		}
 		events = append(events, eventHead)
-
 	}
 	filters = append(filters, component.Filter{
 		Key:        GitlabWebhookIndexEventType,

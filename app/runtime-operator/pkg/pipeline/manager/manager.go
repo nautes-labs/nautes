@@ -30,6 +30,7 @@ import (
 	"github.com/nautes-labs/nautes/app/runtime-operator/pkg/pipeline/shared"
 	nautesconfigs "github.com/nautes-labs/nautes/pkg/nautesconfigs"
 	nautesconst "github.com/nautes-labs/nautes/pkg/nautesconst"
+	"github.com/nautes-labs/nautes/pkg/nautesenv"
 	"github.com/nautes-labs/nautes/pkg/resource"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,12 +84,7 @@ func NewPluginManagement(opts *NewOptions) (*RuntimePluginManager, error) {
 	}
 
 	if pluginPath == "" {
-		nautesHomePath, ok := os.LookupEnv(nautesconst.EnvNautesHome)
-		if ok {
-			pluginPath = filepath.Join(nautesHomePath, defaultPluginPath)
-		} else {
-			pluginPath = defaultPluginPath
-		}
+		pluginPath = filepath.Join(nautesenv.GetNautesHome(), defaultPluginPath)
 	}
 
 	if tenantK8sClient == nil {

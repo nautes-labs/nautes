@@ -120,6 +120,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-nautes-resource-nautes-io-v1alpha1-middlewareruntime
+  failurePolicy: Fail
+  name: vmiddlewareruntime.kb.io
+  rules:
+  - apiGroups:
+    - nautes.resource.nautes.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - middlewareruntimes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-nautes-resource-nautes-io-v1alpha1-productprovider
   failurePolicy: Fail
   name: vproductprovider.kb.io

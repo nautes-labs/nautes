@@ -233,6 +233,32 @@ rules:
 - apiGroups:
   - nautes.resource.nautes.io
   resources:
+  - middlewareruntimes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - middlewareruntimes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
+  - middlewareruntimes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nautes.resource.nautes.io
+  resources:
   - productproviders
   verbs:
   - create

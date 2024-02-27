@@ -24,13 +24,13 @@ import (
 func GetComponentDefinition(path string) (*UsageComponentDefinition, error) {
 	content, err := loadComponentCategoryDefinition(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load component category definition, err: %s", err)
+		return nil, fmt.Errorf("failed to load component category definition, err: %w", err)
 	}
 
 	usageComponentDefinition := &UsageComponentDefinition{}
 	err = yaml.Unmarshal([]byte(content), &usageComponentDefinition)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal component type configuration, err: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal component type configuration, err: %w", err)
 	}
 
 	return usageComponentDefinition, nil
@@ -39,13 +39,13 @@ func GetComponentDefinition(path string) (*UsageComponentDefinition, error) {
 func GetClusterCommonConfig(path string) (*ClusterCommonConfig, error) {
 	content, err := loadClusterCommonConfig(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load cluster common config, err: %s", err)
+		return nil, fmt.Errorf("failed to load cluster common config, err: %w", err)
 	}
 
 	config := &ClusterCommonConfig{}
 	err = yaml.Unmarshal([]byte(content), &config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal component type configuration, err: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal component type configuration, err: %w", err)
 	}
 
 	return config, nil
@@ -70,7 +70,7 @@ func loadClusterCommonConfig(path string) (string, error) {
 func loadConfigFile(path string) (string, error) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to read configuration file: %v", err)
+		return "", fmt.Errorf("failed to read configuration file: %w", err)
 	}
 
 	return string(bytes), nil

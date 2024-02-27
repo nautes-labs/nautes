@@ -21,6 +21,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	EnvironmentTypeCluster = "cluster"
+)
+
 // EnvironmentSpec defines the desired state of Environment
 type EnvironmentSpec struct {
 	Product string `json:"product"`

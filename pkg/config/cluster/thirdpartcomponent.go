@@ -59,13 +59,13 @@ func (t *ThridPartComponent) GetInstallPath(key string) []string {
 func GetThirdPartComponentsList(path string) ([]*ThridPartComponent, error) {
 	content, err := loadThirdPartComponentsList(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load third-part components list, err: %s", err)
+		return nil, fmt.Errorf("failed to load third-part components list, err: %w", err)
 	}
 
 	components := []*ThridPartComponent{}
 	err = yaml.Unmarshal([]byte(content), &components)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal third part component configuration, err: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal third part component configuration, err: %w", err)
 	}
 
 	for _, component := range components {

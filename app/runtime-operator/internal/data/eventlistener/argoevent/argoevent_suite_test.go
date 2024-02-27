@@ -170,6 +170,10 @@ func (m *mockDB) ListUsedURLs(opts ...database.ListOption) ([]string, error) {
 	panic("not implemented") // TODO: Implement
 }
 
+func (m *mockDB) GetEnvironment(name string) (*v1alpha1.Environment, error) {
+	panic("not implemented") // TODO: Implement
+}
+
 type mockSecMgr struct {
 }
 

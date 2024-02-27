@@ -63,7 +63,7 @@ spec:
                 type: string
               componentsList:
                 description: ComponentsList declares the specific components used
-                  by the cluster
+                  by the cluster.
                 properties:
                   certManagement:
                     nullable: true
@@ -248,6 +248,79 @@ spec:
                 type: object
               hostCluster:
                 type: string
+              middlewareProvider:
+                description: MiddlewareProvider are the middlewares that can be deployed
+                  in the cluster.
+                nullable: true
+                properties:
+                  cache:
+                    additionalProperties:
+                      items:
+                        description: MiddlewareDeploymentImplementation is the implementation
+                          of middleware deployment.
+                        properties:
+                          additions:
+                            additionalProperties:
+                              type: string
+                            description: Additions contains additional configuration
+                              options for this implementation.
+                            nullable: true
+                            type: object
+                          namespace:
+                            description: Namespace is the namespace used by this implementation.
+                            type: string
+                          type:
+                            description: Type is the name of the middleware deployment
+                              implementation.
+                            minLength: 1
+                            type: string
+                        required:
+                        - namespace
+                        - type
+                        type: object
+                      type: array
+                    description: Cache is a map of cache middleware deployment solutions.
+                      The key represents the middleware type, and the value represents
+                      a list of available middleware deployment implementations.
+                    nullable: true
+                    type: object
+                  database:
+                    additionalProperties:
+                      items:
+                        description: MiddlewareDeploymentImplementation is the implementation
+                          of middleware deployment.
+                        properties:
+                          additions:
+                            additionalProperties:
+                              type: string
+                            description: Additions contains additional configuration
+                              options for this implementation.
+                            nullable: true
+                            type: object
+                          namespace:
+                            description: Namespace is the namespace used by this implementation.
+                            type: string
+                          type:
+                            description: Type is the name of the middleware deployment
+                              implementation.
+                            minLength: 1
+                            type: string
+                        required:
+                        - namespace
+                        - type
+                        type: object
+                      type: array
+                    description: Database is a map of database middleware deployment
+                      solutions. The key represents the middleware type, and the value
+                      represents a list of available middleware deployment implementations.
+                    nullable: true
+                    type: object
+                  type:
+                    description: Type is the name of the middleware provider.
+                    type: string
+                required:
+                - type
+                type: object
               primaryDomain:
                 description: PrimaryDomain is used to build the domain of components
                   within the cluster
@@ -294,6 +367,7 @@ spec:
                 - ""
                 - pipeline
                 - deployment
+                - middleware
                 type: string
             required:
             - apiServer
@@ -416,6 +490,35 @@ spec:
                   type: string
                 description: ProductIDMap records the corresponding relationship between
                   product name and product in kubernetes.
+                type: object
+              resourceUsage:
+                description: ResourceUsage records the usage of preemptive resources
+                  in the cluster.
+                nullable: true
+                properties:
+                  runtimeUsage:
+                    additionalProperties:
+                      items:
+                        properties:
+                          account:
+                            type: string
+                          name:
+                            type: string
+                          namespaces:
+                            items:
+                              type: string
+                            nullable: true
+                            type: array
+                        required:
+                        - account
+                        - name
+                        type: object
+                      type: array
+                    description: RuntimeUsage records the usage of the runtime. The
+                      key is the product name, and the value is the list of runtime
+                      usage.
+                    nullable: true
+                    type: object
                 type: object
               sync2ArgoStatus:
                 properties:

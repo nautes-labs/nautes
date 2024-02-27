@@ -120,3 +120,7 @@ func (mss *mockSnapShot) ListUsedNamespaces(opts ...database.ListOption) (databa
 func (mss *mockSnapShot) ListUsedCodeRepos(opts ...database.ListOption) ([]v1alpha1.CodeRepo, error) {
 	panic("not implemented") // TODO: Implement
 }
+
+func (mss *mockSnapShot) GetEnvironment(name string) (*v1alpha1.Environment, error) {
+	panic("not implemented") // TODO: Implement
+}

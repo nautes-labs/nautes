@@ -24,7 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var logger = logf.Log.WithName("nautes-snapshot")
 
 // permissionMatrix record permission matrix in product, format map[project]repos
 type permissionMatrix map[string][]string
@@ -489,6 +493,14 @@ func (db *RuntimeDataBase) listDeploymentRuntimeUsedCodeRepos(options ListOption
 	return repos, nil
 }
 
+func (db *RuntimeDataBase) GetEnvironment(name string) (*v1alpha1.Environment, error) {
+	env, ok := db.Environments[name]
+	if !ok {
+		return nil, fmt.Errorf("get env %s failed", name)
+	}
+	return env.DeepCopy(), nil
+}
+
 func (db *RuntimeDataBase) listPipelineRuntimeUsedCodeRepos(options ListOptions) ([]v1alpha1.CodeRepo, error) {
 	repoNameSet := sets.New[string]()
 	var repos []v1alpha1.CodeRepo
@@ -554,6 +566,7 @@ func newRuntimeDataSource(ctx context.Context, k8sClient client.Client, productN
 
 	dataSource.removeIllegalReposInRuntime()
 
+	printSnapShot(*dataSource)
 	return dataSource, nil
 }
 
@@ -579,4 +592,15 @@ func convertListToMap[T any](objs []T) map[string]T {
 	}
 
 	return objMap
+}
+
+func printSnapShot(snapshot RuntimeDataBase) {
+	clusterNames := make([]string, len(snapshot.Clusters))
+	var i int
+	for name := range snapshot.Clusters {
+		clusterNames[i] = name
+		i++
+	}
+
+	logger.V(1).Info("clusters", "names", fmt.Sprintf("%v", clusterNames))
 }
